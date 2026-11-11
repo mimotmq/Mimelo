@@ -1,0 +1,8 @@
+{
+  "name": "mimelo-verification",
+  "private": true,
+  "description": "Optional DOM test tooling; the application itself requires no Node dependencies.",
+  "devDependencies": {
+    "happy-dom": "21.0.4"
+  }
+}

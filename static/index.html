@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>mimELo</title><link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main>
+<header class="top"><div id="logo"></div><div><h1 id="ttl">mimELo</h1><p class="sub" id="tag"></p></div></header>
+<nav id="nav"></nav>
+<h2>Games</h2><section class="grid" id="games"></section>
+<footer id="foot"></footer></main>
+<script>
+(async()=>{const {me}=await boot('home');
+ const [g,s]=await Promise.all([api('games'),api('site')]);
+ $('#games').innerHTML=g.map(x=>`<a class="card" href="/game.html?g=${esc(x.slug)}">${x.logo?`<img class="lg" src="${esc(x.logo)}" alt="">`:''}<h3>${esc(x.title)}</h3><p class="sub">${esc(x.tagline)||'Rankings, leagues and match history'}</p></a>`).join('');
+ $('#foot').innerHTML='Site admin: '+(s.main_admins.map(a=>`<a href="/player.html?id=${a.id}">${esc(a.name)}</a>`).join(', ')||'none');
+})();
+</script></body></html>
