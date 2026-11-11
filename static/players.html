@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>mimELo</title><link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main>
+<header class="top"><div id="logo"></div><div><h1>Players</h1><p class="sub">Look anyone up</p></div></header><nav id="nav"></nav>
+<label for="q">Search by name or username</label><input type="text" id="q" placeholder="Start typing…"><div class="chips" id="list" style="margin-top:14px"></div></main>
+<script>
+let all=[];const draw=()=>{const q=$('#q').value.toLowerCase();const f=all.filter(p=>(p.name+' '+(p.username||'')).toLowerCase().includes(q));
+ $('#list').innerHTML=f.length?f.map(p=>`<span><a href="/player.html?id=${p.id}">${esc(p.name)}</a>${p.placeholder?' <small>(not signed up)</small>':''}</span>`).join(''):'<p class="empty">No one matches.</p>'};
+boot('home');api('players').then(p=>{all=p;draw()});$('#q').oninput=draw;
+</script></body></html>

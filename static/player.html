@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>mimELo</title><link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main>
+<header class="top"><div id="logo"></div><div><h1 id="pn">Player</h1><p class="sub" id="pu"></p></div></header><nav id="nav"></nav>
+<div id="roles"></div><div id="games"></div></main>
+<script src="/kinds.js"></script>
+<script>
+const fmt=ms=>ms?new Date(ms).toLocaleString():'';
+(async()=>{await boot('home');let p;
+ try{p=await api('players/'+encodeURIComponent(qs('id')||''))}catch(e){$('#games').innerHTML='<p class="empty">Player not found.</p>';return}
+ $('#pn').textContent=p.name;document.title=p.name;
+ $('#pu').textContent=p.placeholder?'Hasn’t signed up yet. Their games are being kept for them.':'@'+p.username;
+ $('#roles').innerHTML=p.admin_of.length?'<p class="chips">'+p.admin_of.map(g=>`<span>Admin · <a href="/game.html?g=${esc(g.slug)}">${esc(g.name)}</a></span>`).join('')+'</p>':'';
+ const teamsOf={};
+ $('#games').innerHTML=p.games.length?p.games.map(g=>{const K=KINDS[g.kind];const tm=new Map();const r=g.record;
+  return `<section class="card" id="g-${esc(g.slug)}"><h2><a href="/game.html?g=${esc(g.slug)}">${esc(g.title)}</a></h2>
+   ${g.flairs.length?`<p class="chips">${g.flairs.map(f=>`<span><small>${esc(f.label)}</small> · ${esc(f.value)}</span>`).join('')}</p>`:''}
+   <p><span class="num" style="font-size:1.4rem">${g.elo==null?'Unrated':g.elo}</span> ${g.elo==null?'<small class="sub">(no ratings update yet)</small>':'Elo'} &nbsp;·&nbsp; ${r.w}W ${r.d}D ${r.l}L &nbsp;·&nbsp; goals ${r.gf}–${r.ga}</p>
+   <div class="tbl"><table><thead><tr><th>Date</th><th>Match</th><th>Status</th><th>Elo ±</th></tr></thead><tbody>${g.history.map(m=>`<tr><td>${new Date(m.played_at).toLocaleDateString()}</td><td>${K?K.summary(m,tm):''}</td><td>${m.status==='pending'?'<span class="tag pend">Pending review</span>':'<span class="tag lock">Locked '+esc(fmt(m.locked_at))+'</span>'}</td><td>${m.delta==null?'':`<span class="${m.delta>=0?'up':'dn'} num">${m.delta>0?'+':''}${m.delta}</span>`}</td></tr>`).join('')}</tbody></table></div></section>`}).join('')
+  :'<p class="card empty">No game history yet. Each game this player takes part in will get its own section here, with flairs, Elo, record and history.</p>';
+ const gq=qs('g');if(gq&&$('#g-'+gq))$('#g-'+gq).scrollIntoView();
+})();
+</script></body></html>

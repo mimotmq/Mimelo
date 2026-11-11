@@ -1,0 +1,115 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Game</title>
+<link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script src="/kinds.js"></script><script>themeLink(qs('g'))</script></head><body><main>
+<header class="top"><div id="logo"></div><div><h1 id="ttl"></h1><p class="sub" id="tag"></p></div></header>
+<nav id="nav"></nav><div class="tabs" id="tabs" role="tablist" hidden></div><div id="view"></div><footer id="foot"></footer></main>
+<script src="/competitions.js"></script>
+<script>
+const slug=qs('g');let G,ME,K,teams=new Map(),users=[],tab='matches',sub={},counts={pending:0};
+const fmt=ms=>ms?new Date(ms).toLocaleString():'';const fmtD=ms=>new Date(ms).toLocaleDateString();
+const isAdmin=()=>ME&&(ME.is_main||ME.admin_of.includes(slug));
+const sign=n=>(n>0?'+':'')+n;
+const toLocal=ms=>{const d=new Date(ms-new Date(ms).getTimezoneOffset()*60000);return d.toISOString().slice(0,16)};
+const badge=m=>m.status==='pending'?'<span class="tag pend">Pending review</span>':`<span class="tag lock">Locked ${esc(fmt(m.locked_at))}</span>`;
+const dlt=m=>!m.elo_enabled?'<small class="sub">Unrated</small>':m.delta==null?(m.status==='approved'?'<small class="sub">waiting for update</small>':''):`<span class="${m.delta>=0?'up':'dn'} num">${sign(m.delta)}</span>`;
+const go=(t,s={})=>{tab=t;sub=s;$$('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));render()};
+const TABS=()=>[['matches','Matches'],['rankings','Rankings'],['leagues','Leagues & tournaments'],['players','Players'],['record','Record a match']].concat(isAdmin()?[['review','Review'+(counts.pending?` (${counts.pending})`:'')]]:[]);
+function drawTabs(){$('#tabs').hidden=false;$('#tabs').innerHTML=TABS().map(([k,l])=>`<button role="tab" data-t="${k}" aria-selected="${k===tab}">${l}</button>`).join('');$$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.t))}
+async function refreshCounts(){if(!isAdmin())return;const r=await api(`games/${slug}/rankings`);counts=r;drawTabs()}
+
+// ---- shared pieces ----
+const table=(head,rows)=>rows.length?`<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`:'';
+function matchRows(ms,actions){return ms.map(m=>`<tr><td>${fmtD(m.played_at)}</td><td>${K.summary(m,teams)}</td><td>${badge(m)}</td><td>${dlt(m)}</td><td style="white-space:nowrap">${actions(m)}</td></tr>`)}
+const openBtn=m=>`<button class="alt sm" data-open="${m.id}" type="button">Open</button>`;
+function bindOpen(root=document){$$('[data-open]').forEach(b=>b.onclick=()=>openMatch(+b.dataset.open))}
+const playerOpts=(sel)=>users.map(u=>`<option value="${u.id}"${u.id===sel?' selected':''}>${esc(u.name)}${u.placeholder?' (not signed up)':''}</option>`).join('');
+function formHtml(m,opts={}){return `<div class="row"><div><label for="f_p1">Player 1</label><select id="f_p1"${opts.lockPlayers?' disabled':''}><option value="">Choose…</option>${playerOpts(m&&m.p1)}</select></div>
+ <div><label for="f_p2">Player 2</label><select id="f_p2"${opts.lockPlayers?' disabled':''}><option value="">Choose…</option>${playerOpts(m&&m.p2)}</select></div></div>${K.fields(m)}
+ <div class="row"><div><label for="f_at">When it was played</label><input type="datetime-local" id="f_at" value="${toLocal(m?m.played_at:Date.now())}"></div>${opts.leagues?`<div><label for="f_lg">League or tournament</label><select id="f_lg"><option value="">Friendly (none)</option>${opts.leagues.map(l=>`<option value="${l.id}">${esc(l.name)}</option>`).join('')}</select></div>`:''}</div>
+ ${isAdmin()&&m?.id?`<label class="check"><input type="checkbox" id="f_elo"${m&&!m.elo_enabled?'':' checked'}> Include in Elo (admin override)</label>`:''}<div id="h2h"></div>`}
+function readForm(){return {p1:+$('#f_p1').value||-1,p2:+$('#f_p2').value||-1,played_at:new Date($('#f_at').value).getTime()||Date.now(),...K.read(),...(isAdmin()&&$('#f_elo')?{elo_enabled:$('#f_elo').checked}:{})}}
+async function wireForm(m){K.wire(teams,m);const h=async()=>{const a=$('#f_p1').value,b=$('#f_p2').value,box=$('#h2h');if(!a||!b||a===b){box.innerHTML='';return}
+  try{const r=await api(`games/${slug}/h2h?a=${a}&b=${b}`);box.innerHTML=r.games.length?`<div class="card" style="margin:12px 0 0"><h3>Last ${r.games.length} meeting${r.games.length>1?'s':''}: ${esc(r.a)} ${r.a_wins}W · ${r.draws}D · ${r.b_wins}W ${esc(r.b)}</h3>${r.games.map(g=>`<div>${fmtD(g.played_at)} · ${K.summary(g,teams)}</div>`).join('')}</div>`:'<p class="sub">No locked games between these two yet.</p>'}catch(e){box.innerHTML=''}};
+ $('#f_p1').onchange=$('#f_p2').onchange=h;h()}
+
+// ---- match panel (view / edit / admin tools) ----
+async function openMatch(id){const m=await api('matches/'+id);const p=$('#panel');if(!p)return;
+ p.hidden=false;p.innerHTML=`<h2>Match #${m.id} ${badge(m)}</h2><p class="sub">Submitted by ${esc(m.submitted_by||'unknown')} on ${esc(fmt(m.submitted_at))}${m.locked_at?` · Locked by ${esc(m.locked_by||'an admin')} on ${esc(fmt(m.locked_at))}`:''}${m.edited_at?` · Changed by an admin ${esc(fmt(m.edited_at))}`:''}</p>
+ ${m.can_edit?formHtml(m):`<p>${K.summary(m,teams)}</p>`}
+ <div class="row" style="margin-top:10px">${m.can_edit?'<button class="b" id="msave" type="button">Save changes</button>':''}${isAdmin()&&m.status==='pending'?'<button class="b" id="mapp" type="button">Approve and lock</button>':''}${m.can_edit?'<button class="alt" id="mdel" type="button">Delete</button>':''}<button class="alt" id="mclose" type="button">Close</button></div>
+ ${m.status==='approved'&&m.can_edit?'<p class="sub">This match is locked. Changes you make are saved and recorded in its history.</p>':''}
+ <div class="msg" id="pm" role="status"></div>
+ ${m.log&&m.log.length?`<h3>History</h3>${m.log.map(l=>`<div class="sub">${esc(fmt(l.at))} · ${esc(l.action)} · ${esc(l.by)}</div>`).join('')}`:''}`;
+ p.scrollIntoView({behavior:'smooth',block:'start'});if(m.can_edit)await wireForm(m);
+ $('#mclose').onclick=()=>{p.hidden=true};
+ if($('#msave'))$('#msave').onclick=async()=>{try{await api('matches/'+id,{method:'PUT',body:readForm()});say('#pm','Saved.');await render(true);openMatch(id)}catch(e){say('#pm',e.message,1)}};
+ if($('#mapp'))$('#mapp').onclick=async()=>{try{await api(`matches/${id}/approve`,{method:'POST',body:{}});await refreshCounts();await render(true);openMatch(id)}catch(e){say('#pm',e.message,1)}};
+ if($('#mdel'))$('#mdel').onclick=async()=>{if(!confirm('Delete this match?'))return;try{await api('matches/'+id,{method:'DELETE'});p.hidden=true;await refreshCounts();render()}catch(e){say('#pm',e.message,1)}}}
+
+// ---- tabs ----
+const views={
+ async matches(){const f=sub.f||'';const ms=await api(`games/${slug}/matches?limit=150${f?'&status='+f:''}`);
+  return `<div id="panel" class="card panel" hidden></div><div class="chips" style="margin-bottom:12px">${[['','All'],['pending','Pending'],['approved','Locked']].map(([v,l])=>`<span><a href="#" data-f="${v}"${v===f?' style="font-weight:700"':''}>${l}</a></span>`).join('')}</div>`+
+   (ms.length?table(['Date','Match','Status','Elo ±',''],matchRows(ms,openBtn)):'<p class="empty">No matches yet. Record the first one.</p>')+'<p class="sub">Pending matches can be corrected until an admin locks them. Elo only changes when an admin updates the ratings.</p>'},
+ async rankings(){const r=await api(`games/${slug}/rankings`);
+  return `<p class="sub">${r.updated?`Ratings last updated ${esc(fmt(r.updated))}.`:'Ratings haven’t been updated yet.'} ${r.pending?`${r.pending} match${r.pending>1?'es':''} waiting for review. `:''}${r.awaiting?`${r.awaiting} locked match${r.awaiting>1?'es':''} waiting for the next ratings update.`:''}</p>`+
+   (r.rows.length?table(['#','Player','Elo','Peak','W','D','L','GF–GA','Form'],r.rows.map((p,i)=>`<tr><td>${i+1}</td><td><a href="/player.html?id=${p.id}&g=${esc(slug)}">${esc(p.name)}</a></td><td class="num">${p.elo}</td><td>${p.peak}</td><td>${p.w}</td><td>${p.d}</td><td>${p.l}</td><td>${p.gf}–${p.ga}</td><td>${esc(p.form)}</td></tr>`)):'<p class="empty">No rated players yet. Rankings appear once an admin has approved matches and updated the ratings.</p>')},
+ async leagues(){if(sub.league)return leagueView(sub.league);const ls=await api(`games/${slug}/leagues`);
+  return (ls.length?ls.map(l=>`<a class="card" href="#" data-lg="${l.id}"><h3>${esc(l.name)} <span class="tag">${l.kind}</span></h3><p class="sub">${l.played}/${l.fixtures} fixtures played</p></a>`).join(''):'<p class="empty">No leagues or tournaments yet.</p>')+
+   (isAdmin()?`<div class="card"><h3>Start a league or tournament</h3><div class="row"><div><input type="text" id="ln" maxlength="60" placeholder="e.g. Winter League" aria-label="Name"></div><div><select id="lk" aria-label="Kind"><option value="league">League</option><option value="tournament">Tournament</option></select></div></div><button class="b" id="lmk" type="button">Create</button><div class="msg" id="lm"></div></div>`:'')},
+ async players(){window.__ps=await api(`games/${slug}/players`);
+  return `<label for="pq">Look up a player in this game</label><input type="text" id="pq" placeholder="Start typing…"><div class="chips" id="pl" style="margin-top:12px"></div>`},
+ async record(){if(!ME)return `<p class="card empty">Please <a href="/login.html?next=${encodeURIComponent(location.pathname+location.search)}">log in</a> to record a match.</p>`;
+  const fx=sub.fixture;const ls=fx?null:(await api(`games/${slug}/leagues`)).filter(l=>l.format==='league');
+  return `<section class="card"><h2>Record a match</h2>${fx?`<p class="sub">Result for the scheduled match <b>${esc(fx.p1_name)} v ${esc(fx.p2_name)}</b> in ${esc(fx.league)}.</p>`:''}
+   ${formHtml(fx?{p1:fx.p1,p2:fx.p2,s1:0,s2:0,played_at:Date.now()}:null,{lockPlayers:!!fx,leagues:ls})}
+   <button class="b" id="rsend" type="button">Submit for review</button><div class="msg" id="rm" role="status"></div>
+   <p class="sub">It shows up as <b>pending</b> straight away. You (and the other player) can fix mistakes until an admin locks it.</p></section>`},
+ async review(){if(!isAdmin())return '';const [ms,r]=await Promise.all([api(`games/${slug}/matches?status=pending&limit=300`),api(`games/${slug}/rankings`)]);counts=r;drawTabs();
+  return `<div id="panel" class="card panel" hidden></div><section class="card"><h2>Pending matches (${ms.length})</h2>${ms.length?table(['Date','Match','Submitted by','',''],ms.map(m=>`<tr><td>${fmtD(m.played_at)}</td><td>${K.summary(m,teams)}</td><td>${esc(m.submitted_by||'')}<br><small class="sub">${esc(fmt(m.submitted_at))}</small></td><td>${openBtn(m)}</td><td><button class="b sm" data-ap="${m.id}" type="button">Approve</button></td></tr>`))+`<button class="b" id="apall" type="button">Approve all ${ms.length}</button>`:'<p class="empty">Nothing waiting for review.</p>'}<div class="msg" id="rv"></div></section>
+   <section class="card"><h2>Update ratings</h2><p>Published Elo stays unchanged until this update. ${r.dirty?'Approved results or corrections are ready to publish. ':''}${r.awaiting} locked match${r.awaiting===1?'':'es'} will be added to the rankings in the order they were played.${r.updated?` Last updated ${esc(fmt(r.updated))}.`:''}</p><button class="b" id="upd" type="button"${r.awaiting||r.dirty?'':' disabled'}>Update ratings now</button><div class="msg" id="ru"></div></section>`}
+};
+async function leagueView(id){const l=await api('leagues/'+id);const nm=x=>esc(x);
+ const fx=l.fixtures.map(f=>`<tr><td>${f.scheduled_ts?fmtD(f.scheduled_ts):'TBD'}</td><td>${f.match?K.summary(f.match,teams):nm(f.p1_name)+' v '+nm(f.p2_name)}</td><td>${f.match?`${f.match.status==='pending'?'<span class="tag pend">Pending review</span>':'<span class="tag lock">Locked</span>'}`:'Not played'}</td>
+  <td style="white-space:nowrap">${f.match?`<button class="alt sm" data-mo="${f.match.id}" type="button">Open</button>`:(ME?`<button class="b sm" data-fx="${f.id}" type="button">Enter result</button>`:'')}${isAdmin()&&f.stage==='league'?` <button class="alt sm" data-fd="${f.id}" type="button" aria-label="Remove fixture">✕</button>`:''}</td></tr>`);
+ return `<p><a href="#" id="back">← All leagues and tournaments</a></p><h2>${nm(l.name)} <span class="tag">${l.kind}</span></h2><div id="panel" class="card panel" hidden></div>
+  ${(!l.config.format||l.config.format==='league')?`<h3>Table <small class="sub">(locked matches only)</small></h3>${l.table.length?table(['#','Player','P','W','D','L','GF','GA','GD','Pts'],l.table.map((t,i)=>`<tr><td>${i+1}</td><td>${nm(t.name)}</td><td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${t.gf}</td><td>${t.ga}</td><td>${t.gd}</td><td class="num">${t.pts}</td></tr>`)):'<p class="empty">No locked matches in this league yet.</p>'}`:''}
+  ${competitionExtras(l)}<h3 style="margin-top:20px">Fixtures</h3>${fx.length?table(['Date','Match','Result',''],fx):'<p class="empty">No fixtures yet.</p>'}
+  ${isAdmin()&&(!l.config.format||l.config.format==='league')?`<div class="card" style="margin-top:16px"><h3>Add a fixture</h3><div class="row"><select id="a1" aria-label="Player 1"><option value="">Player 1</option>${playerOpts()}</select><select id="a2" aria-label="Player 2"><option value="">Player 2</option>${playerOpts()}</select><input type="date" id="ad" aria-label="Date (optional)"></div><button class="b" id="aadd" type="button">Add fixture</button>
+   <h3 style="margin-top:16px">Generate a round robin</h3><div class="chips" id="gp">${users.map(u=>`<span><label style="display:inline-flex;gap:6px;margin:0;color:var(--ink)"><input type="checkbox" value="${u.id}"> ${esc(u.name)}</label></span>`).join('')}</div>
+   <div class="row" style="margin-top:8px"><select id="gr"><option value="1">Everyone plays once</option><option value="2">Home and away</option></select></div><button class="b" id="ggen" type="button">Generate fixtures</button>
+   <button class="alt" id="ldel" type="button">Delete this ${l.kind}</button><div class="msg" id="lm" role="status"></div></div>`:''}`}
+
+// ---- wiring after each render ----
+const wire={
+ matches(){$$('[data-f]').forEach(a=>a.onclick=e=>{e.preventDefault();sub={f:a.dataset.f};render()});bindOpen()},
+ leagues(){$$('[data-lg]').forEach(a=>a.onclick=e=>{e.preventDefault();sub={league:+a.dataset.lg};render()});
+  if($('#back'))$('#back').onclick=e=>{e.preventDefault();sub={};render()};
+  const lm=(t,b)=>say('#lm',t,b);
+  if($('#lmk'))$('#lmk').onclick=async()=>{try{await api(`games/${slug}/leagues`,{body:{name:$('#ln').value,kind:$('#lk').value}});render()}catch(e){lm(e.message,1)}};
+  $$('[data-mo]').forEach(b=>b.onclick=()=>openMatch(+b.dataset.mo));
+  $$('[data-fx]').forEach(b=>b.onclick=async()=>{const l=await api('leagues/'+sub.league),f=l.fixtures.find(x=>x.id==b.dataset.fx);go('record',{fixture:{id:f.id,p1:f.p1,p2:f.p2,p1_name:f.p1_name,p2_name:f.p2_name,league:l.name}})});
+  $$('[data-fd]').forEach(b=>b.onclick=async()=>{if(confirm('Remove this fixture?')){await api('fixtures/'+b.dataset.fd,{method:'DELETE'});render()}});
+  if($('#aadd'))$('#aadd').onclick=async()=>{try{const d=$('#ad').value;await api(`leagues/${sub.league}/fixtures`,{body:{p1:+$('#a1').value,p2:+$('#a2').value,scheduled_ts:d?new Date(d+'T12:00').getTime():null}});render()}catch(e){lm(e.message,1)}};
+  if($('#ggen'))$('#ggen').onclick=async()=>{try{const ids=$$('#gp input:checked').map(i=>+i.value);const r=await api(`leagues/${sub.league}/schedule`,{body:{players:ids,rounds:+$('#gr').value}});await render();say('#lm','Created '+r.created+' fixtures.')}catch(e){lm(e.message,1)}};
+  wireCompetition();
+  if($('#ldel'))$('#ldel').onclick=async()=>{if(confirm('Delete this league? Its matches stay in the match list as friendlies.')){await api('leagues/'+sub.league,{method:'DELETE'});sub={};render()}}},
+ players(){const ps=window.__ps||[];const draw=()=>{const q=$('#pq').value.toLowerCase();const f=ps.filter(p=>(p.name+' '+(p.username||'')).toLowerCase().includes(q));
+  $('#pl').innerHTML=f.length?f.map(p=>`<span><a href="/player.html?id=${p.id}&g=${esc(slug)}">${esc(p.name)}</a> <small>${p.matches} match${p.matches>1?'es':''}${p.elo!=null?' · '+p.elo:''}</small></span>`).join(''):'<p class="empty">No one with history in this game matches.</p>'};$('#pq').oninput=draw;draw()},
+ async record(){if(!ME)return;await wireForm();const fx=sub.fixture;
+  $('#rsend').onclick=async()=>{try{const b=readForm();if(!fx)delete b.elo_enabled;if(fx){delete b.elo_enabled;b.fixture_id=fx.id;b.p1=fx.p1;b.p2=fx.p2}else if($('#f_lg')&&$('#f_lg').value)b.league_id=+$('#f_lg').value;
+   const m=await api(`games/${slug}/matches`,{body:b});await refreshCounts();tab='matches';sub={};drawTabs();await render();openMatch(m.id)}catch(e){say('#rm',e.message,1)}}},
+ review(){bindOpen();$$('[data-ap]').forEach(b=>b.onclick=async()=>{try{await api(`matches/${b.dataset.ap}/approve`,{method:'POST',body:{}});await render()}catch(e){say('#rv',e.message,1)}});
+  if($('#apall'))$('#apall').onclick=async()=>{if(!confirm('Approve and lock every pending match?'))return;try{await api(`games/${slug}/approve-all`,{method:'POST',body:{}});await render()}catch(e){say('#rv',e.message,1)}};
+  $('#upd').onclick=async()=>{if(!confirm('Update the ratings now? Locked matches will be added to the rankings.'))return;try{const r=await api(`games/${slug}/ratings/update`,{method:'POST',body:{}});await render();say('#ru','Ratings rebuilt. '+r.updated+' newly approved match'+(r.updated===1?'':'es')+' added.')}catch(e){say('#ru',e.message,1)}}}
+};
+async function render(keepPanel){const v=$('#view');try{v.innerHTML=await views[tab]();if(wire[tab])await wire[tab]()}catch(e){v.innerHTML=`<p class="empty">${esc(e.message)}</p>`}}
+(async()=>{
+ try{G=await api('games/'+encodeURIComponent(slug))}catch(e){$('#view').innerHTML='<p class="empty">Game not found. <a href="/">Back home</a></p>';await boot('home');return}
+ const b=await boot(slug);ME=b.me;
+ $('#foot').innerHTML=(G.admins.length?esc(G.title)+' admins: '+G.admins.map(a=>`<a href="/player.html?id=${a.id}">${esc(a.name)}</a>`).join(', '):'This game has no admin assigned yet.')+' · <a href="/">All games</a>'+(isAdmin()?` · <a href="/settings.html?scope=${esc(slug)}">Game settings</a>`:'');
+ K=KINDS[G.kind];
+ if(!K){$('#view').innerHTML='<div class="grid">'+[['Tournaments & leagues','Schedules, tables and fixtures'],['Player rankings','Elo ratings for this game'],['Player look-up','Find a player and their record'],['Record a match','Log results for review']].map(([t,d])=>`<div class="card"><h3>${t}</h3><p class="sub">${d}</p><span class="tag">Coming soon</span></div>`).join('')+'</div>';return}
+ const [tm,us]=await Promise.all([api(`games/${slug}/teams`),api('players')]);tm.forEach(t=>teams.set(t.key,t));users=us;
+ await refreshCounts();drawTabs();render();
+})();
+</script></body></html>

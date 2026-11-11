@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title>
+<link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main>
+<header class="top"><div id="logo"></div><div><h1>Main admin</h1><p class="sub">People, game admins and sign-ups</p></div></header><nav id="nav"></nav>
+
+<section class="card"><h2>Add a person</h2>
+ <p class="sub" style="margin-top:0">Fill in a username and password to create a full account you can hand over. Leave both empty to make a <b>placeholder</b> instead: they get a claim code, and when they sign up with it, their history becomes theirs.</p>
+ <div class="row"><div><label for="nn">Name</label><input type="text" id="nn" maxlength="40"></div><div><label for="nu">Username (optional)</label><input type="text" id="nu" maxlength="24"></div><div><label for="np">Password (optional)</label><input type="text" id="np" autocomplete="off"></div></div>
+ <button class="b" id="add" type="button">Add</button><div class="msg" id="m1" role="status"></div></section>
+
+<section class="card"><h2>People</h2><div class="tbl"><table><thead><tr><th>Name</th><th>Login</th><th>Admin of</th><th></th></tr></thead><tbody id="ppl"></tbody></table></div><div class="msg" id="m2" role="status"></div></section>
+
+<section class="card"><h2>Game admins</h2><div id="ga"></div><div class="msg" id="m3" role="status"></div></section>
+
+<section class="card"><h2>Sign-ups</h2><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="so"> Let anyone create their own account</label>
+ <p class="sub">Turn this off if you’d rather create every account yourself.</p><div class="msg" id="m4" role="status"></div></section>
+</main>
+<script>
+let USERS=[],GAMES=[];
+const load=async()=>{[USERS,GAMES]=await Promise.all([api('users'),api('games')]);draw();
+ api('site').then(s=>$('#so').checked=s.signups_open)};
+const gname=s=>(GAMES.find(g=>g.slug===s)||{}).title||s;
+function draw(){
+ $('#ppl').innerHTML=USERS.map(u=>`<tr><td>${esc(u.name)}${u.is_main?' <span class="tag">main admin</span>':''}</td>
+  <td>${u.placeholder?`Placeholder · code <code>${esc(u.claim_code)}</code>`:'@'+esc(u.username)}</td>
+  <td>${u.admin_of.map(s=>esc(gname(s))).join(', ')||'–'}</td>
+  <td style="white-space:nowrap">${u.placeholder?`<button class="alt sm" data-a="code" data-id="${u.id}">New code</button>`:`<button class="alt sm" data-a="pw" data-id="${u.id}">Set password</button>`}
+  ${u.is_main?'':` <button class="alt sm" data-a="del" data-id="${u.id}">Delete</button>`}</td></tr>`).join('');
+ $$('#ppl [data-a]').forEach(b=>b.onclick=async()=>{const id=b.dataset.id,u=USERS.find(x=>x.id==id);try{
+  if(b.dataset.a==='pw'){const p=prompt('New password for '+u.name+' (8+ characters). They’ll be signed out everywhere.');if(!p)return;await api(`users/${id}/password`,{body:{password:p}});say('#m2','Password updated for '+u.name+'.')}
+  else if(b.dataset.a==='code'){await api(`users/${id}/claim-code`,{method:'POST',body:{}});say('#m2','New claim code made.')}
+  else if(confirm('Delete '+u.name+'? This can’t be undone.')){await api('users/'+id,{method:'DELETE'});say('#m2','Deleted.')}
+  await load()}catch(e){say('#m2',e.message,1)}});
+ const accts=USERS.filter(u=>!u.placeholder);
+ $('#ga').innerHTML=GAMES.map(g=>{const adm=USERS.filter(u=>u.admin_of.includes(g.slug));
+  return `<div style="margin-bottom:14px"><h3>${esc(g.title)}</h3><div class="chips">${adm.map(u=>`<span>${esc(u.name)} <button class="alt sm" data-g="${g.slug}" data-u="${u.id}" data-r="1" aria-label="Remove ${esc(u.name)}">✕</button></span>`).join('')||'<span>No admin yet</span>'}</div>
+  <div class="row" style="margin-top:6px"><select data-sel="${g.slug}" aria-label="Add admin for ${esc(g.title)}"><option value="">Add an admin…</option>${accts.filter(u=>!u.admin_of.includes(g.slug)).map(u=>`<option value="${u.id}">${esc(u.name)}</option>`).join('')}</select><button class="alt sm" data-add="${g.slug}" type="button" style="flex:0">Add</button></div></div>`}).join('');
+ const set=async(g,u,on)=>{try{await api(`games/${g}/admins`,{body:{user_id:+u,admin:on}});await load()}catch(e){say('#m3',e.message,1)}};
+ $$('#ga [data-r]').forEach(b=>b.onclick=()=>set(b.dataset.g,b.dataset.u,false));
+ $$('#ga [data-add]').forEach(b=>b.onclick=()=>{const v=$(`#ga [data-sel="${b.dataset.add}"]`).value;if(v)set(b.dataset.add,v,true)})}
+$('#add').onclick=async()=>{try{const r=await api('users',{body:{name:$('#nn').value,username:$('#nu').value,password:$('#np').value}});
+ say('#m1',r.claim_code?`Placeholder created. Claim code: ${r.claim_code}`:'Account created. Give them the username and password.');$('#nn').value=$('#nu').value=$('#np').value='';await load()}catch(e){say('#m1',e.message,1)}};
+$('#so').onchange=async e=>{try{await api('site',{body:{signups_open:e.target.checked}});say('#m4','Saved.')}catch(x){say('#m4',x.message,1)}};
+boot('home').then(({me})=>{if(!me)location.href='/login.html?next=/admin.html';else if(!me.is_main){document.querySelector('main').innerHTML='<p class="empty">Only the main admin can open this page.</p>'}else load()});
+</script></body></html>

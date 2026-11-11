@@ -1,0 +1,67 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Settings</title>
+<link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink(qs('scope')||'home')</script></head><body><main>
+<header class="top"><div id="logo"></div><div><h1 id="hd">Settings</h1><p class="sub" id="sc"></p></div></header><nav id="nav"></nav>
+<div id="body" hidden>
+<section class="card"><h2>Text</h2><label for="title">Title</label><input type="text" id="title" maxlength="60"><label for="tg">Tagline</label><input type="text" id="tg" maxlength="120"></section>
+<section class="card"><h2>Colours</h2><p class="sub" style="margin-top:0">Light mode</p>
+ <div class="row"><div><label for="l_bg">Background</label><input type="color" id="l_bg"></div><div><label for="l_card">Cards</label><input type="color" id="l_card"></div><div><label for="l_ink">Text</label><input type="color" id="l_ink"></div><div><label for="l_acc">Accent</label><input type="color" id="l_acc"></div></div>
+ <p class="sub" style="margin:14px 0 0">Dark mode</p>
+ <div class="row"><div><label for="d_bg">Background</label><input type="color" id="d_bg"></div><div><label for="d_card">Cards</label><input type="color" id="d_card"></div><div><label for="d_ink">Text</label><input type="color" id="d_ink"></div><div><label for="d_acc">Accent</label><input type="color" id="d_acc"></div></div>
+ <label for="rad">Corner roundness</label><input type="range" id="rad" min="0" max="24" style="width:100%">
+ <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="pvDark"> Preview in dark mode</label>
+ <div id="pv" class="card" style="margin:12px 0 0"><h2 id="pvh">Heading text</h2><div>Body text looks like this.</div> <button id="pvb" type="button" class="b">Button</button></div></section>
+<section class="card"><h2>Images</h2><p class="sub" style="margin-top:0">PNG (transparent is fine), JPG, GIF or WebP, up to 5 MB.</p><div id="slots"></div></section>
+<section class="card"><h2>Fonts</h2><p class="sub" style="margin-top:0">Upload .woff2, .woff, .ttf or .otf (5 MB max). Only use fonts you’re licensed to put on a website. Fonts are shared across all pages.</p>
+ <input type="file" id="ff" accept=".woff2,.woff,.ttf,.otf"> <button id="up" class="alt" type="button">Upload font</button><div class="chips" id="fl" style="margin-top:8px"></div>
+ <div class="row"><div><label for="hf">Heading font</label><select id="hf"></select></div><div><label for="bf">Body font</label><select id="bf"></select></div></div></section>
+<section class="card" id="teamsec" hidden><h2>Teams and star ratings</h2><p class="sub" style="margin-top:0">CSV header: <code>gender,league,name,stars,code,icon</code>. Gender is men or women; stars are 0.5–5 in half-star steps; code is 2–4 letters/digits. Icon is optional: an HTTPS image URL or an uploaded /media/ path. Club names may repeat across leagues or genders; codes must be unique within each gender. Saving replaces the catalog atomically; saved matches keep their original club details. <a href="/teams-template.csv" download>Download CSV template</a>.</p>
+ <textarea id="csv" rows="8" style="width:100%" aria-label="Teams CSV"></textarea><input type="file" id="csvf" accept=".csv,.txt"> <button class="alt" id="tsave" type="button">Save teams</button><p class="sub" id="tcount"></p><h3 style="margin-top:16px">Upload a club icon</h3><p class="sub">Upload an image, then paste its URL into the CSV icon column.</p><input type="file" id="clubicon" accept="image/png,image/jpeg,image/gif,image/webp"><button class="alt" id="clubiconup" type="button">Upload icon</button><label for="clubiconurl">Uploaded icon URL</label><input type="text" id="clubiconurl" readonly><div id="clubiconpreview"></div></section>
+<section class="card" id="flsec" hidden><h2>Flairs</h2><p class="sub" style="margin-top:0">Extra info players can show on their profile for this game (for example <i>Favourite club</i>). One per line, up to 8.</p>
+ <textarea id="flairTxt" rows="4" style="width:100%" aria-label="Flair names"></textarea><button class="alt" id="flairSave" type="button">Save flairs</button></section>
+<button class="b" id="save" type="button">Save</button> <button class="alt" id="reset" type="button">Reset to default</button><div class="msg" id="m1" role="status"></div>
+</div></main>
+<script>
+const scope=qs('scope')||'home';let T,fonts=[],img={};
+const LABELS={logo:'Logo',bgImage:'Page background',faceWin:'Win face',faceLoss:'Loss face',faceDraw:'Draw / neutral face'};
+const SLOTS=scope==='home'?['logo','bgImage']:['logo','bgImage','faceWin','faceLoss','faceDraw'];
+const on=h=>{const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return (.299*r+.587*g+.114*b)/255>.6?'#000':'#fff'};
+const ff=n=>n?`"${n}",system-ui,sans-serif`:'system-ui,sans-serif';
+function preview(){const p=$('#pvDark').checked?'d':'l',c=k=>$('#'+p+'_'+k).value,pv=$('#pv');
+ pv.style.background=c('card');pv.style.color=c('ink');pv.style.borderRadius=$('#rad').value+'px';pv.style.fontFamily=ff($('#bf').value);
+ $('#pvh').style.fontFamily=ff($('#hf').value);$('#pvb').style.background=c('acc');$('#pvb').style.color=on(c('acc'));$('#pvb').style.borderRadius=Math.max(0,$('#rad').value-4)+'px'}
+function slots(){$('#slots').innerHTML=SLOTS.map(k=>`<div style="margin-bottom:14px"><h3>${LABELS[k]}</h3>${img[k]?`<img class="thumb" src="${esc(img[k].url)}" alt="">`:'<p class="sub">None set</p>'}
+ <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-f="${k}"> <button class="alt sm" type="button" data-up="${k}">Upload</button>${img[k]?` <button class="alt sm" type="button" data-rm="${k}">Remove</button>`:''}</div>`).join('');
+ $$('[data-up]').forEach(b=>b.onclick=async()=>{const f=$(`[data-f="${b.dataset.up}"]`).files[0];if(!f)return say('#m1','Choose an image first.',1);
+  try{const fd=new FormData();fd.append('file',f);const r=await api('media',{body:fd});img[b.dataset.up]={id:r.id,url:r.url};slots();say('#m1','Uploaded. Press Save to keep it.')}catch(e){say('#m1',e.message,1)}});
+ $$('[data-rm]').forEach(b=>b.onclick=()=>{img[b.dataset.rm]=null;slots()})}
+function fontUI(){const o='<option value="">Default</option>'+fonts.map(f=>`<option>${esc(f.name)}</option>`).join('');
+ const hv=$('#hf').value||T.headingFont,bv=$('#bf').value||T.bodyFont;$('#hf').innerHTML=o;$('#bf').innerHTML=o;$('#hf').value=hv;$('#bf').value=bv;
+ $('#fl').innerHTML=fonts.map(f=>`<span style="font-family:'${esc(f.name)}'">${esc(f.name)}</span>`).join('')||'<span>No fonts uploaded yet</span>';preview()}
+const refresh=()=>{$('link[href^="/theme.css"]').href='/theme.css?scope='+encodeURIComponent(scope)+'&t='+Date.now()};
+function fill(t){T=t;$('#title').value=t.title;$('#tg').value=t.tagline;$('#rad').value=t.radius;
+ for(const [p,k] of [['l','light'],['d','dark']]){$('#'+p+'_bg').value=t[k].bg;$('#'+p+'_card').value=t[k].card;$('#'+p+'_ink').value=t[k].ink;$('#'+p+'_acc').value=t[k].accent}
+ img={};for(const k of SLOTS)img[k]=t.images[k]&&t.imageUrls[k]?{id:t.images[k],url:t.imageUrls[k]}:null;
+ $('#hf').value=t.headingFont;$('#bf').value=t.bodyFont;slots();fontUI()}
+async function init(){const [t,f]=await Promise.all([api('theme?scope='+encodeURIComponent(scope)),api('fonts')]);fonts=f;fill(t);$('#hf').value=t.headingFont;$('#bf').value=t.bodyFont;preview()}
+$$('input[type=color],#rad,#pvDark,#hf,#bf').forEach(e=>e.oninput=preview);
+$('#save').onclick=async()=>{try{const v=p=>({bg:$('#'+p+'_bg').value,card:$('#'+p+'_card').value,ink:$('#'+p+'_ink').value,accent:$('#'+p+'_acc').value});
+ const images={};for(const k of SLOTS)images[k]=img[k]?img[k].id:null;
+ await api('theme?scope='+encodeURIComponent(scope),{body:{title:$('#title').value,tagline:$('#tg').value,light:v('l'),dark:v('d'),headingFont:$('#hf').value,bodyFont:$('#bf').value,radius:+$('#rad').value,images}});
+ refresh();say('#m1','Saved.')}catch(e){say('#m1',e.message,1)}};
+$('#reset').onclick=async()=>{if(!confirm('Reset this page’s look to the defaults? Uploaded files stay in the library.'))return;
+ try{await api('theme?scope='+encodeURIComponent(scope),{method:'DELETE'});fill(await api('theme?scope='+encodeURIComponent(scope)));refresh();say('#m1','Reset.')}catch(e){say('#m1',e.message,1)}};
+$('#up').onclick=async()=>{const f=$('#ff').files[0];if(!f)return say('#m1','Choose a font file first.',1);
+ try{const fd=new FormData();fd.append('font',f);const r=await api('fonts',{body:fd});$('#ff').value='';fonts=await api('fonts');fontUI();refresh();say('#m1','Uploaded '+r.name+'. Pick it above, then Save.')}catch(e){say('#m1',e.message,1)}};
+async function extras(){if(scope==='home')return;const g=await api('games/'+scope);
+ $('#flsec').hidden=false;$('#flairTxt').value=(await api(`games/${scope}/flairs`)).map(x=>x.label).join('\n');
+ if(g.kind==='fifa'){$('#teamsec').hidden=false;const tm=await api(`games/${scope}/teams`);$('#csv').value=['gender,league,name,stars,code,icon',...tm.map(x=>[x.gender,x.league,x.name,x.stars,x.code,x.icon].map(v=>'\"'+String(v).replaceAll('\"','\"\"')+'\"').join(','))].join('\n');$('#tcount').textContent=tm.length?tm.length+' teams saved.':'No teams saved yet.'}}
+$('#clubiconup').onclick=async()=>{try{const f=$('#clubicon').files[0];if(!f)throw Error('Choose an icon first.');const body=new FormData();body.append('file',f);const r=await api('media',{body});$('#clubiconurl').value=r.url;$('#clubiconpreview').innerHTML=`<img class="thumb" src="${esc(r.url)}" alt="Uploaded club icon">`;say('#m1','Icon uploaded. Copy the URL into your CSV.')}catch(e){say('#m1',e.message,1)}};
+$('#csvf').onchange=async e=>{const f=e.target.files[0];if(f)$('#csv').value=await f.text()};
+$('#tsave').onclick=async()=>{try{const r=await api(`games/${scope}/teams`,{body:{csv:$('#csv').value}});$('#tcount').textContent=r.count+' teams saved.';say('#m1','Teams saved.')}catch(e){say('#m1',e.message,1)}};
+$('#flairSave').onclick=async()=>{try{const r=await api(`games/${scope}/flairs`,{body:{labels:$('#flairTxt').value.split('\n')}});say('#m1','Saved '+r.count+' flair'+(r.count===1?'':'s')+'.')}catch(e){say('#m1',e.message,1)}};
+boot(scope).then(async({me,theme})=>{
+ $('#sc').textContent=scope==='home'?'Home page and site-wide look':'Settings for this game';$('#hd').textContent=(scope==='home'?'Home':theme.title)+' settings';
+ if(!me){location.href='/login.html?next='+encodeURIComponent(location.pathname+location.search);return}
+ if(!(scope==='home'?me.is_main:(me.is_main||me.admin_of.includes(scope)))){$('#hd').textContent='No access';$('#sc').textContent='Only this page’s admins can change these settings.';return}
+ $('#body').hidden=false;await init();extras().catch(()=>{})});
+</script></body></html>

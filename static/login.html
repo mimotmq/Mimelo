@@ -1,0 +1,27 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>mimELo</title><link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main style="max-width:460px">
+<header class="top"><div id="logo"></div><div><h1 id="ttl"></h1></div></header><nav id="nav"></nav>
+<section class="card" id="li"><h2>Log in</h2>
+ <label for="u">Username</label><input type="text" id="u" autocomplete="username">
+ <label for="p">Password</label><input type="password" id="p" autocomplete="current-password">
+ <label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="rm" checked> Keep me logged in on this device</label>
+ <button class="b" id="go" type="button">Log in</button><div class="msg" id="m1" role="alert"></div>
+ <p class="sub">New here? <a href="#" id="toSign">Create an account</a></p></section>
+<section class="card" id="su" hidden><h2>Create an account</h2>
+ <div id="closed" class="msg err" hidden>Sign-ups are closed. Ask the admin to create an account for you.</div>
+ <label for="n">Your name</label><input type="text" id="n" maxlength="40" autocomplete="name">
+ <label for="u2">Username</label><input type="text" id="u2" maxlength="24" autocomplete="username">
+ <label for="p2">Password (8+ characters)</label><input type="password" id="p2" autocomplete="new-password">
+ <label for="e">Email (optional)</label><input type="email" id="e" autocomplete="email">
+ <label for="c">Claim code (only if the admin gave you one)</label><input type="text" id="c" placeholder="e.g. A1B2C3D4">
+ <button class="b" id="mk" type="button">Create account</button><div class="msg" id="m2" role="alert"></div>
+ <p class="sub">Already have one? <a href="#" id="toLog">Log in</a></p></section></main>
+<script>
+const next=()=>{const n=qs('next');return n&&n.startsWith('/')&&!n.startsWith('//')?n:'/'};
+boot('home').then(({me})=>{if(me)location.href=next()});
+api('site').then(s=>{if(!s.signups_open){$('#closed').hidden=false}});
+$('#toSign').onclick=e=>{e.preventDefault();$('#li').hidden=true;$('#su').hidden=false};
+$('#toLog').onclick=e=>{e.preventDefault();$('#su').hidden=true;$('#li').hidden=false};
+$('#go').onclick=async()=>{try{await api('login',{body:{username:$('#u').value,password:$('#p').value,remember:$('#rm').checked}});location.href=next()}catch(e){say('#m1',e.message,1)}};
+$('#p').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+$('#mk').onclick=async()=>{try{await api('signup',{body:{name:$('#n').value,username:$('#u2').value,password:$('#p2').value,email:$('#e').value,claim_code:$('#c').value}});location.href=next()}catch(e){say('#m2',e.message,1)}};
+</script></body></html>
