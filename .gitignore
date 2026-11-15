@@ -1,0 +1,19 @@
+# Local dependencies and generated binaries
+node_modules/
+*.o
+*.obj
+*.exe
+
+# Local SQLite sidecars and temporary files
+*.db-journal
+*.db-wal
+*.db-shm
+.DS_Store
+__pycache__/
+*.pyc
+
+# Runtime state; bundled release assets live under static/assets/
+/mimelo
+/mimelo.db
+/media/
+/fonts/

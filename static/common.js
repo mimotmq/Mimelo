@@ -22,3 +22,6 @@ async function boot(scope='home'){
  if($('#out'))$('#out').onclick=async()=>{await api('logout',{method:'POST'});location.href='/'};
  return {me,theme:t};
 }
+
+function nationalityLabel(value){const code=String(value||'').trim().toUpperCase();return /^[A-Z]{2}$/.test(code)?`<span aria-label="Nationality ${esc(code)}">${[...code].map(c=>String.fromCodePoint(127397+c.charCodeAt(0))).join('')} ${esc(code)}</span>`:esc(value)}
+function tennisIdentityLabel(identity){return identity?`${identity.nationality?nationalityLabel(identity.nationality):''}${identity.tier?` <span class="tag">${esc(identity.tier)}</span>`:''}`:''}

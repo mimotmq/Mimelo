@@ -508,7 +508,8 @@ int main(int argc, char** argv) {
         long long id = std::stoll(req.matches[1]);
         if (id == u.id) return fail(res, "You can’t delete your own account here.");
         if (!query("SELECT 1 FROM users WHERE id=? AND is_main=1", {id}).empty()) return fail(res, "The main admin can’t be deleted.");
-        if (!query("SELECT 1 FROM matches WHERE p1=? OR p2=? LIMIT 1", {id, id}).empty()) return fail(res, "This person has match history, so they can’t be deleted.");
+        if (!query("SELECT 1 FROM matches WHERE p1=? OR p2=? LIMIT 1", {id, id}).empty() || !query("SELECT 1 FROM match_partners WHERE user_id=? LIMIT 1", {id}).empty()) return fail(res, "This person has match history, so they can’t be deleted.");
+        if(!query("SELECT 1 FROM fixtures WHERE p1=? OR p2=? LIMIT 1",{id,id}).empty()||!query("SELECT 1 FROM leagues l,json_each(l.config,'$.pairs') p WHERE json_extract(p.value,'$[0]')=? OR json_extract(p.value,'$[1]')=? LIMIT 1",{id,id}).empty())return fail(res,"This person is entered in a competition. Remove the competition before deleting the account.");
         query("DELETE FROM users WHERE id=?", {id});
         reply(res, {{"ok", true}});
     });
