@@ -77,7 +77,7 @@ svr.Post(R"(/api/games/([a-z0-9-]+)/flairs/me)", [](const httplib::Request& req,
     std::string g = req.matches[1];
     json j = json::parse(req.body, nullptr, false);
     if (!j.is_object() || !j.contains("values") || !j["values"].is_object()) return fail(res, "Invalid request.");
-    if (query("SELECT 1 FROM matches WHERE game=? AND (p1=? OR p2=?) LIMIT 1", {g, u.id, u.id}).empty()) return fail(res, "You can set flairs once you’ve played a match in this game.", 403);
+    if (query("SELECT 1 FROM matches WHERE game=? AND (p1=? OR p2=? OR id IN (SELECT match_id FROM match_partners WHERE user_id=?)) LIMIT 1", {g, u.id, u.id, u.id}).empty()) return fail(res, "You can set flairs once you’ve played a match in this game.", 403);
     for (auto& [k, v] : j["values"].items()) {
         long long id = 0;
         try { id = std::stoll(k); } catch (...) { continue; }
@@ -97,7 +97,7 @@ svr.Get(R"(/api/games/([a-z0-9-]+)/leagues)", [](const httplib::Request& req, ht
     for (auto& r : query("SELECT l.id,l.name,l.kind,(SELECT COUNT(*) FROM fixtures f WHERE f.league_id=l.id),"
                          "(SELECT COUNT(*) FROM fixtures f JOIN matches m ON m.id=f.match_id WHERE f.league_id=l.id AND m.status='approved') "
                          "FROM leagues l WHERE l.game=? ORDER BY l.id DESC", {std::string(req.matches[1])}))
-        out.push_back({{"id", r[0]}, {"name", r[1]}, {"kind", r[2]}, {"fixtures", r[3]}, {"played", r[4]}, {"format",competitionConfig(r[0]).value("format",std::string("league"))}});
+        out.push_back({{"id", r[0]}, {"name", r[1]}, {"kind", r[2]}, {"fixtures", r[3]}, {"played", r[4]}, {"generated",competitionConfig(r[0]).contains("players")}, {"rated",competitionConfig(r[0]).value("rated",true)}, {"match_format",competitionConfig(r[0]).value("match_format",std::string("singles"))}, {"format",competitionConfig(r[0]).value("format",std::string("league"))}});
     reply(res, out);
 });
 svr.Post(R"(/api/games/([a-z0-9-]+)/leagues)", [](const httplib::Request& req, httplib::Response& res) {
@@ -122,11 +122,12 @@ svr.Get(R"(/api/leagues/(\d+))", [](const httplib::Request& req, httplib::Respon
     for (auto& r : query("SELECT f.id,f.p1,f.p2,f.scheduled_ts,m.id,m.status,m.s1,m.s2,m.details,f.stage,f.group_no FROM fixtures f LEFT JOIN matches m ON m.id=f.match_id WHERE f.league_id=? "
                          "ORDER BY COALESCE(f.scheduled_ts,9223372036854775807),f.id", {id})) {
         json m = r[4].is_null() ? json(nullptr) : json({{"id", r[4]}, {"status", r[5]}, {"s1", r[6]}, {"s2", r[7]}, {"p1_name",nm[r[1]]}, {"p2_name",nm[r[2]]}, {"details",json::parse(S(r[8]))}});
-        fx.push_back({{"id", r[0]}, {"p1", r[1]}, {"p2", r[2]}, {"p1_name", nm[r[1]]}, {"p2_name", nm[r[2]]}, {"scheduled_ts", r[3]}, {"stage",r[9]}, {"group_no",r[10]}, {"match", m}});
+        auto partners=competitionPartners(id,r[1],r[2]);if(!m.is_null())m["partners"]=partners;
+        fx.push_back({{"id", r[0]}, {"p1", r[1]}, {"p2", r[2]}, {"p1_name", nm[r[1]]}, {"p2_name", nm[r[2]]}, {"scheduled_ts", r[3]}, {"stage",r[9]}, {"group_no",r[10]}, {"partners",partners}, {"elo_enabled",competitionConfig(id).value("rated",true)}, {"match_format",competitionConfig(id).value("match_format",std::string("singles"))}, {"match", m}});
     }
     auto br=query("SELECT data FROM brackets WHERE league_id=?",{id});json groups=json::array();
     for(auto& r:query("SELECT DISTINCT group_no FROM fixtures WHERE league_id=? AND stage='group' ORDER BY group_no",{id}))groups.push_back({{"number",r[0]},{"table",groupTable(id,r[0])}});
-    reply(res, {{"config",competitionConfig(id)}, {"groups",groups}, {"bracket",br.empty()?json(nullptr):json::parse(S(br[0][0]))}, {"id", lg[0][0]}, {"game", lg[0][1]}, {"name", lg[0][2]}, {"kind", lg[0][3]}, {"table", leagueTable(id)}, {"fixtures", fx}});
+     reply(res, {{"qualification",automaticQualification(id)&&br.empty()&&qualificationReady(id)?qualificationPools(id):json::array()}, {"config",competitionConfig(id)}, {"groups",groups}, {"bracket",br.empty()?json(nullptr):json::parse(S(br[0][0]))}, {"id", lg[0][0]}, {"game", lg[0][1]}, {"name", lg[0][2]}, {"kind", lg[0][3]}, {"table", leagueTable(id)}, {"fixtures", fx}});
 });
 svr.Delete(R"(/api/leagues/(\d+))", [](const httplib::Request& req, httplib::Response& res) {
     std::lock_guard<std::mutex> l(M);
@@ -145,7 +146,7 @@ svr.Post(R"(/api/leagues/(\d+)/fixtures)", [](const httplib::Request& req, httpl
     auto lg = query("SELECT game FROM leagues WHERE id=?", {id});
     if (lg.empty()) return fail(res, "League not found.", 404);
     NEED_GAME_ADMIN(S(lg[0][0]))
-    if(competitionConfig(id).value("format",std::string("league"))!="league")return fail(res,"This competition manages its fixtures through its draw.");
+    if(competitionConfig(id).contains("players"))return fail(res,"This competition manages its fixtures through its draw.");
     json j = json::parse(req.body, nullptr, false);
     long long p1 = j.is_object() && j.contains("p1") && j["p1"].is_number_integer() ? j["p1"].get<long long>() : -1;
     long long p2 = j.is_object() && j.contains("p2") && j["p2"].is_number_integer() ? j["p2"].get<long long>() : -1;
@@ -163,7 +164,7 @@ svr.Post(R"(/api/leagues/(\d+)/schedule)", [](const httplib::Request& req, httpl
     auto lg = query("SELECT game FROM leagues WHERE id=?", {id});
     if (lg.empty()) return fail(res, "League not found.", 404);
     NEED_GAME_ADMIN(S(lg[0][0]))
-    if(competitionConfig(id).value("format",std::string("league"))!="league")return fail(res,"Use the competition draw for this format.");
+    if(competitionConfig(id).contains("players"))return fail(res,"Use the competition draw for this format.");
     json j = json::parse(req.body, nullptr, false);
     if (!j.is_object() || !j.contains("players") || !j["players"].is_array()) return fail(res, "Select the players.");
     std::vector<long long> ids;
@@ -192,7 +193,7 @@ svr.Delete(R"(/api/fixtures/(\d+))", [](const httplib::Request& req, httplib::Re
     auto r = query("SELECT l.game,l.id,f.stage FROM fixtures f JOIN leagues l ON l.id=f.league_id WHERE f.id=?", {(long long)std::stoll(req.matches[1])});
     if (r.empty()) return fail(res, "Fixture not found.", 404);
     NEED_GAME_ADMIN(S(r[0][0]))
-    if(S(r[0][2])!="league")return fail(res,"Generated group and bracket fixtures cannot be removed individually.");
+    if(S(r[0][2])!="league"||competitionConfig(r[0][1]).contains("players"))return fail(res,"Generated group and bracket fixtures cannot be removed individually.");
     query("DELETE FROM fixtures WHERE id=?", {(long long)std::stoll(req.matches[1])});
     reply(res, {{"ok", true}});
 });
@@ -203,7 +204,7 @@ svr.Post(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, h
     NEED_USER
     std::string g = req.matches[1];
     if (query("SELECT 1 FROM games WHERE slug=?", {g}).empty()) return fail(res, "Game not found.", 404);
-    NEED_FIFA(g)
+    if (gameKind(g)!="fifa" && gameKind(g)!="tabletennis" && gameKind(g)!="tennis" && gameKind(g)!="smash") return fail(res, "Match recording for this game isn’t available yet.");
     json j = json::parse(req.body, nullptr, false);
     if (!j.is_object()) return fail(res, "Invalid request.");
     long long p1 = j.contains("p1") && j["p1"].is_number_integer() ? j["p1"].get<long long>() : -1;
@@ -213,8 +214,9 @@ svr.Post(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, h
     if (query("SELECT COUNT(*) FROM users WHERE id IN (?,?)", {p1, p2})[0][0] != 2) return fail(res, "Unknown player.");
     int s1, s2;
     json d;
-    std::string err = validateFifa(j, g, s1, s2, d);
+    std::string err = validateGameMatch(j, g, s1, s2, d);
     if (!err.empty()) return fail(res, err);
+    json partners;err=validatePartners(j,d,p1,p2,partners);if(!err.empty())return fail(res,err);
     long long played = nowMs();
     if (j.contains("played_at") && j["played_at"].is_number_integer()) {
         played = j["played_at"];
@@ -230,18 +232,22 @@ svr.Post(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, h
     } else if (j.contains("league_id") && j["league_id"].is_number_integer()) {
         if (query("SELECT 1 FROM leagues WHERE id=? AND game=?", {j["league_id"], g}).empty()) return fail(res, "League not found.", 404);
         league = j["league_id"];
-        if(competitionConfig(league.get<long long>()).value("format",std::string("league"))!="league")return fail(res,"Record group and knockout results through their scheduled fixture.");
+        if(competitionConfig(league.get<long long>()).value("format",std::string("league"))!="league"||(automaticQualification(league.get<long long>())&&competitionConfig(league.get<long long>()).contains("players")))return fail(res,"Record group and knockout results through their scheduled fixture.");
     }
+    if(!league.is_null()){err=validateCompetitionPlayers(league.get<long long>(),d,p1,p2,partners);if(!err.empty())return fail(res,err);}
     bool enabled=league.is_null()?true:competitionConfig(league.get<long long>()).value("rated",true);
     if(canAdminGame(u,g)&&j.contains("elo_enabled")&&j["elo_enabled"].is_boolean())enabled=j["elo_enabled"];
+    try{query("BEGIN");
     query("INSERT INTO matches(game,league_id,p1,p2,s1,s2,details,status,played_at,submitted_by,submitted_at) VALUES(?,?,?,?,?,?,?, 'pending',?,?,?)",
           {g, league, p1, p2, s1, s2, d.dump(), played, u.id, nowMs()});
     long long id = sqlite3_last_insert_rowid(DB);
+    savePartners(id,partners);
     query("UPDATE matches SET elo_enabled=? WHERE id=?",{enabled,id});
     if (!fixture.is_null()) query("UPDATE fixtures SET match_id=? WHERE id=?", {id, fixture});
     std::vector<json> row;
     loadMatch(id, row);
-    reply(res, matchJson(row, userNames(), nullptr), 201);
+    query("COMMIT");reply(res, matchJson(row, userNames(), nullptr), 201);
+    }catch(const std::exception& e){query("ROLLBACK");fail(res,e.what());}
 });
 svr.Get(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, httplib::Response& res) {
     std::lock_guard<std::mutex> l(M);
@@ -249,8 +255,9 @@ svr.Get(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, ht
     std::string sql = std::string("SELECT ") + MCOLS + " FROM matches WHERE game=?";
     std::vector<json> args = {g};
     std::string st = req.get_param_value("status");
-    if (st == "pending" || st == "approved") { sql += " AND status=?"; args.push_back(st); }
-    if (req.has_param("player")) { sql += " AND (p1=? OR p2=?)"; long long p = std::stoll(req.get_param_value("player")); args.push_back(p); args.push_back(p); }
+    if (st == "pending" || st == "approved" || st=="rejected") { sql += " AND status=?"; args.push_back(st); }
+    if (req.has_param("player")) { sql += " AND (p1=? OR p2=? OR id IN (SELECT match_id FROM match_partners WHERE user_id=?))"; long long p = std::stoll(req.get_param_value("player")); args.push_back(p); args.push_back(p); args.push_back(p); }
+     if((gameKind(g)=="tennis"||gameKind(g)=="smash") && (req.get_param_value("format")=="singles"||req.get_param_value("format")=="doubles")){sql+=" AND COALESCE(json_extract(details,'$.format'),'singles')=?";args.push_back(req.get_param_value("format"));}
     if (req.has_param("league_id")) { sql += " AND league_id=?"; args.push_back((long long)std::stoll(req.get_param_value("league_id"))); }
     sql += " ORDER BY played_at DESC,id DESC LIMIT " + std::to_string(std::clamp(req.has_param("limit") ? std::atoi(req.get_param_value("limit").c_str()) : 100, 1, 300));
     auto nm = userNames();
@@ -294,19 +301,23 @@ svr.Put(R"(/api/matches/(\d+))", [](const httplib::Request& req, httplib::Respon
     if (query("SELECT COUNT(*) FROM users WHERE id IN (?,?)", {p1, p2})[0][0] != 2) return fail(res, "Unknown player.");
     int s1, s2;
     json d;
-    std::string err = validateFifa(j, g, s1, s2, d, json::parse(S(m[7])));
+    std::string err = validateGameMatch(j, g, s1, s2, d, json::parse(S(m[7])));
     if (!err.empty()) return fail(res, err);
+    json partners;err=validatePartners(j,d,p1,p2,partners);if(!err.empty())return fail(res,err);
+    if(!m[2].is_null()){err=validateCompetitionPlayers(m[2].get<long long>(),d,p1,p2,partners);if(!err.empty())return fail(res,err);}
     long long played = m[9];
     if (j.contains("played_at") && j["played_at"].is_number_integer()) {
         played = j["played_at"];
         if (played < 946684800000LL || played > nowMs() + 86400000LL) return fail(res, "That date doesn’t look right.");
     }
-    if(!query("SELECT 1 FROM fixtures f JOIN brackets b ON b.league_id=f.league_id WHERE f.match_id=? AND f.stage='group'",{m[0]}).empty())return fail(res,"Group results cannot change after the knockout draw starts.");
-    bool locked = S(m[8]) != "pending";
+    if(!query("SELECT 1 FROM fixtures f JOIN brackets b ON b.league_id=f.league_id WHERE f.match_id=? AND f.stage!='knockout'",{m[0]}).empty())return fail(res,"Qualifying results cannot change after the knockout draw starts.");
+    bool locked = S(m[8]) == "approved";
     json before = matchJson(m, userNames(), nullptr);
     try {query("BEGIN");
     query("UPDATE matches SET p1=?,p2=?,s1=?,s2=?,details=?,played_at=?,edited_at=? WHERE id=?", {p1, p2, s1, s2, d.dump(), played, locked ? json(nowMs()) : json(nullptr), m[0]});
     if(canAdminGame(u,g)&&j.contains("elo_enabled")&&j["elo_enabled"].is_boolean())query("UPDATE matches SET elo_enabled=? WHERE id=?",{j["elo_enabled"],m[0]});
+    savePartners(m[0],partners);
+    if(S(m[8])=="rejected"){query("UPDATE matches SET status='pending',rejection_reason='' WHERE id=?",{m[0]});audit(g,m[0],"resubmitted",u.id,before,nullptr);}
     syncMatchCompetition(m[0]);if(locked)markRatingsDirty(g);
     std::vector<json> m2;
     loadMatch(m[0], m2);
@@ -330,15 +341,30 @@ svr.Post(R"(/api/matches/(\d+)/approve)", [](const httplib::Request& req, httpli
     query("COMMIT");reply(res, matchJson(m, userNames(), nullptr));
     }catch(const std::exception& e){query("ROLLBACK");fail(res,e.what());}
 });
+svr.Post(R"(/api/matches/(\d+)/reject)",[](const httplib::Request& req,httplib::Response& res){
+    std::lock_guard<std::mutex> l(M);NEED_USER
+    std::vector<json> m;if(!loadMatch(std::stoll(req.matches[1]),m))return fail(res,"Match not found.",404);NEED_GAME_ADMIN(S(m[1]))
+    if((S(m[1])!="tennis"&&S(m[1])!="smash-ultimate")||S(m[8])!="pending")return fail(res,"Only pending Tennis or Smash results can be returned for correction.");
+    auto body=json::parse(req.body,nullptr,false);auto reason=jstr(body,"reason");if(reason.empty()||reason.size()>500)return fail(res,"Give a reason (up to 500 characters).");
+    try{query("BEGIN");query("UPDATE matches SET status='rejected',rejection_reason=? WHERE id=?",{reason,m[0]});audit(S(m[1]),m[0],"returned for correction",u.id,nullptr,{{"reason",reason}});query("COMMIT");reply(res,{{"ok",true}});}catch(const std::exception& e){query("ROLLBACK");fail(res,e.what());}
+});
+svr.Post("/api/games/tennis/rating-preview",[](const httplib::Request& req,httplib::Response& res){
+    std::lock_guard<std::mutex> l(M);NEED_USER
+    auto j=json::parse(req.body,nullptr,false);int p1,p2,s1,s2;if(!getInt(j,"p1",1,2147483647,p1)||!getInt(j,"p2",1,2147483647,p2)||p1==p2)return fail(res,"Choose two different players.");
+    if(query("SELECT COUNT(*) FROM users WHERE id IN (?,?)",{p1,p2})[0][0]!=2)return fail(res,"Unknown player.");
+    json details,partners;auto err=validateTennis(j,s1,s2,details);if(!err.empty())return fail(res,err);err=validatePartners(j,details,p1,p2,partners);if(!err.empty())return fail(res,err);
+    auto rp=replay(partners.empty()?"tennis":"tennis:doubles");double a=rp.st[p1].elo,b=rp.st[p2].elo;if(!partners.empty()){a=(a+rp.st[partners[0].get<long long>()].elo)/2;b=(b+rp.st[partners[1].get<long long>()].elo)/2;}
+    reply(res,{{"delta",tennisRatingDelta(a,b,s1,s2,details)}});
+});
 svr.Delete(R"(/api/matches/(\d+))", [](const httplib::Request& req, httplib::Response& res) {
     std::lock_guard<std::mutex> l(M);
     NEED_USER
     std::vector<json> m;
     if (!loadMatch(std::stoll(req.matches[1]), m)) return fail(res, "Match not found.", 404);
-    if(!query("SELECT 1 FROM fixtures f JOIN brackets b ON b.league_id=f.league_id WHERE f.match_id=? AND f.stage='group'",{m[0]}).empty())return fail(res,"Group results cannot be removed after the knockout draw starts.");
+    if(!query("SELECT 1 FROM fixtures f JOIN brackets b ON b.league_id=f.league_id WHERE f.match_id=? AND f.stage!='knockout'",{m[0]}).empty())return fail(res,"Qualifying results cannot be removed after the knockout draw starts.");
     bool admin = canAdminGame(u, S(m[1]));
     bool mine = m[10].is_number_integer() && m[10].get<long long>() == u.id;
-    if (!(admin || (S(m[8]) == "pending" && mine))) return fail(res, S(m[8]) == "pending" ? "You can’t delete this match." : "This match is locked. Only an admin can delete it.", 403);
+    if (!(admin || ((S(m[8]) == "pending"||S(m[8])=="rejected") && mine))) return fail(res, S(m[8]) == "pending" ? "You can’t delete this match." : "This match is locked. Only an admin can delete it.", 403);
     try{query("BEGIN");
     audit(S(m[1]), m[0], "deleted", u.id, matchJson(m, userNames(), nullptr), nullptr);
     query("DELETE FROM matches WHERE id=?", {m[0]});
@@ -366,7 +392,7 @@ svr.Post(R"(/api/games/([a-z0-9-]+)/ratings/update)", [](const httplib::Request&
     NEED_GAME_ADMIN(g)
     long long n = query("SELECT COUNT(*) FROM matches WHERE game=? AND status='approved' AND rated_at IS NULL AND elo_enabled=1", {g})[0][0];
     try{query("BEGIN");query("UPDATE matches SET rated_at=? WHERE game=? AND status='approved' AND rated_at IS NULL AND elo_enabled=1", {nowMs(), g});
-    publishRatings(g);query("COMMIT");reply(res, {{"updated", n}});}catch(const std::exception& e){query("ROLLBACK");fail(res,e.what(),500);}
+    publishRatings(g);if(gameKind(g)=="tennis")publishRatings("tennis:doubles");if(gameKind(g)=="smash")publishRatings("smash-ultimate:doubles");query("COMMIT");reply(res, {{"updated", n}});}catch(const std::exception& e){query("ROLLBACK");fail(res,e.what(),500);}
 });
 
 // ---------- rankings, players, head to head ----------
@@ -374,12 +400,13 @@ svr.Get(R"(/api/games/([a-z0-9-]+)/rankings)", [](const httplib::Request& req, h
     std::lock_guard<std::mutex> l(M);
     std::string g = req.matches[1];
     auto nm = userNames();
-    Replay rp = replay(g);
+    std::string kind=gameKind(g);bool doubles=(kind=="tennis"||kind=="smash") && req.get_param_value("format")=="doubles";
+    Replay rp = replay(doubles?(kind=="smash"?"smash-ultimate:doubles":"tennis:doubles"):g);
     std::vector<std::pair<long long, Stat>> v(rp.st.begin(), rp.st.end());
     std::sort(v.begin(), v.end(), [](auto& a, auto& b) { return a.second.elo > b.second.elo; });
     json rows = json::array();
     for (auto& [id, s] : v)
-        rows.push_back({{"id", id}, {"name", nm[id]}, {"elo", (int)std::lround(s.elo)}, {"peak", (int)std::lround(s.peak)}, {"w", s.w}, {"d", s.d}, {"l", s.l},
+        rows.push_back({{"id", id}, {"name", nm[id]}, {"identity",g=="tennis"?tennisIdentity(id):json::object()}, {"elo", (int)std::lround(s.elo)}, {"peak", (int)std::lround(s.peak)}, {"w", s.w}, {"d", s.d}, {"l", s.l},
                         {"gf", s.gf}, {"ga", s.ga}, {"form", s.form.size() > 5 ? s.form.substr(s.form.size() - 5) : s.form}});
     auto cnt = [&](const char* where) { return query(std::string("SELECT COUNT(*) FROM matches WHERE game=? AND ") + where, {g})[0][0]; };
     auto up = query("SELECT updated,dirty FROM rating_state WHERE game=?", {g});
@@ -388,13 +415,13 @@ svr.Get(R"(/api/games/([a-z0-9-]+)/rankings)", [](const httplib::Request& req, h
 svr.Get(R"(/api/games/([a-z0-9-]+)/players)", [](const httplib::Request& req, httplib::Response& res) {
     std::lock_guard<std::mutex> l(M);
     std::string g = req.matches[1];
-    Replay rp = replay(g);
+    Replay rp = replay(g),dp=replay(gameKind(g)=="smash"?"smash-ultimate:doubles":"tennis:doubles");
     json out = json::array();
-    for (auto& r : query("SELECT u.id,u.name,u.username,u.hash IS NULL,COUNT(*) FROM users u JOIN (SELECT p1 AS pid FROM matches WHERE game=? UNION ALL SELECT p2 FROM matches WHERE game=?) m "
-                         "ON m.pid=u.id GROUP BY u.id ORDER BY u.name COLLATE NOCASE", {g, g})) {
+    for (auto& r : query("SELECT u.id,u.name,u.username,u.hash IS NULL,COUNT(*) FROM users u JOIN (SELECT p1 AS pid FROM matches WHERE game=? UNION ALL SELECT p2 FROM matches WHERE game=? UNION ALL SELECT mp.user_id FROM match_partners mp JOIN matches m ON m.id=mp.match_id WHERE m.game=?) m "
+                         "ON m.pid=u.id GROUP BY u.id ORDER BY u.name COLLATE NOCASE", {g, g, g})) {
         auto it = rp.st.find(r[0].get<long long>());
-        out.push_back({{"id", r[0]}, {"name", r[1]}, {"username", r[2]}, {"placeholder", r[3].get<long long>() != 0}, {"matches", r[4]},
-                       {"elo", it == rp.st.end() ? json(nullptr) : json((int)std::lround(it->second.elo))}});
+        out.push_back({{"id", r[0]}, {"name", r[1]}, {"username", r[2]}, {"placeholder", r[3].get<long long>() != 0}, {"identity",g=="tennis"?tennisIdentity(r[0]):json::object()}, {"matches", r[4]}, {"doubles_elo",(gameKind(g)=="tennis"||gameKind(g)=="smash")&&dp.st.count(r[0].get<long long>())?json((int)std::lround(dp.st[r[0].get<long long>()].elo)):json(nullptr)},
+                        {"elo", it == rp.st.end() ? json(nullptr) : json((int)std::lround(it->second.elo))}});
     }
     reply(res, out);
 });
@@ -406,7 +433,7 @@ svr.Get(R"(/api/games/([a-z0-9-]+)/h2h)", [](const httplib::Request& req, httpli
     auto nm = userNames();
     json games = json::array();
     int wa = 0, d = 0, wb = 0;
-    for (auto& r : query(std::string("SELECT ") + MCOLS + " FROM matches WHERE game=? AND status='approved' AND ((p1=? AND p2=?) OR (p1=? AND p2=?)) ORDER BY played_at DESC,id DESC LIMIT 5", {g, a, b, b, a})) {
+    for (auto& r : query(std::string("SELECT ") + MCOLS + " FROM matches WHERE game=? AND status='approved' AND COALESCE(json_extract(details,'$.format'),'singles')='singles' AND ((p1=? AND p2=?) OR (p1=? AND p2=?)) ORDER BY played_at DESC,id DESC LIMIT 5", {g, a, b, b, a})) {
         json m = matchJson(r, nm, nullptr);
         bool aFirst = r[3].get<long long>() == a;
         int ga = (int)r[aFirst ? 5 : 6].get<long long>(), gb = (int)r[aFirst ? 6 : 5].get<long long>();

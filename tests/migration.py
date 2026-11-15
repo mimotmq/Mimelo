@@ -41,4 +41,9 @@ call('games/ea-fc-26/ratings/update',{})
 assert call('games/ea-fc-26/rankings')['rows']==old
 assert call('matches/1')['details']['stars1']==5
 assert len(call('players'))==3
+# Existing matches and player identities survive the additive doubles migration.
+check=sqlite3.connect(Path(work.name)/'mimelo.db')
+assert check.execute("SELECT COUNT(*) FROM match_partners").fetchone()[0]==0
+assert check.execute("SELECT p1,p2 FROM matches WHERE id=1").fetchone()==(1,2)
+check.close()
 print('PASS original-schema upgrade, retained players/match/ratings, historical strength snapshot and catalog replacement')
