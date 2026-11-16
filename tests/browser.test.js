@@ -237,11 +237,20 @@ test("public browsing, optional-email signup and all sport recording forms", asy
       code: "ALP",
       name: "Alpha Club",
       overall: 85,
+      gender: "Men",
+      league: "Premier League",
+      nation: "England",
     });
     await APP.api("teams/eafc27", {
       code: "BET",
       name: "Beta Club",
       overall: 87,
+    });
+    await APP.api("teams/eafc27", {
+      code: "WOM",
+      name: "Women's Club",
+      overall: 84,
+      gender: "Women",
     });
   });
   await visit("/game.html?game=eafc27&view=record");
@@ -249,12 +258,53 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   await page.locator("#r-p2").selectOption(String(users[1].player_id));
   for (const side of [1, 2]) {
     await page.locator("#team-btn" + side).click();
+    assert.equal(await page.locator("#team-results [data-team]").count(), 2);
+    assert.equal(
+      await page
+        .locator("#team-results [data-team]")
+        .first()
+        .evaluate((el) => getComputedStyle(el).display),
+      "flex",
+      "Team cards use the designed layout",
+    );
     await page
       .locator("#team-results [data-team]")
       .nth(side - 1)
       .click();
+    assert.equal(
+      await page.locator('#team-results [aria-pressed="true"]').count(),
+      1,
+    );
     await page.locator("#team-apply").click();
   }
+  await page.locator("#team-btn1").click();
+  assert.match(
+    await page.locator('#team-results [aria-pressed="true"]').innerText(),
+    /Alpha Club/,
+  );
+  await page.locator('#team-gender [data-gender="women"]').click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#team-results")
+      .textContent.includes("Women's Club"),
+  );
+  assert.equal(
+    await page
+      .locator('#team-gender [data-gender="women"]')
+      .getAttribute("aria-pressed"),
+    "true",
+  );
+  assert.equal(await page.locator("#team-results [data-team]").count(), 1);
+  await page.locator("#team-search").fill("no such club");
+  await page.locator("#team-results .team-empty").waitFor();
+  await page.locator("#team-dialog .dialog-close").click();
+  await page.locator("#team-btn1").click();
+  assert.equal(await page.locator("#team-search").inputValue(), "");
+  assert.match(
+    await page.locator('#team-results [aria-pressed="true"]').innerText(),
+    /Alpha Club/,
+  );
+  await page.locator("#team-dialog .dialog-close").click();
   await page.locator("#r-s1").fill("3");
   await page.locator("#r-s2").fill("2");
   await page.waitForFunction(() =>

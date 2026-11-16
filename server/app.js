@@ -589,7 +589,9 @@ export async function createApp(options = {}) {
       values = [req.params.game, q, q];
     for (const key of ["gender", "nation", "league"])
       if (req.query[key]) {
-        conditions.push(key + "=?");
+        conditions.push(
+          key + "=?" + (key === "gender" ? " COLLATE NOCASE" : ""),
+        );
         values.push(String(req.query[key]).slice(0, 100));
       }
     const where = conditions.join(" AND "),

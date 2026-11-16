@@ -780,34 +780,36 @@ APP.run(async () => {
     };
     async function teamPicker(side) {
       const d = $("#team-dialog");
-      let selected = null,
+      let selected = APP.teams.get(Number($("#r-club" + side).value)) || null,
         offset = 0,
-        gender = "",
+        gender = selected?.gender.toLowerCase() || "men",
         nation = "",
-        league = "";
+        league = "",
+        request = 0;
       const result = $("#team-results");
-      $("#team-apply").disabled = true;
+      $("#team-search").value = "";
+      $("#team-apply").disabled = !selected;
+      const syncGender = () =>
+        $$("[data-gender]", d).forEach((b) =>
+          b.setAttribute("aria-pressed", b.dataset.gender === gender),
+        );
+      syncGender();
       async function load() {
+        const currentRequest = ++request;
         const r = await APP.api(
           `teams/${APP.slug}?q=${encodeURIComponent($("#team-search")?.value || "")}&limit=50&offset=${offset}&gender=${encodeURIComponent(gender)}&nation=${encodeURIComponent(nation)}&league=${encodeURIComponent(league)}`,
         );
+        if (currentRequest !== request) return;
         r.rows.forEach((t) => APP.teams.set(t.id, t));
-        const rows = r.rows.filter(
-          (t) =>
-            (!gender || t.gender === gender) &&
-            (!nation || t.nation === nation) &&
-            (!league || t.league === league),
-        );
         result.innerHTML =
-          rows
+          r.rows
             .map(
               (t) =>
-                `<button class="team-result" type="button" data-team="${t.id}"><span class="monogram">${esc(t.code)}</span><span class="team-btn-copy"><b>${esc(t.name)}</b><small>${esc(t.league)} · ${esc(t.nation)} · ${t.overall ?? "Missing"} overall</small></span></button>`,
+                `<button class="team-option" type="button" data-team="${t.id}" aria-pressed="${selected?.id === t.id}" title="${esc([t.name, t.league, t.nation, `${t.overall ?? "Missing"} overall`].filter(Boolean).join(" · "))}"><span class="monogram">${esc(t.code)}</span><span class="team-option-copy"><b>${esc(t.name)}</b>${t.league ? `<span>${esc(t.league)}</span>` : ""}<span>${esc([t.nation, `${t.overall ?? "Missing"} overall`].filter(Boolean).join(" · "))}</span></span></button>`,
             )
             .join("") ||
-          UI.empty(
-            "No matching teams. An admin can add or import the catalog.",
-          );
+          '<div class="team-empty">No matching teams. Try another search or filter.</div>';
+        result.scrollTop = 0;
         text("#team-count", `${r.total} teams`);
         for (const [id, key, val] of [
           ["#team-nation", "nation", nation],
@@ -844,19 +846,20 @@ APP.run(async () => {
       $("#team-nation").onchange = (e) => {
         nation = e.target.value;
         offset = 0;
-        load();
+        load().catch((e) => UI.toast(e.message));
       };
       $("#team-league").onchange = (e) => {
         league = e.target.value;
         offset = 0;
-        load();
+        load().catch((e) => UI.toast(e.message));
       };
       $$("[data-gender]", d).forEach(
         (b) =>
           (b.onclick = () => {
             gender = b.dataset.gender;
+            syncGender();
             offset = 0;
-            load();
+            load().catch((e) => UI.toast(e.message));
           }),
       );
       $("#team-apply").onclick = () => {

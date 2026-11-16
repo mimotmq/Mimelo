@@ -67,7 +67,7 @@ test("fresh persistent book, atomic CSV/XLSX imports, restart and online backup"
   }
   await upload(
     "teams.csv",
-    "code,name,overall,nation,league,gender\nA,Alpha,82,England,League,men\nB,Beta,,France,League,women\n",
+    "code,name,overall,nation,league,gender\nA,Alpha,82,England,League,Men\nB,Beta,,France,League,women\n",
   );
   assert.equal(app.db.prepare("SELECT COUNT(*) n FROM teams").get().n, 2);
   await upload(
@@ -90,6 +90,12 @@ test("fresh persistent book, atomic CSV/XLSX imports, restart and online backup"
   );
   assert.equal(filtered.json().total, 1);
   assert.equal(filtered.json().rows[0].overall, 86);
+  const men = (await app.inject("/api/teams/eafc27?gender=men")).json();
+  assert.equal(men.total, 2, "Category filters include capitalized imports");
+  assert.deepEqual(
+    men.rows.map((team) => team.code),
+    ["A", "C"],
+  );
   assert.equal((await app.inject("/api/teams/eafc26")).json().total, 0);
   const csrf = await app.inject({
     method: "PATCH",
