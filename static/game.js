@@ -6,7 +6,7 @@ const toLocal=ms=>{const d=new Date(ms-new Date(ms).getTimezoneOffset()*60000);r
 const badge=m=>m.status==='rejected'?'<span class="tag pend">Needs correction</span>':m.status==='pending'?'<span class="tag pend">Pending review</span>':`<span class="tag lock">Locked ${esc(fmt(m.locked_at))}</span>`;
 const dlt=m=>!m.elo_enabled?'<small class="sub">Unrated</small>':m.delta==null?(m.status==='approved'?'<small class="sub">waiting for update</small>':''):`<span class="${m.delta>=0?'up':'dn'} num">${sign(m.delta)}</span>`;
 const go=(t,s={})=>navigateGame(t,s);
-const TABS=()=>[['overview','Overview'],['matches','Matches'],['rankings','Rankings'],['leagues','Competitions'],['record','Record a result'],['players','Players']].concat(isAdmin()?[['review','Admin review'+(counts.pending?` (${counts.pending})`:'')]]:[]);
+const TABS=()=>[['overview','Overview'],['matches','Matches'],['rankings','Rankings'],['leagues','Competitions'],['record','Record a result'],['players','Players']].concat(isAdmin()?[['review','Admin review']]:[]);
 function drawTabs(){$('#tabs').hidden=false;$('#tabs').innerHTML=TABS().map(([k,l])=>`<button role="tab" data-t="${k}" aria-selected="${k===tab}">${l}</button>`).join('');$$('#tabs button').forEach(b=>b.onclick=()=>go(b.dataset.t))}
 async function refreshCounts(){if(!isAdmin())return;const r=await api(`games/${slug}/rankings`);counts=r;drawTabs()}
 

@@ -14,10 +14,12 @@ async function boot(scope='home'){
  if($('#ttl'))$('#ttl').textContent=t.title;if($('#tag'))$('#tag').textContent=t.tagline;
  if($('#logo'))$('#logo').innerHTML=`<img src="${esc(t.imageUrls.logo||'/assets/brand/m-crest.png')}" alt="${esc(t.title)} logo">`;
  document.title=t.title;
+ const gameScope=['ea-fc-27','ea-fc-26','smash-ultimate','tennis','table-tennis'].includes(scope);
  const a=[['/','Home'],['/players.html','Players']];
  if(me){a.push(['/account.html','My account']);if(me.is_main)a.push(['/admin.html','Admin'],['/settings.html?scope=home','Home settings'])}
- let h=a.map(([u,l])=>`<a href="${u}">${l}</a>`).join('');
- h+=me?`<span class="sp">${esc(me.name)}</span><button id="out" type="button">Log out</button>`:`<a class="sp" href="/login.html?next=${encodeURIComponent(location.pathname+location.search)}">Log in</a>`;
+ let h;
+ if(gameScope)h=me?`<a class="header-user" href="/account.html"><span class="avatar avatar-sm">${initials(me.name)}</span><span>${esc(me.name)}</span></a><button id="out" type="button">Log out</button>`:`<a class="sp" href="/login.html?next=${encodeURIComponent(location.pathname+location.search)}">Log in</a>`;
+ else{h=a.map(([u,l])=>`<a href="${u}">${l}</a>`).join('');h+=me?`<span class="sp">${esc(me.name)}</span><button id="out" type="button">Log out</button>`:`<a class="sp" href="/login.html?next=${encodeURIComponent(location.pathname+location.search)}">Log in</a>`}
  if($('#nav')){$('#nav').className='n';$('#nav').innerHTML=h}
  $$('#nav a').forEach(a=>{if(new URL(a.href).pathname===location.pathname)a.setAttribute('aria-current','page')});
  if($('#out'))$('#out').onclick=async()=>{await api('logout',{method:'POST'});location.href='/'};
