@@ -311,5 +311,18 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     path: "artifacts/smash-result-mobile.png",
     fullPage: true,
   });
+  await page.route("**/api/me", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Temporarily unavailable" }),
+    }),
+  );
+  await page.goto(base + "/");
+  await page.locator("#load-error").waitFor();
+  assert.equal(
+    await page.locator(".home-players,.result-line,.auth-board").count(),
+    0,
+  );
   assert.deepEqual(errors, []);
 });

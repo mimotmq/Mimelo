@@ -557,7 +557,11 @@
   });
   APP.shell.catch((e) => {
     console.error(e);
+    // Never expose the reference's sample records when live data cannot load.
+    document.body.innerHTML =
+      '<main class="wrap panel" style="padding:32px;margin-top:32px"><h1>Could not load the record book</h1><p id="load-error"></p><a class="btn btn-outline" href="">Try again</a></main>';
+    document.querySelector("#load-error").textContent = e.message;
+    document.body.dataset.ready = "true";
     document.documentElement.style.visibility = "";
-    toast(e.message);
   });
 })();
