@@ -258,6 +258,8 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   await page.locator("#r-p2").selectOption(String(users[1].player_id));
   for (const side of [1, 2]) {
     await page.locator("#team-btn" + side).click();
+    // Opening fetches the catalog before showing the dialog.
+    await page.locator("#team-dialog").waitFor({ state: "visible" });
     assert.equal(await page.locator("#team-results [data-team]").count(), 2);
     assert.equal(
       await page
@@ -278,6 +280,7 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     await page.locator("#team-apply").click();
   }
   await page.locator("#team-btn1").click();
+  await page.locator("#team-dialog").waitFor({ state: "visible" });
   assert.match(
     await page.locator('#team-results [aria-pressed="true"]').innerText(),
     /Alpha Club/,
@@ -299,6 +302,7 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   await page.locator("#team-results .team-empty").waitFor();
   await page.locator("#team-dialog .dialog-close").click();
   await page.locator("#team-btn1").click();
+  await page.locator("#team-dialog").waitFor({ state: "visible" });
   assert.equal(await page.locator("#team-search").inputValue(), "");
   assert.match(
     await page.locator('#team-results [aria-pressed="true"]').innerText(),
