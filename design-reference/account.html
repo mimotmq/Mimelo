@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Account settings and profile picture.">
+<title>Your account — mimELo</title>
+<link rel="icon" href="assets/brand/m-crest.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-game="eafc">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header app-header">
+  <div class="header-inner app-head-inner">
+    <a class="brand" href="index.html" aria-label="mimELo home">
+      <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+      <span>
+        <span class="brand-word">mim<span>ELo</span></span>
+        <span class="brand-sub">The group record book</span>
+      </span>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-ghost" href="game.html"><span data-icon="arrow" data-size="18" style="transform:rotate(180deg)"></span> Back to game</a>
+      <a class="header-user" href="account.html"><span class="avatar avatar-sm" id="header-avatar">AR</span><span>Alex Rivera</span></a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap detail-main" id="main">
+  <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><a href="game.html">EA FC 27</a><span class="sep">/</span><span>Your account</span></div>
+
+  <div class="page-head">
+    <div>
+      <h1>Your account</h1>
+      <p class="sub">Alex Rivera · @arivera · game admin. This is a sample account for the mockup.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-outline" href="player.html?player=1"><span data-icon="user" data-size="18"></span> Public profile</a>
+      <a class="btn btn-ghost" href="login.html"><span data-icon="logout" data-size="18"></span> Sign out</a>
+    </div>
+  </div>
+
+  <div class="segmented settings-tabs" role="tablist" aria-label="Account settings">
+    <button type="button" role="tab" id="at-profile" aria-controls="ap-profile" aria-selected="true">Profile</button>
+    <button type="button" role="tab" id="at-notifications" aria-controls="ap-notifications" aria-selected="false" tabindex="-1">Notifications</button>
+    <button type="button" role="tab" id="at-security" aria-controls="ap-security" aria-selected="false" tabindex="-1">Security</button>
+  </div>
+
+  <div class="settings-layout">
+    <div>
+      <section class="settings-card panel" id="ap-profile" role="tabpanel" aria-labelledby="at-profile">
+        <h2>Profile</h2>
+        <p class="sub">This is how you appear in the record book.</p>
+
+        <div class="avatar-editor">
+          <span class="avatar" id="avatar-preview" aria-label="Profile picture preview">AR</span>
+          <div class="avatar-editor-copy">
+            <b>Profile picture</b>
+            <p>JPG or PNG. Initials are used until you add a photo.</p>
+            <div class="avatar-editor-actions">
+              <label class="btn btn-outline btn-sm" for="avatar-file">Change photo</label>
+              <button class="btn btn-ghost btn-sm" type="button" id="avatar-remove">Remove</button>
+              <input id="avatar-file" type="file" accept="image/*" hidden>
+            </div>
+          </div>
+        </div>
+
+        <form class="settings-form" id="profile-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="acct-name">Display name</label>
+              <input class="input" id="acct-name" type="text" value="Alex Rivera" autocomplete="name">
+            </div>
+            <div class="field">
+              <label for="acct-handle">Handle</label>
+              <input class="input" id="acct-handle" type="text" value="@arivera">
+            </div>
+          </div>
+          <div class="field">
+            <label for="acct-email">Email</label>
+            <input class="input" id="acct-email" type="email" value="alex@example.com" autocomplete="email">
+          </div>
+          <div class="field">
+            <label for="acct-club">Favourite team</label>
+            <select class="select" id="acct-club"></select>
+            <span class="hint">Your default. Every match can still use a different team.</span>
+          </div>
+          <div class="field">
+            <label for="acct-bio">Bio <span class="muted">(optional)</span></label>
+            <textarea class="textarea" id="acct-bio" placeholder="A line for the group.">Arsenal. Winter League season 3 champion. Usually free on Friday nights.</textarea>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" type="submit">Save profile</button>
+            <span class="muted" style="font-size:.76rem;">Demo only — nothing is saved.</span>
+          </div>
+        </form>
+      </section>
+
+      <section class="settings-card panel" id="ap-notifications" role="tabpanel" aria-labelledby="at-notifications" hidden>
+        <h2>Notifications</h2>
+        <p class="sub">Keep the group noise down. Only the results that matter.</p>
+        <div class="flair-list">
+          <div class="flair-item"><div><div class="flair-name">Result submitted</div><div class="muted" style="font-size:.76rem;">When an opponent sends a score for you to confirm.</div></div><label class="toggle"><input type="checkbox" checked><span>On</span></label></div>
+          <div class="flair-item"><div><div class="flair-name">Result approved</div><div class="muted" style="font-size:.76rem;">When a game admin locks a match and Elo changes.</div></div><label class="toggle"><input type="checkbox" checked><span>On</span></label></div>
+          <div class="flair-item"><div><div class="flair-name">Competition starting</div><div class="muted" style="font-size:.76rem;">A new league or bracket is about to begin.</div></div><label class="toggle"><input type="checkbox" checked><span>On</span></label></div>
+          <div class="flair-item"><div><div class="flair-name">Weekly digest</div><div class="muted" style="font-size:.76rem;">A Monday summary of results, movers, and what is next.</div></div><label class="toggle"><input type="checkbox"><span>Off</span></label></div>
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" type="button" data-demo="Notification preferences saved — demo only. Nothing was saved.">Save preferences</button></div>
+      </section>
+
+      <section class="settings-card panel" id="ap-security" role="tabpanel" aria-labelledby="at-security" hidden>
+        <h2>Security</h2>
+        <p class="sub">Passwords and active sessions for this sample account.</p>
+        <form class="settings-form" id="security-form">
+          <div class="field"><label for="cur-pass">Current password</label><input class="input" id="cur-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+          <div class="form-grid">
+            <div class="field"><label for="new-pass">New password</label><input class="input" id="new-pass" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
+            <div class="field"><label for="conf-pass">Confirm new password</label><input class="input" id="conf-pass" type="password" autocomplete="new-password" placeholder="Repeat it"></div>
+          </div>
+          <div class="form-actions"><button class="btn btn-primary" type="submit">Update password</button></div>
+        </form>
+        <div class="form-section">
+          <div class="form-section-title">Active sessions</div>
+          <div class="flair-list">
+            <div class="flair-item"><div><div class="flair-name">This browser</div><div class="muted" style="font-size:.76rem;">Windows · Chrome · now</div></div><span class="role-chip site">Current</span></div>
+            <div class="flair-item"><div><div class="flair-name">Phone</div><div class="muted" style="font-size:.76rem;">iPhone · Safari · 2 days ago</div></div><button class="btn btn-ghost btn-sm" type="button" data-demo="Session revoked — demo only.">Revoke</button></div>
+          </div>
+          <div class="form-actions"><button class="btn btn-outline" type="button" data-demo="Signed out of all other sessions — demo only.">Sign out everywhere</button></div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="settings-side">
+      <div class="panel">
+        <div class="panel-head"><h2>Your season</h2><span class="sample-tag">Sample</span></div>
+        <div class="panel-body">
+          <div class="player-cell" style="margin-bottom:14px;"><span class="avatar" id="side-avatar">AR</span><div><b>Alex Rivera</b><div class="muted" style="font-size:.76rem;">@arivera · Arsenal</div></div></div>
+          <div class="summary-meta">
+            <div><span>Elo</span><b>1432</b></div>
+            <div><span>Rank</span><b>#1 of 8</b></div>
+            <div><span>Winter League</span><b>32 pts</b></div>
+            <div><span>Form</span><b>W W D W L</b></div>
+          </div>
+          <a class="btn btn-outline btn-block" href="player.html?player=1" style="margin-top:14px;">View public profile</a>
+        </div>
+      </div>
+      <div class="notice-card">
+        <h3>Roles</h3>
+        <div class="tag-row" style="margin-top:8px;"><span class="role-chip site">Site admin</span><span class="role-chip game">Game admin</span><span class="role-chip">Player</span></div>
+        <p>Game admins can review results for EA FC 27. Site admins can add games and edit themes.</p>
+        <a class="link-arrow" href="admin.html" style="margin-top:12px;font-size:.82rem;">Open admin <span data-icon="arrow" data-size="15"></span></a>
+      </div>
+      <div class="notice-card">
+        <h3>Two live games</h3>
+        <p>EA FC 27 and EA FC 26 are separate games. Each keeps its own players, matches, and Elo.</p>
+        <div class="tag-row" style="margin-top:10px;"><span class="chip">EA FC 27</span><span class="chip">EA FC 26</span></div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script src="js/data.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/account.js"></script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+# Preserve the supplied reference bytes, including its original whitespace.
+design-reference/** -whitespace

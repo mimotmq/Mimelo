@@ -1,10 +1,646 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Matches, ratings, and competitions in one game record book."><title>Game · mimELo</title>
-<link rel="stylesheet" href="/base.css"><link rel="stylesheet" href="/app.css"><script src="/common.js"></script><script src="/kinds.js"></script><script>themeLink(qs('g'))</script></head><body class="game-page"><a class="skip-link" href="#view">Skip to content</a><main class="game-main">
-<header class="site-header game-header app-header"><div class="header-inner app-head-inner"><a class="brand" href="/" aria-label="mimELo home"><span class="crest-plate" id="logo"></span><span><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The group record book</span></span></a>
-<details class="game-switcher" id="game-switcher"><summary><span class="logo-plate" id="switcher-logo"></span><span id="switcher-name">Choose a game</span><span class="switcher-caret" aria-hidden="true">⌄</span></summary><div class="switcher-menu"><a href="/game.html?g=ea-fc-27" data-game-link="ea-fc-27"><span class="monogram">27</span><span><span class="sw-name">EA FC 27</span><span class="sw-note">The FC 27 record book</span></span></a><a href="/game.html?g=ea-fc-26" data-game-link="ea-fc-26"><span class="monogram">26</span><span><span class="sw-name">EA FC 26</span><span class="sw-note">The FC 26 record book</span></span></a><a href="/game.html?g=smash-ultimate" data-game-link="smash-ultimate"><span class="monogram">SSB</span><span><span class="sw-name">Super Smash Bros.</span><span class="sw-note">Fighters, stages, and matchups</span></span></a><a href="/game.html?g=tennis" data-game-link="tennis"><span class="monogram">T</span><span><span class="sw-name">Tennis</span><span class="sw-note">Sets, tie-breaks, and a tour</span></span></a><a href="/game.html?g=table-tennis" data-game-link="table-tennis"><span class="monogram">TT</span><span><span class="sw-name">Table tennis</span><span class="sw-note">Games to 11, best-of matches</span></span></a><div class="switcher-sep"></div><a href="/"><span class="monogram">ALL</span><span><span class="sw-name">All games</span><span class="sw-note">Back to the gateway</span></span></a></div></details>
-<nav id="nav" aria-label="Account navigation"></nav></div></header>
-<div class="record-book-layout"><aside class="book-sidebar" aria-label="Game navigation"><div class="tabs" id="tabs" role="tablist" aria-label="Game sections" hidden></div><div id="sidebar-settings"></div></aside><div id="view" role="tabpanel" tabindex="-1"></div></div><footer id="foot"></footer></main>
-  <script src="/competitions.js"></script>
-<script src="/game.js"></script>
-<script src="/game-ui.js"></script>
-</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Separate game record books for rankings, matches, competitions, and results.">
+<title>EA FC 27 — mimELo</title>
+<link rel="icon" href="assets/brand/m-crest.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-game="eafc" class="app-page">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header app-header">
+  <div class="header-inner app-head-inner">
+    <a class="brand" href="index.html" aria-label="mimELo home">
+      <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+      <span>
+        <span class="brand-word">mim<span>ELo</span></span>
+        <span class="brand-sub">The group record book</span>
+      </span>
+    </a>
+
+    <details class="game-switcher">
+      <summary>
+        <span class="logo-plate" data-logo-27><img src="assets/brand/ea-fc-27.png" width="1880" height="478" alt=""></span>
+        <span class="logo-plate expanded" data-logo-26 hidden style="font-size:.78rem;">FC 26</span>
+        <span data-game-label>EA FC 27</span>
+        <span class="switcher-caret" data-icon="chevron" data-size="16"></span>
+      </summary>
+      <div class="switcher-menu">
+        <a href="game.html" aria-current="true">
+          <span class="monogram" data-tone="game">27</span>
+          <span><span class="sw-name">EA FC 27</span><span class="sw-note">The FC 27 record book</span></span>
+        </a>
+        <a href="game.html?game=eafc26">
+          <span class="monogram" data-tone="navy">26</span>
+          <span><span class="sw-name">EA FC 26</span><span class="sw-note">The FC 26 record book</span></span>
+        </a>
+        <a href="game.html?game=smash">
+          <span class="monogram" data-tone="smash">SSB</span>
+          <span><span class="sw-name">Super Smash Bros.</span><span class="sw-note">Fighters, stages, and matchups</span></span>
+        </a>
+        <a href="game.html?game=tennis">
+          <span class="monogram" data-tone="tennis">T</span>
+          <span><span class="sw-name">Tennis</span><span class="sw-note">Sets, tie-breaks, and a tour</span></span>
+        </a>
+        <a href="game.html?game=tt">
+          <span class="monogram" data-tone="tt">TT</span>
+          <span><span class="sw-name">Table tennis</span><span class="sw-note">Games to 11, best-of matches</span></span>
+        </a>
+        <div class="switcher-sep"></div>
+        <a href="index.html">
+          <span class="monogram">ALL</span>
+          <span><span class="sw-name">All games</span><span class="sw-note">Back to the gateway</span></span>
+        </a>
+      </div>
+    </details>
+
+    <div class="header-actions">
+      <button class="icon-btn" type="button" aria-label="Notifications" data-demo="No new notifications. This is a sample account."><span data-icon="bell" data-size="19"></span></button>
+      <a class="header-user" href="account.html">
+        <span class="avatar avatar-sm">AR</span>
+        <span>Alex Rivera</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="app-body">
+  <aside class="sidebar" aria-label="Game navigation">
+    <div class="side-group">
+      <div class="side-label">The game</div>
+      <nav class="side-nav">
+        <a class="side-link" href="game.html?view=overview" data-view="overview" aria-current="page"><span data-icon="home" data-size="19"></span> Overview</a>
+        <a class="side-link" href="game.html?view=matches" data-view="matches"><span data-icon="calendar" data-size="19"></span> Matches</a>
+        <a class="side-link" href="game.html?view=rankings" data-view="rankings"><span data-icon="chart" data-size="19"></span> Rankings</a>
+      </nav>
+    </div>
+    <div class="side-group">
+      <div class="side-label">Play</div>
+      <nav class="side-nav">
+        <a class="side-link" href="game.html?view=competitions" data-view="competitions"><span data-icon="trophy" data-size="19"></span> Competitions</a>
+        <a class="side-link" href="game.html?view=record" data-view="record"><span data-icon="plus" data-size="19"></span> Record a result</a>
+      </nav>
+    </div>
+    <div class="side-group">
+      <div class="side-label">Group</div>
+      <nav class="side-nav">
+        <a class="side-link" href="players.html"><span data-icon="users" data-size="19"></span> Players</a>
+        <a class="side-link" href="game.html?view=review" data-view="review"><span data-icon="shield" data-size="19"></span> Admin review <span class="side-badge" id="review-badge">3</span></a>
+        <a class="side-link" href="admin.html"><span data-icon="settings" data-size="19"></span> Game settings</a>
+      </nav>
+    </div>
+  </aside>
+
+  <main class="app-main" id="main">
+    <div class="notice-strip" id="game-banner" hidden>
+      <span data-icon="info" data-size="18"></span>
+      <span><b>A separate game.</b> EA FC 26 has its own players, matches, and Elo. Nothing here is shared with EA FC 27 except the group and the scoring rules.</span>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section class="view" data-view-panel="overview" aria-labelledby="ov-title">
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><span data-game-label>EA FC 27</span></div>
+          <h1 id="ov-title">The current season</h1>
+          <p class="sub" id="overview-sub">Leagues, ratings, and the group's record. All numbers are sample data.</p>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-outline" type="button" data-demo="Invites are managed by a game admin in the real app.">Invite player</button>
+          <a class="btn btn-primary" href="game.html?view=record"><span data-icon="plus" data-size="18"></span> Record a result</a>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card card"><div class="label">Players</div><div class="value" id="stat-players">8</div><div class="foot">All active in this game</div></div>
+        <div class="stat-card card"><div class="label">Matches</div><div class="value" id="stat-matches">48</div><div class="foot" id="stat-matches-foot"><span class="up">38</span> approved · 10 to play</div></div>
+        <div class="stat-card card"><div class="label">Table leader</div><div class="value" id="stat-leader" style="font-size:1.35rem;">Alex Rivera</div><div class="foot" id="stat-leader-foot"><span class="accent">1432 Elo</span> · 32 pts</div></div>
+        <div class="stat-card card"><div class="label">Pending review</div><div class="value" id="stat-pending">3</div><div class="foot" id="stat-pending-foot">Waiting for a game admin</div></div>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2 id="overview-table-title">Winter League table</h2><p class="sub" id="overview-table-sub">After 14 matches · sample</p></div>
+            <a class="panel-link" href="game.html?view=rankings">Full rankings <span data-icon="arrow" data-size="15"></span></a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th class="c">#</th><th>Player</th><th>Teams</th><th class="c">P</th><th class="c">GD</th><th class="c">Pts</th><th>Form</th></tr></thead>
+              <tbody id="overview-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-stack">
+          <div class="panel">
+            <div class="panel-head"><h2>Group activity</h2><span class="sample-tag">Sample</span></div>
+            <div class="panel-body"><div class="activity-list" id="overview-activity"></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div><h2>Waiting on you</h2><p class="sub">Results that need a game admin.</p></div>
+              <a class="panel-link" href="game.html?view=review">Review all</a>
+            </div>
+            <div class="panel-body" id="overview-pending"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MATCHES -->
+    <section class="view" data-view-panel="matches" aria-labelledby="matches-title" hidden>
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><span data-game-label>EA FC 27</span></div>
+          <h1 id="matches-title">Matches</h1>
+          <p class="sub">Every result in the book. Approved matches move Elo; pending matches do not.</p>
+        </div>
+        <div class="page-actions"><a class="btn btn-primary" href="game.html?view=record"><span data-icon="plus" data-size="18"></span> Record a result</a></div>
+      </div>
+
+      <div class="filter-row">
+        <div class="segmented" role="group" aria-label="Filter matches" id="match-filters">
+          <button type="button" aria-pressed="true" data-filter="all">All</button>
+          <button type="button" aria-pressed="false" data-filter="league">League</button>
+          <button type="button" aria-pressed="false" data-filter="cup">Cup</button>
+          <button type="button" aria-pressed="false" data-filter="pending">Pending</button>
+        </div>
+        <div class="search-field">
+          <span data-icon="search" data-size="18"></span>
+          <input class="input" type="search" id="match-search" placeholder="Search players or teams" aria-label="Search matches">
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Match</th><th>Competition</th><th class="c">Elo</th><th>Status</th><th class="r">Action</th></tr></thead>
+          <tbody id="matches-body"></tbody>
+        </table>
+      </div>
+      <p class="table-note">Sample data. Each match lists the team each player used. Search works across player and team names.</p>
+    </section>
+
+    <!-- RANKINGS -->
+    <section class="view" data-view-panel="rankings" aria-labelledby="rankings-title" hidden>
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><span data-game-label>EA FC 27</span></div>
+          <h1 id="rankings-title">Rankings</h1>
+          <p class="sub">Elo is the running rating. The league table is points earned in the Winter League.</p>
+        </div>
+        <div class="page-actions"><button class="btn btn-outline" type="button" data-demo="Elo uses approved results, both players' ratings, and the teams' star ratings. Demo only."><span data-icon="info" data-size="18"></span> How Elo works</button></div>
+      </div>
+
+      <div class="filter-row">
+        <div class="segmented" role="tablist" aria-label="Ranking type">
+          <button type="button" role="tab" id="tab-elo" aria-controls="panel-elo" aria-selected="true">Elo ratings</button>
+          <button type="button" role="tab" id="tab-league" aria-controls="panel-league" aria-selected="false" tabindex="-1">League table</button>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-elo" role="tabpanel" aria-labelledby="tab-elo">
+        <div class="panel-head"><div><h2>Elo ratings</h2><p class="sub">Peak, form, and movement · sample</p></div><span class="chip">Season 2026/27</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th class="c">#</th><th>Player</th><th>Teams used</th><th class="r">Elo</th><th class="r">Peak</th><th class="c">W–D–L</th><th>Form</th><th class="r">Move</th></tr></thead>
+            <tbody id="elo-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-league" role="tabpanel" aria-labelledby="tab-league" hidden>
+        <div class="panel-head"><div><h2 id="league-title">Winter League</h2><p class="sub" id="league-sub">Double round robin · 8 players · sample</p></div><span class="chip" id="league-matchday">Matchday 14</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th class="c">#</th><th>Player</th><th>Teams</th><th class="c">P</th><th class="c">W</th><th class="c">D</th><th class="c">L</th><th class="c">GF</th><th class="c">GA</th><th class="c">GD</th><th class="c">Pts</th><th>Form</th></tr></thead>
+            <tbody id="league-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPETITIONS -->
+    <section class="view" data-view-panel="competitions" aria-labelledby="comp-title" hidden>
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><span data-game-label>EA FC 27</span></div>
+          <h1 id="comp-title">Competitions</h1>
+          <p class="sub">Leagues, groups, and knockouts. One result can count toward both the table and Elo.</p>
+        </div>
+        <div class="page-actions"><button class="btn btn-outline" type="button" id="comp-new"><span data-icon="plus" data-size="18"></span> New competition</button></div>
+      </div>
+      <div class="competition-grid" id="competition-grid"></div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Formats in use</h2><p class="sub">The same record book, three ways to decide a winner.</p></div></div>
+        <div class="panel-body">
+          <div class="formats">
+            <div class="format-card card"><span class="monogram" data-tone="navy">RR</span><h3 style="margin-top:14px;">League</h3><p>Everyone plays everyone. Points decide the table; Elo updates after every approved result.</p></div>
+            <div class="format-card card"><span class="monogram" data-tone="orange">GR</span><h3 style="margin-top:14px;">Groups → knockout</h3><p>Group tables seed a bracket. Group results count for Elo; knockout rounds can be weighted.</p></div>
+            <div class="format-card card"><span class="monogram" data-tone="game">KO</span><h3 style="margin-top:14px;">Single elimination</h3><p>A short Friday night bracket. Draws go to extra time and penalties, then a single champion.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAYERS -->
+    <section class="view" data-view-panel="players" aria-labelledby="players-title" hidden>
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><span data-game-label>EA FC 27</span></div>
+          <h1 id="players-title">Players</h1>
+          <p class="sub">The group and their records. Teams are chosen match by match; the profile keeps a favourite.</p>
+        </div>
+        <div class="page-actions"><button class="btn btn-outline" type="button" data-demo="Player invites are handled by a game admin in the real app."><span data-icon="plus" data-size="18"></span> Add player</button></div>
+      </div>
+      <div class="filter-row">
+        <div class="search-field">
+          <span data-icon="search" data-size="18"></span>
+          <input class="input" type="search" id="player-search" placeholder="Search players or teams" aria-label="Search players">
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="c">#</th><th>Player</th><th>Teams used</th><th class="r">Elo</th><th class="c">W–D–L</th><th>Form</th><th class="r">Profile</th></tr></thead>
+          <tbody id="players-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RECORD -->
+    <section class="view" data-view-panel="record" aria-labelledby="record-title" hidden>
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><span data-game-label>EA FC 27</span></div>
+          <h1 id="record-title">Record a result</h1>
+          <p class="sub">Both players confirm the score. A game admin locks it, then Elo is applied.</p>
+        </div>
+      </div>
+      <div class="record-layout">
+        <div class="panel">
+          <div class="panel-head"><div><h2>Match details</h2><p class="sub">Fields marked with a dot are required.</p></div><span class="sample-tag">Demo</span></div>
+          <div class="panel-body">
+            <form id="record-form" novalidate>
+              <div class="form-section">
+                <div class="form-section-title">Players &amp; teams</div>
+                <div class="field">
+                  <label for="r-comp">Competition</label>
+                  <select class="select" id="r-comp"></select>
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="r-p1">Player one</label>
+                    <select class="select" id="r-p1"></select>
+                  </div>
+                  <div class="field">
+                    <label for="team-btn1">Team</label>
+                    <button class="team-picker-btn" type="button" id="team-btn1" aria-haspopup="dialog">
+                      <span class="monogram">ARS</span>
+                      <span class="team-btn-copy"><b id="team-btn1-name">Arsenal</b><small id="team-btn1-meta">Premier League · England</small></span>
+                      <span class="switcher-caret" data-icon="chevron" data-size="16"></span>
+                    </button>
+                    <input type="hidden" id="r-club1" value="ARS">
+                  </div>
+                  <div class="field">
+                    <label for="r-p2">Player two</label>
+                    <select class="select" id="r-p2"></select>
+                  </div>
+                  <div class="field">
+                    <label for="team-btn2">Team</label>
+                    <button class="team-picker-btn" type="button" id="team-btn2" aria-haspopup="dialog">
+                      <span class="monogram">LIV</span>
+                      <span class="team-btn-copy"><b id="team-btn2-name">Liverpool</b><small id="team-btn2-meta">Premier League · England</small></span>
+                      <span class="switcher-caret" data-icon="chevron" data-size="16"></span>
+                    </button>
+                    <input type="hidden" id="r-club2" value="LIV">
+                  </div>
+                </div>
+                <p class="hint">Teams are chosen per match. Pick a side, then choose Men or Women, filter by nation or league, and search by club name. Each player starts with the team they used last.</p>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="r-s1">Player one score</label>
+                    <input class="input" id="r-s1" type="number" inputmode="numeric" min="0" max="99" value="2">
+                  </div>
+                  <div class="field">
+                    <label for="r-s2">Player two score</label>
+                    <input class="input" id="r-s2" type="number" inputmode="numeric" min="0" max="99" value="1">
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="r-note">Note <span class="muted">(optional)</span></label>
+                  <textarea class="textarea" id="r-note" placeholder="Anything the group should know about this match."></textarea>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <div class="form-section-title">Match rules</div>
+                <label class="check"><input type="checkbox" id="r-aet"><span class="check-copy"><b>Went to extra time</b><span>Show a.e.t. next to the score.</span></span></label>
+                <label class="check"><input type="checkbox" id="r-pens"><span class="check-copy"><b>Decided on penalties</b><span>Adds a shootout score to the record.</span></span></label>
+                <div class="form-grid" id="pens-fields" hidden>
+                  <div class="field"><label for="r-pen1">Player one pens</label><input class="input" id="r-pen1" type="number" min="0" max="20" value="5"></div>
+                  <div class="field"><label for="r-pen2">Player two pens</label><input class="input" id="r-pen2" type="number" min="0" max="20" value="4"></div>
+                </div>
+                <label class="check"><input type="checkbox" id="r-elo" checked><span class="check-copy"><b>Counts for Elo</b><span>Uncheck for a friendly or a cup match that should not move ratings.</span></span></label>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary" type="submit"><span data-icon="check" data-size="18"></span> Submit for approval</button>
+                <button class="btn btn-ghost" type="reset">Reset</button>
+              </div>
+              <div class="demo-note" style="margin-top:14px;"><span data-icon="info" data-size="16"></span><span>This is a static mockup. Submitting shows a confirmation but saves nothing.</span></div>
+            </form>
+          </div>
+        </div>
+
+        <aside class="record-summary">
+          <div class="summary-match">
+            <div class="form-section-title">Match preview</div>
+            <div class="summary-club" style="margin-top:14px;">
+              <span id="sum-club1" class="monogram">ARS</span>
+              <span class="summary-who">
+                <span id="sum-name1">Alex Rivera</span>
+                <span class="summary-team"><span id="sum-team1">Arsenal</span><span id="sum-stars1"></span></span>
+              </span>
+            </div>
+            <div class="summary-score"><span class="score" id="sum-score">2-1</span><span class="vs">final</span></div>
+            <div class="summary-club">
+              <span id="sum-club2" class="monogram">LIV</span>
+              <span class="summary-who">
+                <span id="sum-name2">Jordan Chen</span>
+                <span class="summary-team"><span id="sum-team2">Liverpool</span><span id="sum-stars2"></span></span>
+              </span>
+            </div>
+            <div class="summary-tags"><span class="chip" id="sum-comp">Winter League</span><span class="chip" id="sum-elo">Elo on</span></div>
+            <div class="elo-projection" id="sum-elo-projection">
+              <div class="elo-projection-head"><span>Projected Elo</span><span>Team stars included</span></div>
+              <div class="elo-projection-row"><span id="sum-elo-name1">Alex Rivera</span><b id="sum-elo-delta1">0</b></div>
+              <div class="elo-projection-row"><span id="sum-elo-name2">Jordan Chen</span><b id="sum-elo-delta2">0</b></div>
+              <p class="elo-projection-note" id="sum-elo-note">Both teams 5 stars · K 24</p>
+            </div>
+            <div class="summary-meta">
+              <div><span>Submitted by</span><b id="sum-by">Alex Rivera</b></div>
+              <div><span>Status</span><b>Needs approval</b></div>
+              <div><span>Season</span><b>2026/27</b></div>
+            </div>
+          </div>
+          <div class="notice-card">
+            <h3>How approval works</h3>
+            <p>The opponent confirms the score, then a game admin reviews it. Only approved matches count toward Elo and the league table.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- REVIEW -->
+    <section class="view" data-view-panel="review" aria-labelledby="review-title" hidden>
+      <div class="page-head">
+        <div>
+          <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><span data-game-label>EA FC 27</span></div>
+          <h1 id="review-title">Admin review</h1>
+          <p class="sub">Check the score, the competition, and the Elo flag before locking a result.</p>
+        </div>
+        <div class="page-actions"><span class="status status-pending" id="review-count">3 pending</span></div>
+      </div>
+      <div class="notice-strip"><span data-icon="shield" data-size="18"></span><span><b>You are viewing as game admin.</b> Approving a result would update Elo and the league table. This mockup does not save anything.</span></div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Pending results</h2><p class="sub">Oldest first · sample</p></div><button class="btn btn-ghost btn-sm" type="button" data-demo="Bulk approval is disabled in the mockup.">Approve all</button></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Submitted</th><th>Match</th><th>Competition</th><th>By</th><th class="r">Action</th></tr></thead>
+            <tbody id="review-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Recently locked</h2><p class="sub">A short audit trail.</p></div><a class="panel-link" href="game.html?view=matches">All matches</a></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Match</th><th>Competition</th><th class="c">Elo</th></tr></thead>
+            <tbody id="locked-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<dialog class="dialog comp-create" id="comp-dialog" aria-labelledby="comp-dialog-title">
+  <form id="comp-form" novalidate>
+    <div class="dialog-head">
+      <div><h2 id="comp-dialog-title">New competition</h2><p class="sub" id="comp-dialog-sub">Step 1 of 2 · Name and format</p></div>
+      <button class="dialog-close" type="button" data-close aria-label="Close"><span data-icon="close" data-size="18"></span></button>
+    </div>
+    <div class="dialog-body">
+      <div class="comp-steps" aria-hidden="true">
+        <div class="comp-step" id="comp-step-1" data-state="active"><span class="comp-step-dot">1</span><span>Details</span></div>
+        <div class="comp-step" id="comp-step-2" data-state="pending"><span class="comp-step-dot">2</span><span>Players &amp; setup</span></div>
+      </div>
+
+      <div id="comp-stage-1">
+        <div class="form-section">
+          <div class="field">
+            <label for="comp-name">Competition name</label>
+            <input class="input" id="comp-name" name="name" type="text" maxlength="48" autocomplete="off" placeholder="e.g. Autumn League" aria-describedby="comp-name-hint comp-name-error" data-dialog-focus>
+            <span class="hint" id="comp-name-hint">Must be unique in this game.</span>
+            <span class="field-error" id="comp-name-error" role="alert"></span>
+          </div>
+          <div class="field">
+            <span class="field-label" id="comp-format-label">Format</span>
+            <div class="format-options" role="radiogroup" aria-labelledby="comp-format-label">
+              <label class="format-option">
+                <input type="radio" name="comp-format" value="league" checked>
+                <span class="format-option-body"><span class="monogram" data-tone="navy">RR</span><span class="format-option-copy"><b>League</b><span>Everyone plays everyone, decided by a points table.</span></span></span>
+              </label>
+              <label class="format-option">
+                <input type="radio" name="comp-format" value="knockout">
+                <span class="format-option-body"><span class="monogram" data-tone="orange">KO</span><span class="format-option-copy"><b>Knockout</b><span>Single elimination. A champion in one bracket.</span></span></span>
+              </label>
+              <label class="format-option">
+                <input type="radio" name="comp-format" value="groups">
+                <span class="format-option-body"><span class="monogram" data-tone="game">G+KO</span><span class="format-option-copy"><b>Groups + knockout</b><span>Choose your groups and qualifiers, then play a knockout bracket.</span></span></span>
+              </label>
+            </div>
+            <span class="hint" id="comp-format-hint">Single round robin. Turn on home-and-away legs below for two legs.</span>
+          </div>
+          <div class="field" id="comp-knockout-options" hidden>
+            <label class="field-label" for="comp-elimination">Knockout format</label>
+            <select class="input" id="comp-elimination"><option value="single">Single elimination</option><option value="double">Double elimination</option></select>
+            <span class="hint">Double elimination includes a losers bracket and a final reset if needed.</span>
+          </div>
+          <div class="field" id="comp-group-options" hidden>
+            <label class="field-label" for="comp-group-count">Number of groups</label>
+            <input class="input" id="comp-group-count" type="number" min="1" step="1" value="2">
+            <label class="field-label" for="comp-advance">Players advancing per group</label>
+            <input class="input" id="comp-advance" type="number" min="1" step="1" value="2">
+            <span class="hint">Groups are balanced by your chosen seed order. Each group needs at least two players.</span>
+          </div>
+          <div class="field" id="comp-league-options">
+            <span class="field-label">League setup</span>
+            <label class="check"><input type="checkbox" id="comp-playoffs"><span>Add playoffs after the league</span></label>
+            <div id="comp-playoff-options" hidden><label class="field-label" for="comp-playoff-count">Top league finishers qualifying</label><input class="input" type="number" id="comp-playoff-count" min="2" step="1" value="4"><span class="hint">Playoff seeds follow final league position.</span></div>
+            <label class="check"><input type="checkbox" id="comp-legs"><span class="check-copy"><b>Home and away legs</b><span>Double round robin — every pairing meets twice.</span></span></label>
+          </div>
+          <div class="field">
+            <span class="field-label">Elo</span>
+            <label class="check"><input type="checkbox" id="comp-elo" checked><span class="check-copy"><b>Count approved results for Elo</b><span>Uses the same team-star weighting as the rest of the game.</span></span></label>
+          </div>
+        </div>
+        <p class="field-error" id="comp-step1-error" role="alert"></p>
+      </div>
+
+      <div id="comp-stage-2" hidden>
+        <div class="form-section">
+          <div class="field">
+            <div class="view-head"><div><span class="field-label">Players</span><p class="hint" id="comp-players-hint">Select at least 2 players.</p></div><div class="comp-selection-actions"><button class="btn btn-ghost btn-sm" type="button" id="comp-select-all">Select all</button><button class="btn btn-ghost btn-sm" type="button" id="comp-select-none">Clear</button></div></div>
+            <div class="player-select" id="comp-players"></div>
+            <span class="field-error" id="comp-players-error" role="alert"></span>
+          </div>
+          <div class="field">
+            <label class="field-label" for="comp-seeding">Seeding</label>
+            <select class="input" id="comp-seeding"><option value="elo">By Elo</option><option value="manual">Manual order</option><option value="preseeded">Pre-seeded numbers</option></select>
+            <p class="hint">Manual: move players up or down. Pre-seeded: enter unique positive seed numbers.</p>
+            <div id="comp-seed-list"></div>
+          </div>
+          <div class="comp-preview" aria-live="polite">
+            <div class="comp-preview-head"><span>Setup preview</span><span class="chip" id="comp-preview-format">League</span></div>
+            <div class="comp-preview-grid">
+              <div><span>Players</span><b id="comp-preview-players">8</b></div>
+              <div><span>Fixtures</span><b id="comp-preview-fixtures">28</b></div>
+              <div><span>Matchdays</span><b id="comp-preview-matchdays">7</b></div>
+              <div><span>Elo</span><b id="comp-preview-elo">On</b></div>
+            </div>
+            <p class="comp-preview-note" id="comp-preview-note">Single round robin · seeded by Elo. Fixtures are generated when you create.</p>
+          </div>
+          <div class="demo-note"><span data-icon="info" data-size="18"></span><span>Demo only: the competition and its empty schedule are saved in this browser. Results, editing, and invitations are not implemented.</span></div>
+        </div>
+        <p class="field-error" id="comp-step2-error" role="alert"></p>
+      </div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+      <button class="btn btn-outline" type="button" id="comp-back" hidden><span data-icon="arrow" data-size="18" style="transform:rotate(180deg)"></span> Back</button>
+      <button class="btn btn-primary" type="button" id="comp-next">Next <span data-icon="arrow" data-size="18"></span></button>
+      <button class="btn btn-primary" type="button" id="comp-create" hidden><span data-icon="check" data-size="18"></span> Create competition</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dialog" id="review-dialog">
+  <div class="dialog-head">
+    <div><h2>Review result</h2><p class="sub" id="rd-sub">Sample submission</p></div>
+    <button class="dialog-close" type="button" data-close aria-label="Close"><span data-icon="close" data-size="18"></span></button>
+  </div>
+  <div class="dialog-body">
+    <div class="summary-match">
+      <div class="summary-club">
+        <span class="monogram" id="rd-club1">PSG</span>
+        <span class="summary-who">
+          <span id="rd-name1">Kofi Mensah</span>
+          <span class="summary-team"><span id="rd-team1">Paris Saint-Germain</span><span id="rd-stars1"></span></span>
+        </span>
+      </div>
+      <div class="summary-score"><span class="score" id="rd-score">4-2</span><span class="vs">full time</span></div>
+      <div class="summary-club">
+        <span class="monogram" id="rd-club2">INT</span>
+        <span class="summary-who">
+          <span id="rd-name2">Lena Ortiz</span>
+          <span class="summary-team"><span id="rd-team2">Inter</span><span id="rd-stars2"></span></span>
+        </span>
+      </div>
+      <div class="summary-tags"><span class="chip" id="rd-comp">Winter League</span><span class="chip" id="rd-elo">Counts for Elo</span></div>
+      <div class="summary-meta">
+        <div><span>Submitted by</span><b id="rd-by">Kofi Mensah</b></div>
+        <div><span>Submitted</span><b id="rd-time">3 days ago</b></div>
+        <div><span>Elo on approval</span><b id="rd-delta">+14 / −14</b></div>
+        <div><span>Opponent confirmation</span><b>Confirmed</b></div>
+      </div>
+    </div>
+    <div class="field" style="margin-top:16px;"><label for="rd-note">Reviewer note <span class="muted">(optional)</span></label><textarea class="textarea" id="rd-note" placeholder="Add a note for the group."></textarea></div>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+    <button class="btn btn-outline" type="button" id="reject-btn">Reject</button>
+    <button class="btn btn-primary" type="button" id="approve-btn"><span data-icon="check" data-size="18"></span> Approve &amp; lock</button>
+  </div>
+</dialog>
+
+<dialog class="dialog char-dialog" id="char-dialog" aria-labelledby="char-dialog-title">
+  <div class="dialog-head">
+    <div><h2 id="char-dialog-title">Choose fighter</h2><p class="sub" id="char-dialog-sub">For this game only</p></div>
+    <button class="dialog-close" type="button" data-close aria-label="Close"><span data-icon="close" data-size="18"></span></button>
+  </div>
+  <div class="dialog-body">
+    <div class="search-field">
+      <span data-icon="search" data-size="18"></span>
+      <input class="input" type="search" id="char-search" placeholder="Search fighters" aria-label="Search fighters" data-dialog-focus>
+    </div>
+    <div class="char-menu" id="char-grid"></div>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+  </div>
+</dialog>
+
+<dialog class="dialog stage-dialog" id="stage-dialog" aria-labelledby="stage-dialog-title">
+  <div class="dialog-head">
+    <div><h2 id="stage-dialog-title">Choose stage</h2><p class="sub" id="stage-dialog-sub">For this game only</p></div>
+    <button class="dialog-close" type="button" data-close aria-label="Close"><span data-icon="close" data-size="18"></span></button>
+  </div>
+  <div class="dialog-body">
+    <div class="stage-grid" id="stage-grid"></div>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+  </div>
+</dialog>
+
+<dialog class="dialog team-dialog" id="team-dialog" aria-labelledby="team-dialog-title">
+  <div class="dialog-head">
+    <div><h2 id="team-dialog-title">Choose team</h2><p class="sub" id="team-picker-sub">For this match only</p></div>
+    <button class="dialog-close" type="button" data-close aria-label="Close"><span data-icon="close" data-size="18"></span></button>
+  </div>
+  <div class="dialog-body">
+    <div class="team-picker-toolbar">
+      <div class="segmented" role="group" aria-label="Team category" id="team-gender">
+        <button type="button" data-gender="men" aria-pressed="true">Men</button>
+        <button type="button" data-gender="women" aria-pressed="false">Women</button>
+      </div>
+      <div class="search-field">
+        <span data-icon="search" data-size="18"></span>
+        <input class="input" type="search" id="team-search" placeholder="Search club by name" aria-label="Search clubs" data-dialog-focus>
+      </div>
+    </div>
+    <div class="team-picker-filters">
+      <div class="field">
+        <label for="team-nation">Nation</label>
+        <select class="select" id="team-nation"></select>
+      </div>
+      <div class="field">
+        <label for="team-league">League</label>
+        <select class="select" id="team-league"></select>
+      </div>
+    </div>
+    <div class="team-quick" id="team-quick"></div>
+    <div class="team-results-head"><span id="team-count">0 teams</span><span>Sorted A–Z</span></div>
+    <div class="team-results" id="team-results"></div>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+    <button class="btn btn-primary" type="button" id="team-apply" disabled><span data-icon="check" data-size="18"></span> Use team</button>
+  </div>
+</dialog>
+
+<script src="js/data.js?v=players-uva-ready"></script>
+<script src="js/ui.js?v=players-uva-ready"></script>
+<script src="js/team-picker.js?v=players-uva-ready"></script>
+<script src="js/elo.js?v=players-uva-ready"></script>
+<script src="js/competition-store.js?v=players-uva-ready"></script>
+<script src="js/competition-results.js"></script>
+<script src="js/game.js?v=players-uva-ready"></script>
+<script src="js/competition-create.js?v=players-uva-ready"></script>
+<script src="js/competition-results-ui.js"></script>
+</body>
+</html>

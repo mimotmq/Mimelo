@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Site admin for the group record book.">
+<title>Admin — mimELo</title>
+<link rel="icon" href="assets/brand/m-crest.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header app-header">
+  <div class="header-inner app-head-inner">
+    <a class="brand" href="index.html" aria-label="mimELo home">
+      <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+      <span>
+        <span class="brand-word">mim<span>ELo</span></span>
+        <span class="brand-sub">The group record book</span>
+      </span>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-ghost" href="game.html"><span data-icon="arrow" data-size="18" style="transform:rotate(180deg)"></span> Back to game</a>
+      <a class="header-user" href="account.html"><span class="avatar avatar-sm">AR</span><span>Alex Rivera</span></a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap detail-main" id="main">
+  <div class="breadcrumb"><a href="index.html">Games</a><span class="sep">/</span><a href="game.html">EA FC 27</a><span class="sep">/</span><span>Admin</span></div>
+
+  <div class="page-head">
+    <div>
+      <h1>Admin</h1>
+      <p class="sub">Games, people, and themes for the group. Site admin only.</p>
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-outline" href="index.html"><span data-icon="external" data-size="17"></span> View public site</a>
+      <a class="btn btn-primary" href="game.html?view=review"><span data-icon="shield" data-size="18"></span> Review queue</a>
+    </div>
+  </div>
+
+  <div class="segmented settings-tabs" role="tablist" aria-label="Admin sections">
+    <button type="button" role="tab" id="adt-games" aria-controls="adp-games" aria-selected="true">Games</button>
+    <button type="button" role="tab" id="adt-people" aria-controls="adp-people" aria-selected="false" tabindex="-1">People</button>
+    <button type="button" role="tab" id="adt-themes" aria-controls="adp-themes" aria-selected="false" tabindex="-1">Themes</button>
+  </div>
+
+  <div class="settings-layout">
+    <div>
+      <section class="settings-card panel" id="adp-games" role="tabpanel" aria-labelledby="adt-games">
+        <h2>Games</h2>
+        <p class="sub">Add a game once, then give it its own theme and scoring rules.</p>
+        <p class="hint" style="margin-top:6px;">EA FC 26 and EA FC 27 are separate games. Each keeps its own stats; only the scoring model is shared.</p>
+        <div class="table-wrap" style="margin-top:18px;">
+          <table>
+            <thead><tr><th>Game</th><th>Scoring</th><th>Theme</th><th class="c">Players</th><th class="c">Matches</th><th>Status</th><th class="r">Open</th></tr></thead>
+            <tbody id="admin-games-body"></tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" type="button" data-demo="Adding a game is a site-admin action in the real app. New games get a slug, theme, and scoring rules."><span data-icon="plus" data-size="18"></span> Add game</button>
+          <span class="muted" style="font-size:.76rem;">Five slots are visible. Three are reserved for future sports.</span>
+        </div>
+      </section>
+
+      <section class="settings-card panel" id="adp-people" role="tabpanel" aria-labelledby="adt-people" hidden>
+        <h2>People</h2>
+        <p class="sub">Roles are per game, not per site wide by default.</p>
+        <div class="table-wrap" style="margin-top:18px;">
+          <table>
+            <thead><tr><th>Player</th><th>Handle</th><th>Roles</th><th>Joined</th><th class="r">Manage</th></tr></thead>
+            <tbody id="admin-people-body"></tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" type="button" data-demo="Invites are demo placeholders. In the real app they create a join link for the group."><span data-icon="plus" data-size="18"></span> Invite player</button>
+        </div>
+      </section>
+
+      <section class="settings-card panel" id="adp-themes" role="tabpanel" aria-labelledby="adt-themes" hidden>
+        <h2>Theme editor</h2>
+        <p class="sub">One theme per game. The gateway stays UVA; each game carries its own accent and surface.</p>
+        <div class="theme-editor" style="margin-top:18px;">
+          <div class="theme-controls">
+            <div class="preset-row" aria-label="Theme presets">
+              <button class="chip" type="button" data-preset="uva">UVA</button>
+              <button class="chip" type="button" data-preset="eafc">EA FC 27</button>
+              <button class="chip" type="button" data-preset="eafc26">EA FC 26</button>
+              <button class="chip" type="button" data-preset="smash">Smash</button>
+              <button class="chip" type="button" data-preset="tennis">Tennis</button>
+              <button class="chip" type="button" data-preset="tt">Table tennis</button>
+            </div>
+            <div class="color-row"><label for="theme-bg">Background</label><input type="color" id="theme-bg" value="#232d4b"></div>
+            <div class="color-row"><label for="theme-surface">Card surface</label><input type="color" id="theme-surface" value="#ffffff"></div>
+            <div class="color-row"><label for="theme-accent">Accent</label><input type="color" id="theme-accent" value="#e57200"></div>
+            <div class="color-row"><label for="theme-radius">Corner radius</label><input type="range" id="theme-radius" min="0" max="28" value="20" style="accent-color:var(--accent);"></div>
+            <div class="color-row"><span>Radius</span><output id="theme-radius-out" class="mono">20px</output></div>
+            <div class="demo-note"><span data-icon="info" data-size="16"></span><span>Demo only: this preview does not change the rest of the mockup.</span></div>
+            <div class="form-actions" style="margin-top:2px;">
+              <button class="btn btn-primary" type="button" id="theme-save">Save theme</button>
+              <button class="btn btn-ghost" type="button" id="theme-reset">Reset</button>
+            </div>
+          </div>
+          <div class="theme-preview" id="theme-preview">
+            <div class="tp-card">
+              <div class="tp-note" id="tp-note">EA FC 27 · live</div>
+              <h4 style="margin-top:6px;">Winter League</h4>
+              <p>Alex Rivera leads by 27 points with 14 matches played.</p>
+              <span class="tp-btn">Open game</span>
+            </div>
+            <div class="tp-card">
+              <div class="tp-row"><span>Alex Rivera</span><b>1432</b></div>
+              <div class="tp-row"><span>Jordan Chen</span><b>1405</b></div>
+              <div class="tp-row"><span>Maya Okafor</span><b>1388</b></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <aside class="settings-side">
+      <div class="panel">
+        <div class="panel-head"><h2>At a glance</h2><span class="sample-tag">Sample</span></div>
+        <div class="panel-body">
+          <div class="summary-meta">
+            <div><span>Players</span><b>8</b></div>
+            <div><span>Games</span><b>5 · 2 live</b></div>
+            <div><span>Pending results</span><b>3</b></div>
+            <div><span>Season</span><b>2026/27</b></div>
+            <div><span>Default K-factor</span><b>24</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="notice-card">
+        <h3>Admin notes</h3>
+        <p>Approved results are reversible. Deleting a match also reverses its Elo change. Themes apply per game and follow light/dark system settings.</p>
+      </div>
+      <div class="notice-card">
+        <h3>Danger zone</h3>
+        <p>Export the record book or start a new season without deleting the archive.</p>
+        <div class="tag-row" style="margin-top:10px;">
+          <button class="btn btn-outline btn-sm" type="button" data-demo="Export is disabled in the static mockup.">Export data</button>
+          <button class="btn btn-ghost btn-sm" type="button" data-demo="Starting a new season is disabled in the static mockup. The archive is never deleted.">New season</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script src="js/data.js?v=table-tennis-20261112"></script>
+<script src="js/ui.js?v=table-tennis-20261112"></script>
+<script src="js/admin.js?v=table-tennis-20261112"></script>
+</body>
+</html>

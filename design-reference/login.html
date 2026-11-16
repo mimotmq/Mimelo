@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Log in to the group record book.">
+<title>Log in — mimELo</title>
+<link rel="icon" href="assets/brand/m-crest.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<div class="auth-page">
+  <section class="auth-visual" aria-label="About mimELo">
+    <a class="brand" href="index.html">
+      <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+      <span>
+        <span class="brand-word">mim<span>ELo</span></span>
+        <span class="brand-sub">The group record book</span>
+      </span>
+    </a>
+
+    <div class="auth-headline">
+      <h1>The record book,<span>kept by the group.</span></h1>
+      <p>Ratings, leagues, and tournament nights — no storefront, no feed, just the games you play.</p>
+      <div class="auth-board" aria-label="Sample top three">
+        <div class="board">
+          <div class="board-head"><span>#</span><span>Player</span><span>Elo</span></div>
+          <div class="board-row"><span class="rank">1</span><span class="board-player"><span class="avatar avatar-sm">AR</span><span class="nm">Alex Rivera</span></span><span class="elo">1432</span></div>
+          <div class="board-row"><span class="rank">2</span><span class="board-player"><span class="avatar avatar-sm">JC</span><span class="nm">Jordan Chen</span></span><span class="elo">1405</span></div>
+          <div class="board-row"><span class="rank">3</span><span class="board-player"><span class="avatar avatar-sm">MO</span><span class="nm">Maya Okafor</span></span><span class="elo">1388</span></div>
+        </div>
+      </div>
+      <p class="auth-foot">Independent fan project. Not affiliated with EA or the University of Virginia. Sample data only.</p>
+    </div>
+  </section>
+
+  <main class="auth-main" id="main">
+    <div class="auth-card">
+      <a class="brand" href="index.html">
+        <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+        <span>
+          <span class="brand-word">mim<span>ELo</span></span>
+          <span class="brand-sub">The group record book</span>
+        </span>
+      </a>
+
+      <div class="auth-card-head">
+        <h2 id="auth-title">Welcome back</h2>
+        <p id="auth-sub">Log in to record a result or review the book.</p>
+      </div>
+
+      <div class="segmented auth-tabs" role="tablist" aria-label="Account access">
+        <button type="button" role="tab" id="lt-login" aria-controls="lp-login" aria-selected="true">Log in</button>
+        <button type="button" role="tab" id="lt-register" aria-controls="lp-register" aria-selected="false" tabindex="-1">Create account</button>
+      </div>
+
+      <div id="lp-login" role="tabpanel" aria-labelledby="lt-login">
+        <form class="auth-form" id="login-form">
+          <div class="field">
+            <label for="login-email">Email</label>
+            <input class="input" id="login-email" type="email" autocomplete="email" value="alex@example.com" required>
+          </div>
+          <div class="field">
+            <label for="login-password">Password</label>
+            <input class="input" id="login-password" type="password" autocomplete="current-password" value="demo1234" required>
+          </div>
+          <div class="auth-links">
+            <label class="check" style="min-height:0;padding:0;"><input type="checkbox" checked><span class="check-copy"><b>Keep me signed in</b></span></label>
+            <a href="#" data-demo="Password reset is not part of the static mockup.">Forgot password?</a>
+          </div>
+          <button class="btn btn-primary btn-block btn-lg" type="submit">Log in</button>
+        </form>
+        <div class="demo-note auth-note"><span data-icon="info" data-size="16"></span><span>Demo access: any email and password work. Nothing is saved.</span></div>
+      </div>
+
+      <div id="lp-register" role="tabpanel" aria-labelledby="lt-register" hidden>
+        <form class="auth-form" id="register-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="reg-name">Name</label>
+              <input class="input" id="reg-name" type="text" autocomplete="name" placeholder="Your name" required>
+            </div>
+            <div class="field">
+              <label for="reg-handle">Handle</label>
+              <input class="input" id="reg-handle" type="text" placeholder="@handle" required>
+            </div>
+          </div>
+          <div class="field">
+            <label for="reg-email">Email</label>
+            <input class="input" id="reg-email" type="email" autocomplete="email" placeholder="you@example.com" required>
+          </div>
+          <div class="field">
+            <label for="reg-password">Password</label>
+            <input class="input" id="reg-password" type="password" autocomplete="new-password" placeholder="At least 8 characters" required>
+          </div>
+          <button class="btn btn-primary btn-block btn-lg" type="submit">Create account</button>
+        </form>
+        <div class="demo-note auth-note"><span data-icon="info" data-size="16"></span><span>New accounts would join the group through an invite. This demo saves nothing.</span></div>
+      </div>
+
+      <p class="auth-note muted" style="font-size:.8rem;">Just here to look? <a href="index.html">Back to the games</a>.</p>
+    </div>
+  </main>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/auth.js"></script>
+</body>
+</html>

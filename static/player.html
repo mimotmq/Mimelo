@@ -1,6 +1,116 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Player ratings, match history, and competition records."><title>Player · mimELo</title><link rel="stylesheet" href="/base.css"><link rel="stylesheet" href="/app.css"><script src="/common.js"></script><script>themeLink(qs('g')||'home')</script></head>
-<body class="game-page profile-page"><a class="skip-link" href="#main">Skip to content</a><main class="game-main">
-<header class="site-header game-header"><div class="header-inner"><a class="brand" href="/" aria-label="mimELo home"><span id="logo"></span><span><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The group record book</span></span></a><div class="header-actions"><a class="btn" href="/players.html">← All players</a></div></div></header><nav id="nav" aria-label="Account navigation"></nav>
-<div class="profile-content" id="main" aria-busy="true"><p class="empty" role="status">Loading player…</p></div>
-</main><script src="/kinds.js"></script><script src="/player.js"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Player profile, Elo history, and match record.">
+<title>Player profile — EA FC 27 — mimELo</title>
+<link rel="icon" href="assets/brand/m-crest.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-game="eafc">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header app-header">
+  <div class="header-inner app-head-inner">
+    <a class="brand" href="index.html" aria-label="mimELo home">
+      <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+      <span>
+        <span class="brand-word">mim<span>ELo</span></span>
+        <span class="brand-sub">The group record book</span>
+      </span>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-ghost" href="players.html" id="back-players"><span data-icon="arrow" data-size="18" style="transform:rotate(180deg)"></span> All players</a>
+      <a class="header-user" href="account.html"><span class="avatar avatar-sm">AR</span><span>Alex Rivera</span></a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap detail-main" id="main">
+  <div class="breadcrumb">
+    <a href="index.html">Games</a><span class="sep">/</span>
+    <a href="game.html" id="crumb-game">EA FC 27</a><span class="sep">/</span>
+    <a href="players.html" id="crumb-players">Players</a><span class="sep">/</span>
+    <span data-player-name>Alex Rivera</span>
+  </div>
+
+  <section class="player-hero" aria-labelledby="player-title">
+    <div class="player-hero-grid">
+      <div>
+        <div class="player-id">
+          <span id="player-avatar"></span>
+          <div>
+            <h1 id="player-title" data-player-name>Alex Rivera</h1>
+            <div class="handle" data-player-handle>@arivera</div>
+            <div class="player-flairs" id="player-flairs"></div>
+          </div>
+        </div>
+      </div>
+      <div class="player-elo">
+        <div class="value" data-player-elo>1432</div>
+        <div class="label">Elo rating</div>
+        <div class="peak">Peak <span data-player-peak>1468</span> · Rank <span data-player-rank>#1</span></div>
+      </div>
+    </div>
+    <div class="player-stats" id="player-stats"></div>
+  </section>
+
+  <div class="filter-row" style="margin-top:22px;">
+    <div class="segmented" role="tablist" aria-label="Player views">
+      <button type="button" role="tab" id="pt-overview" aria-controls="pp-overview" aria-selected="true">Overview</button>
+      <button type="button" role="tab" id="pt-matches" aria-controls="pp-matches" aria-selected="false" tabindex="-1">Matches</button>
+    </div>
+    <a class="btn btn-primary" href="game.html?view=record" id="record-link" style="margin-left:auto;"><span data-icon="plus" data-size="18"></span> Record a result</a>
+  </div>
+
+  <div class="player-grid" id="pp-overview" role="tabpanel" aria-labelledby="pt-overview">
+    <div class="section-stack">
+      <div class="panel">
+        <div class="panel-head"><div><h2>Elo history</h2><p class="sub">Season 2026/27 · sample</p></div><span class="chip" id="elo-change">+18 this season</span></div>
+        <div class="spark-wrap" id="spark-wrap"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div><h2>Recent matches</h2><p class="sub">Approved results only</p></div><a class="panel-link" href="game.html?view=matches">All matches</a></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Opponent</th><th>Teams</th><th class="c">Score</th><th>Competition</th><th class="c">Elo</th></tr></thead>
+            <tbody id="recent-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <aside class="section-stack">
+      <div class="panel">
+        <div class="panel-head"><h2>Season snapshot</h2><span class="sample-tag">Sample</span></div>
+        <div class="panel-body" id="snapshot-body"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div><h2>Teams used</h2><p class="sub">Chosen match by match</p></div><span class="chip" id="team-count">3 teams</span></div>
+        <div class="panel-body" id="player-teams"></div>
+      </div>
+      <div class="notice-card">
+        <h3>Profile pictures</h3>
+        <p>Initials are the fallback. In the real app, each player can upload a photo from their account page; the avatar appears everywhere in the record book.</p>
+      </div>
+    </aside>
+  </div>
+
+  <div class="panel" id="pp-matches" role="tabpanel" aria-labelledby="pt-matches" hidden>
+    <div class="panel-head"><div><h2>All matches</h2><p class="sub">Every approved and pending result for this player · sample</p></div><span class="chip" id="match-count">0 matches</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Opponent</th><th>Teams</th><th class="c">Score</th><th>Competition</th><th class="c">Result</th><th class="c">Elo</th></tr></thead>
+        <tbody id="all-matches-body"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script src="js/data.js?v=players-uva-ready"></script>
+<script src="js/ui.js?v=players-uva-ready"></script>
+<script src="js/player.js?v=players-uva-ready"></script>
+</body>
+</html>

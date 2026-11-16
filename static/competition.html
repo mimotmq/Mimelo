@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Competition tables, fixtures, and brackets.">
+<title>Winter League — EA FC 27 — mimELo</title>
+<link rel="icon" href="assets/brand/m-crest.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-game="eafc">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header app-header">
+  <div class="header-inner app-head-inner">
+    <a class="brand" href="index.html" aria-label="mimELo home">
+      <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+      <span>
+        <span class="brand-word">mim<span>ELo</span></span>
+        <span class="brand-sub">The group record book</span>
+      </span>
+    </a>
+    <div class="header-actions">
+      <a class="btn btn-ghost" href="game.html" id="back-game"><span data-icon="arrow" data-size="18" style="transform:rotate(180deg)"></span> Back to game</a>
+      <a class="header-user" href="account.html"><span class="avatar avatar-sm">AR</span><span>Alex Rivera</span></a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap detail-main" id="main">
+  <div class="breadcrumb">
+    <a href="index.html">Games</a><span class="sep">/</span>
+    <a href="game.html" id="crumb-game">EA FC 27</a><span class="sep">/</span>
+    <a href="game.html?view=competitions" id="crumb-comps">Competitions</a><span class="sep">/</span>
+    <span data-comp-name>Winter League</span>
+  </div>
+
+  <section class="player-hero" aria-labelledby="comp-title">
+    <div class="player-hero-grid">
+      <div>
+        <div class="player-flairs">
+          <span class="chip" data-comp-kind>League</span>
+          <span class="chip" data-comp-format>Double round robin</span>
+          <span class="chip" data-comp-status>In progress</span>
+          <span class="chip" data-comp-custom hidden>Custom</span>
+        </div>
+        <h1 id="comp-title" data-comp-name style="margin-top:14px;">Winter League</h1>
+        <p class="player-hero-sub" data-comp-blurb>Everyone plays everyone twice. Three points for a win; Elo moves after every approved match.</p>
+      </div>
+      <div class="player-elo">
+        <div class="value" data-comp-played>38</div>
+        <div class="label">of 56 matches played</div>
+        <div class="peak">Leader: <span data-comp-leader>Alex Rivera</span></div>
+      </div>
+    </div>
+    <div class="player-stats">
+      <div class="player-stat"><b data-comp-players>8</b><span>Players</span></div>
+      <div class="player-stat"><b data-comp-fixtures>56</b><span>Fixtures</span></div>
+      <div class="player-stat"><b data-comp-played-stat>38</b><span>Played</span></div>
+      <div class="player-stat"><b data-comp-matchdays>14</b><span>Matchdays</span></div>
+      <div class="player-stat"><b data-comp-rounds>2</b><span>Rounds</span></div>
+    </div>
+  </section>
+
+  <div class="filter-row" style="margin-top:22px;">
+    <div class="segmented" role="tablist" aria-label="Competition views">
+      <button type="button" role="tab" id="ct-table" aria-controls="cp-table" aria-selected="true">Table</button>
+      <button type="button" role="tab" id="ct-fixtures" aria-controls="cp-fixtures" aria-selected="false" tabindex="-1">Fixtures</button>
+      <button type="button" role="tab" id="ct-bracket" aria-controls="cp-bracket" aria-selected="false" tabindex="-1">Bracket</button>
+      <button type="button" role="tab" id="ct-rules" aria-controls="cp-rules" aria-selected="false" tabindex="-1">Rules</button>
+    </div>
+    <div class="comp-actions">
+      <button class="btn btn-danger-quiet" type="button" id="delete-comp" hidden><span data-icon="close" data-size="18"></span> Delete</button>
+      <a class="btn btn-primary" href="game.html?view=record" id="record-link"><span data-icon="plus" data-size="18"></span> Record result</a>
+    </div>
+  </div>
+
+  <div class="panel" id="cp-table" role="tabpanel" aria-labelledby="ct-table">
+    <div class="panel-head"><div><h2 id="table-heading">Winter League table</h2><p class="sub" id="table-sub">After 14 matches · sample</p></div><span class="chip" id="table-chip">2026/27</span></div>
+    <div id="comp-table-wrap"></div>
+  </div>
+
+  <div class="panel" id="cp-fixtures" role="tabpanel" aria-labelledby="ct-fixtures" hidden>
+    <div class="panel-head"><div><h2>Fixtures &amp; results</h2><p class="sub" id="fixtures-sub">Every match in the competition · sample</p></div><span class="chip" id="fixtures-order">Newest first</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Stage</th><th>Home</th><th class="c">Score</th><th>Away</th><th>Status</th></tr></thead>
+        <tbody id="fixtures-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel" id="cp-bracket" role="tabpanel" aria-labelledby="ct-bracket" hidden>
+    <div class="panel-head"><div><h2 id="bracket-heading">Knockout stage</h2><p class="sub" id="bracket-sub">Semifinals and final · sample</p></div><span class="chip">Bracket</span></div>
+    <div class="panel-body">
+      <div id="bracket-wrap"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="cp-rules" role="tabpanel" aria-labelledby="ct-rules" hidden>
+    <div class="panel-head"><div><h2>Competition rules</h2><p class="sub">How this competition decides its winner.</p></div></div>
+    <div class="panel-body">
+      <div class="formats">
+        <div class="format-card card"><span class="monogram" data-tone="navy" id="rules-points-mono">PTS</span><h3 style="margin-top:14px;" id="rules-points-title">Points</h3><p id="rules-points-copy">Three points for a win, one for a draw. Ties are broken by goal difference, then goals scored.</p></div>
+        <div class="format-card card"><span class="monogram" data-tone="orange">ELO</span><h3 style="margin-top:14px;">Elo</h3><p id="rules-elo-copy">Approved matches move both players' ratings. Each team's star rating shifts the expected result, so an upset with a smaller club is worth more.</p></div>
+        <div class="format-card card"><span class="monogram" data-tone="game">LOCK</span><h3 style="margin-top:14px;">Approval</h3><p>The opponent confirms the score. A game admin reviews and locks it before anything counts.</p></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<dialog class="dialog" id="delete-dialog" aria-labelledby="delete-title">
+  <div class="dialog-head">
+    <div><h2 id="delete-title">Delete competition?</h2><p class="sub">This only removes the competition from this browser.</p></div>
+    <button class="dialog-close" type="button" data-close aria-label="Close"><span data-icon="close" data-size="18"></span></button>
+  </div>
+  <div class="dialog-body">
+    <p class="sub" style="color:var(--ink-2);">Delete <b id="delete-name">this competition</b> and its generated schedule? The built-in competitions and this game's Elo are not affected.</p>
+  </div>
+  <div class="dialog-foot">
+    <button class="btn btn-ghost" type="button" data-close>Cancel</button>
+    <button class="btn btn-danger" type="button" id="delete-confirm"><span data-icon="close" data-size="18"></span> Delete competition</button>
+  </div>
+</dialog>
+
+<script src="js/data.js?v=table-tennis-20261112"></script>
+<script src="js/ui.js?v=table-tennis-20261112"></script>
+<script src="js/competition-store.js?v=20261112c"></script>
+<script src="js/competition-results.js"></script>
+<script src="js/competition.js?v=table-tennis-20261112"></script>
+<script src="js/competition-results-ui.js"></script>
+</body>
+</html>

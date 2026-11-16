@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="All players and the games they play in the mimELo group record book.">
+<title>Players — mimELo</title>
+<link rel="icon" href="assets/brand/m-crest.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="player-directory-page">
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="mimELo home">
+      <span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt="mimELo crest"></span>
+      <span><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The group record book</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Primary">
+      <a class="nav-link" href="index.html#games">Games</a>
+      <a class="nav-link" href="players.html" aria-current="page">Players</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-ghost header-login" href="login.html">Log in</a>
+      <a class="btn btn-primary" href="index.html#games">Open a game <span data-icon="arrow" data-size="18"></span></a>
+      <button class="icon-btn menu-toggle" id="menu-btn" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu"><span data-icon="menu" data-size="22"></span></button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobile-nav" aria-label="Mobile" hidden>
+    <div class="wrap"><a href="index.html#games">Games</a><a href="players.html" aria-current="page">Players</a><a href="login.html">Log in</a></div>
+  </nav>
+</header>
+
+<main id="main" class="directory-main">
+  <section class="directory-hero">
+    <div class="wrap directory-hero-inner">
+      <div>
+        <div class="breadcrumb"><a href="index.html">Home</a><span class="sep">/</span><span>Players</span></div>
+        <span class="eyebrow">The group record book</span>
+        <h1>Players</h1>
+        <p class="sub">Everyone in the record book, across all games.</p>
+      </div>
+      <div class="directory-count"><b id="directory-count">0</b><span>players</span></div>
+    </div>
+  </section>
+  <section class="section-tight directory-section" aria-label="Player directory">
+    <div class="wrap">
+      <div class="directory-toolbar">
+        <label class="search-field">
+          <span data-icon="search" data-size="18"></span>
+          <input class="input" type="search" id="directory-search" placeholder="Search usernames or games" aria-label="Search players by username or game">
+        </label>
+        <span class="directory-hint">Select a game to open that player’s profile</span>
+      </div>
+      <div class="directory-grid" id="player-directory" aria-live="polite"></div>
+      <p class="directory-empty" id="directory-empty" hidden>No players match that search.</p>
+      <p class="directory-disclaimer">Sample player data across the five game record books.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand"><span class="crest-plate"><img src="assets/brand/m-crest.png" width="600" height="450" alt=""></span><div><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The record book</span></div></div>
+        <p class="footer-blurb">A record book for the group's games. Elo, leagues, and tournaments, kept in one place.</p>
+      </div>
+      <div class="footer-col"><h3>Games</h3><a href="game.html">EA FC 27</a><a href="game.html?game=eafc26">EA FC 26</a><a href="game.html?game=smash">Super Smash Bros.</a><a href="game.html?game=tennis">Tennis</a><a href="game.html?game=tt">Table tennis</a></div>
+      <div class="footer-col"><h3>The book</h3><a href="players.html">Players</a><a href="game.html?view=rankings">Rankings</a><a href="game.html?view=competitions">Competitions</a></div>
+      <div class="footer-col"><h3>Group</h3><a href="login.html">Log in</a><a href="account.html">Account</a><a href="admin.html">Admin</a></div>
+    </div>
+    <div class="footer-bottom"><p>Independent fan project. All players and results shown are sample data.</p><span>mimELo · 2026/27</span></div>
+  </div>
+</footer>
+
+<script src="js/data.js?v=players-uva-ready"></script>
+<script src="js/ui.js?v=players-uva-ready"></script>
+<script src="js/players.js?v=players-uva-ready"></script>
+</body>
+</html>
