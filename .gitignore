@@ -9,3 +9,5 @@ artifacts/
 /mimelo.db*
 /media/
 /fonts/
+
+__pycache__/
