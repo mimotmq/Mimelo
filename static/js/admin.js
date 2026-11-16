@@ -193,6 +193,12 @@ APP.run(async () => {
         $("#admin-message", d).textContent = e.message;
       }
     };
+    if (["fc", "smash"].includes(g.kind)) {
+      const images = document.createElement("section");
+      images.innerHTML = `<hr><h3>Match images</h3><p class="sub">${g.kind === "fc" ? "Upload a badge once and reuse it for any team. Matching team codes and genders share their badge across EA FC editions." : "Upload character stock icons by character ID and stage photos by stage ID. Stage photos also apply to team matches."}</p><div class="form-actions">${button("Manage images", "manage-images")}</div>`;
+      $("#weight-form", d).after(images);
+      $("[data-action=manage-images]", images).onclick = () => manageImages(g);
+    }
     if (g.kind !== "fc") return;
     const teamForm = (t) =>
       UI.formDialog(
@@ -276,6 +282,166 @@ APP.run(async () => {
       e.target.value = "";
     };
     await catalog();
+  }
+  async function manageImages(g) {
+    const d = UI.dialog(
+      g.name + " match images",
+      `<p>Choose an entry and upload a PNG, JPEG, or WebP image (up to 5 MB). Transparent PNGs work well for badges and stock icons.</p>${g.kind === "fc" ? "<p>Use an existing badge for teams that share a crest. Uploading or unlinking changes all EA FC editions with this team code and gender; other linked teams keep their badge.</p>" : ""}${select(
+        "Image type",
+        "image-kind",
+        g.kind === "fc"
+          ? [["team", "Team badges"]]
+          : [
+              ["fighter", "Character stock icons"],
+              ["stage", "Stage photos"],
+            ],
+      )}<div class="field"><label for="image-search">Search by name, code, or ID</label><input id="image-search" class="input" type="search"></div><p id="image-message" class="hint" role="status"></p><div id="image-catalog"></div>`,
+    );
+    let request = 0,
+      searchTimer;
+    async function load(offset = 0) {
+      const current = ++request,
+        kind = $("#field-image-kind", d).value;
+      try {
+        const r = await APP.api(
+          `games/${g.slug}/images?kind=${kind}&offset=${offset}&q=${encodeURIComponent($("#image-search", d).value)}`,
+        );
+        if (current !== request || !d.isConnected) return;
+        const list = $("#image-catalog", d);
+        list.innerHTML =
+          r.rows
+            .map(
+              (item, index) =>
+                `<article class="catalog-image-row">${UI.catalogVisual(item, kind === "stage")}<div class="catalog-image-copy"><b>${esc(item.name)}</b><p>${kind === "team" ? "Team code" : "ID"}: <code>${esc(item.key)}</code>${kind === "fighter" ? " · " + esc(item.code) : kind === "team" ? " · " + esc(item.gender) : ""}</p><div class="form-actions">${button(kind === "team" ? "Upload new badge" : item.image ? "Replace image" : "Upload image", "choose-image", `data-index="${index}" aria-label="${item.image ? "Replace" : "Upload"} image for ${esc(item.name)}"`)}<input type="file" data-upload="${index}" accept="image/png,image/jpeg,image/webp" aria-label="Upload image for ${esc(item.name)}" hidden>${kind === "team" ? button("Use existing badge", "reuse-badge", `data-index="${index}"`) : ""}${item.image ? button(kind === "team" ? "Unlink badge" : "Remove image", "remove-image", `data-index="${index}"`) : ""}</div></div></article>`,
+            )
+            .join("") ||
+          UI.empty(
+            g.kind === "fc"
+              ? "No teams found. Add or import teams in the team catalog first."
+              : "No matching entries.",
+          );
+        UI.pager(list, r, load);
+        const save = async (index, file, method) => {
+          const item = r.rows[index],
+            controls = $$("input,button,select", d);
+          controls.forEach((c) => (c.disabled = true));
+          try {
+            let body = {};
+            if (file) {
+              if (file.size > 5 * 1024 * 1024)
+                throw new Error("Choose an image under 5 MB.");
+              body = new FormData();
+              body.append("image", file);
+            }
+            await APP.api(
+              `games/${g.slug}/images/${kind}/${encodeURIComponent(item.key)}`,
+              body,
+              method,
+            );
+            $("#image-message", d).textContent =
+              `${item.name}: image ${method === "DELETE" ? "removed" : "saved"}.`;
+          } catch (e) {
+            $("#image-message", d).textContent = e.message;
+          } finally {
+            controls.forEach((c) => (c.disabled = false));
+            await load(offset);
+          }
+        };
+        $$("[data-action=reuse-badge]", list).forEach(
+          (b) =>
+            (b.onclick = () =>
+              chooseBadge(g, r.rows[Number(b.dataset.index)], () =>
+                load(offset),
+              )),
+        );
+        $$("[data-action=choose-image]", list).forEach(
+          (b) =>
+            (b.onclick = () =>
+              $(`[data-upload="${b.dataset.index}"]`, list).click()),
+        );
+        $$("[data-upload]", list).forEach(
+          (input) =>
+            (input.onchange = () => {
+              if (input.files[0])
+                save(Number(input.dataset.upload), input.files[0], "POST");
+            }),
+        );
+        $$("[data-action=remove-image]", list).forEach(
+          (b) =>
+            (b.onclick = () => save(Number(b.dataset.index), null, "DELETE")),
+        );
+      } catch (e) {
+        if (current === request) $("#image-message", d).textContent = e.message;
+      }
+    }
+    $("#field-image-kind", d).onchange = () => {
+      clearTimeout(searchTimer);
+      $("#image-search", d).value = "";
+      load();
+    };
+    $("#image-search", d).oninput = () => {
+      clearTimeout(searchTimer);
+      request++;
+      searchTimer = setTimeout(() => load(), 200);
+    };
+    await load();
+  }
+  async function chooseBadge(g, team, saved) {
+    const d = UI.dialog(
+      "Choose a badge for " + team.name,
+      `<p>This badge will be used for ${esc(team.code)} · ${esc(team.gender)} in all EA FC editions.</p><div class="field"><label for="badge-search">Search saved badges</label><input id="badge-search" class="input" type="search"></div><p class="hint" role="status"></p><div id="badge-library"></div>`,
+    );
+    let request = 0,
+      timer;
+    async function load(offset = 0) {
+      const current = ++request;
+      try {
+        const result = await APP.api(
+          `team-badges?offset=${offset}&q=${encodeURIComponent($("#badge-search", d).value)}`,
+        );
+        if (current !== request || !d.isConnected) return;
+        const list = $("#badge-library", d);
+        list.innerHTML =
+          result.rows
+            .map(
+              (badge) =>
+                `<article class="catalog-image-row">${UI.catalogVisual(badge)}<div class="catalog-image-copy"><b>${esc(badge.name)}</b><div class="form-actions">${button(badge.id === team.badge_id ? "Current badge" : "Use this badge", "select-badge", `data-badge="${badge.id}" ${badge.id === team.badge_id ? "disabled" : ""}`)}</div></div></article>`,
+            )
+            .join("") ||
+          UI.empty(
+            "No saved badges found. Upload a badge for any team to add it to this library.",
+          );
+        UI.pager(list, result, load);
+        $$("[data-badge]", list).forEach(
+          (b) =>
+            (b.onclick = async () => {
+              const controls = $$("input,button", d);
+              controls.forEach((c) => (c.disabled = true));
+              try {
+                await APP.api(
+                  `games/${g.slug}/images/team/${encodeURIComponent(team.code)}`,
+                  { badge_id: Number(b.dataset.badge) },
+                  "PATCH",
+                );
+                await saved();
+                d.close();
+                UI.toast("Badge linked across EA FC editions.");
+              } catch (e) {
+                $(".hint", d).textContent = e.message;
+                controls.forEach((c) => (c.disabled = false));
+              }
+            }),
+        );
+      } catch (e) {
+        if (current === request) $(".hint", d).textContent = e.message;
+      }
+    }
+    $("#badge-search", d).oninput = () => {
+      clearTimeout(timer);
+      request++;
+      timer = setTimeout(() => load(), 200);
+    };
+    await load();
   }
   async function requests() {
     if (!APP.me.site_admin) return;

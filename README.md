@@ -88,6 +88,18 @@ code,name,overall,nation,league,gender
 
 `code` is unique within the edition; importing an existing code updates that team. `name` is required. `overall` is 0–100 or empty until supplied. Optional `nation`, `league`, and `gender` support filtering. Imports accept up to 10,000 rows and a 5 MB file; validation failure rolls back the entire import. Nothing imports automatically.
 
+## Team badges, Smash stock icons, and stage photos
+
+Open **Admin → Games → Administer → Manage images** for EA FC 26, EA FC 27, or Smash.
+
+- **Team badges:** upload a badge once, then choose **Use existing badge** for other teams that share it (for example, Chelsea, Chelsea Women, and Chelsea All Time XI). Teams with the same code and gender automatically share the association across EA FC editions. Different codes or genders can be linked to the same saved badge. **Upload new badge** changes only the selected code/gender across editions; **Unlink badge** clears that association while retaining the badge in the library and on other teams.
+- **Character stock icons:** select this image type in Smash and upload beside the character's displayed ID. These are mimELo catalog IDs, not official fighter numbers.
+- **Stage photos:** select **Stage photos** in Smash and upload beside the stage's ID (for example, `battlefield`). The photo appears in each game's match details, including doubles/team matches.
+
+Uploads accept PNG, JPEG, or WebP up to 5 MB. Transparent icons retain transparency and fit inside a square; stage photos retain their aspect ratio. For Smash images, use **Replace image** or **Remove image** to change an association. Uploaded images have no added background fill, so transparent PNG areas show the page underneath. Names/codes remain visible when no image has been uploaded. Badges appear beside EA FC match sides, and stock icons appear per game and player in Smash scorecards.
+
+The app stores the files in `.runtime/uploads/catalog/` and reusable EA FC badges in SQLite's `team_badges` table, their code/gender associations in `team_badge_links`, and Smash character/stage associations in `catalog_images`. Existing edition-specific uploads migrate into the library automatically. If matching code/gender entries had different badges, the most recently uploaded badge becomes the shared default; the alternatives remain in the library. Upload through the admin screen rather than copying files into the folder: copying alone does not create an association. The shared Smash IDs and names are in `static/catalogs/smash.json`. Back up the database and the entire `.runtime/uploads/` directory together. Replaced/removed files are retained for existing cached pages and backups; removal clears the active association.
+
 ## Backups and verification
 
 ```sh

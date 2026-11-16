@@ -201,56 +201,292 @@
     });
   }
   async function picker(selectEl, options = {}) {
-    let search = selectEl.previousElementSibling;
-    if (!search?.matches("[data-picker-search]")) {
-      search = document.createElement("input");
-      search.type = "search";
-      search.className = "input";
-      search.placeholder = options.teams
-        ? "Search team catalog…"
-        : "Search players…";
-      search.setAttribute("aria-label", search.placeholder);
-      search.dataset.pickerSearch = "";
-      selectEl.before(search);
+    // Keep the form value and its existing change handlers; only the combobox is visible.
+    const cache = options.teams ? APP.teams : APP.players;
+    const endpoint = options.teams ? "teams/" + APP.slug : "players";
+    const initial = String(options.value || selectEl.value || "");
+    const root = document.createElement("div");
+    root.className = "player-picker";
+    selectEl.before(root);
+    root.append(selectEl);
+    selectEl.hidden = true;
+    selectEl.tabIndex = -1;
+    const required = selectEl.required;
+    selectEl.required = false;
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "input";
+    search.id = selectEl.id + "-search";
+    search.placeholder = options.teams ? "Search teams…" : "Search players…";
+    search.autocomplete = "off";
+    search.required = required;
+    search.setAttribute("role", "combobox");
+    search.setAttribute("aria-autocomplete", "list");
+    search.setAttribute("aria-expanded", "false");
+    const label = [...document.querySelectorAll("label")].find(
+      (el) => el.htmlFor === selectEl.id,
+    );
+    if (label) label.htmlFor = search.id;
+    else
+      search.setAttribute(
+        "aria-label",
+        selectEl.getAttribute("aria-label") || search.placeholder,
+      );
+    const list = document.createElement("div");
+    list.className = "player-picker-results";
+    list.id = search.id + "-results";
+    list.setAttribute("role", "listbox");
+    list.setAttribute("aria-label", options.teams ? "Teams" : "Players");
+    list.hidden = true;
+    search.setAttribute("aria-controls", list.id);
+    const status = document.createElement("span");
+    status.className = "sr-only";
+    status.setAttribute("role", "status");
+    root.append(search, list, status);
+    let rows = [],
+      active = -1,
+      version = 0,
+      timer;
+    function close() {
+      clearTimeout(timer);
+      version++;
+      list.hidden = true;
+      search.setAttribute("aria-expanded", "false");
+      search.removeAttribute("aria-activedescendant");
     }
-    async function load() {
-      const result = await APP.api(
-        (options.teams ? "teams/" + APP.slug : "players") +
-          "?limit=100&q=" +
-          encodeURIComponent(search.value),
-      );
-      const rows = result.rows;
-      rows.forEach((p) =>
-        (options.teams ? APP.teams : APP.players).set(p.id, p),
-      );
-      const current = selectEl.value || String(options.value || "");
-      selectEl.innerHTML =
-        '<option value="">Choose…</option>' +
-        rows
-          .map(
-            (p) =>
-              `<option value="${p.id}">${esc(p.name)}${options.teams ? " · " + (p.overall ?? "overall needed") : ""}</option>`,
-          )
-          .join("");
-      if (current && [...selectEl.options].some((o) => o.value === current))
-        selectEl.value = current;
-      else if (current) {
-        const old = (options.teams ? APP.teams : APP.players).get(
-          Number(current),
-        );
-        if (old) {
-          selectEl.add(new Option(old.name, String(current)));
-          selectEl.value = current;
+    function setValue(player, notify = false) {
+      close();
+      selectEl.innerHTML = '<option value="">Choose…</option>';
+      if (player) {
+        cache.set(player.id, player);
+        selectEl.add(new Option(player.name, String(player.id)));
+      }
+      selectEl.value = player ? String(player.id) : "";
+      search.value = player?.name || "";
+      search.setCustomValidity("");
+      if (notify)
+        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    function highlight(index) {
+      active = index;
+      [...list.querySelectorAll('[role="option"]')].forEach((el, i) => {
+        el.setAttribute("aria-selected", String(i === active));
+        if (i === active) {
+          search.setAttribute("aria-activedescendant", el.id);
+          el.scrollIntoView({ block: "nearest" });
         }
+      });
+    }
+    async function load(query = search.value) {
+      const request = ++version;
+      active = -1;
+      rows = [];
+      search.removeAttribute("aria-activedescendant");
+      list.hidden = false;
+      search.setAttribute("aria-expanded", "true");
+      list.innerHTML = '<div class="picker-message">Searching…</div>';
+      try {
+        const result = await APP.api(
+          endpoint + "?limit=50&q=" + encodeURIComponent(query),
+        );
+        if (request !== version || !root.isConnected) return;
+        rows = result.rows;
+        rows.forEach((p) => cache.set(p.id, p));
+        list.innerHTML = rows.length
+          ? rows
+              .map(
+                (p, i) =>
+                  `<div class="player-picker-option" role="option" aria-selected="false" id="${esc(list.id)}-${i}" data-index="${i}"><span>${esc(p.name)}</span>${p.handle ? `<small>@${esc(p.handle)}</small>` : ""}</div>`,
+              )
+              .join("")
+          : '<div class="picker-message">No matches found. Try another name.</div>';
+        status.textContent = rows.length
+          ? `${rows.length} results. Use arrow keys to choose.`
+          : "No matches found.";
+      } catch (e) {
+        if (request !== version) return;
+        list.innerHTML = `<div class="picker-message">${esc(e.message)}. Type to retry.</div>`;
+        status.textContent = e.message;
       }
     }
-    let timeout;
-    search.oninput = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => load().catch((e) => toast(e.message)), 200);
+    search.addEventListener("focus", () => {
+      search.select();
+      load(selectEl.value ? "" : search.value);
+    });
+    search.addEventListener("input", () => {
+      close();
+      rows = [];
+      active = -1;
+      selectEl.value = "";
+      search.setCustomValidity(
+        search.value ? "Choose a player from the search results." : "",
+      );
+      selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+      timer = setTimeout(() => load(), 180);
+    });
+    search.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      }
+      if (["ArrowDown", "ArrowUp"].includes(e.key)) {
+        e.preventDefault();
+        if (list.hidden) load(selectEl.value ? "" : search.value);
+        else if (rows.length)
+          highlight(
+            (active +
+              (e.key === "ArrowDown" ? 1 : active < 0 ? 0 : -1) +
+              rows.length) %
+              rows.length,
+          );
+      }
+      if (e.key === "Enter" && !list.hidden) {
+        e.preventDefault();
+        if (active >= 0 && rows[active]) setValue(rows[active], true);
+      }
+    });
+    list.addEventListener("pointerdown", (e) => e.preventDefault());
+    list.addEventListener("click", (e) => {
+      const option = e.target.closest("[data-index]");
+      if (option) setValue(rows[Number(option.dataset.index)], true);
+    });
+    root.addEventListener("focusout", (e) => {
+      if (!root.contains(e.relatedTarget)) close();
+    });
+    const syncDisabled = () => {
+      search.disabled = selectEl.disabled;
+      if (search.disabled) close();
     };
-    await load();
+    new MutationObserver(syncDisabled).observe(selectEl, {
+      attributes: true,
+      attributeFilter: ["disabled"],
+    });
+    syncDisabled();
+    let player = initial ? cache.get(Number(initial)) : null;
+    if (initial && !player) player = await APP.api(endpoint + "/" + initial);
+    setValue(player);
+    [...selectEl.options].forEach((option) => {
+      option.defaultSelected = option.selected;
+    });
+    selectEl.form?.addEventListener("reset", () =>
+      requestAnimationFrame(() => setValue(player, true)),
+    );
     return load;
+  }
+  function setupNavigation() {
+    const sidebar = $(".sidebar"),
+      shell = $(".app-body"),
+      main = $(".app-main");
+    if (!sidebar || !shell || !main) return;
+    shell.classList.add("adaptive-navigation");
+    sidebar.id = "game-navigation";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "btn btn-outline btn-sm navigation-toggle";
+    toggle.setAttribute("aria-controls", sidebar.id);
+    main.prepend(toggle);
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "btn btn-ghost btn-sm navigation-dismiss";
+    dismiss.innerHTML = icon("close") + "Close navigation";
+    sidebar.prepend(dismiss);
+    const backdrop = document.createElement("div");
+    backdrop.className = "navigation-backdrop";
+    backdrop.setAttribute("aria-hidden", "true");
+    shell.append(backdrop);
+    const mobile = matchMedia("(max-width: 1024px)");
+    let context,
+      open = false;
+    function render(value, focus = false) {
+      open = value;
+      const restoreFocus = !open && sidebar.contains(document.activeElement);
+      shell.dataset.navOpen = String(open);
+      sidebar.inert = !open;
+      sidebar.setAttribute("aria-hidden", String(!open));
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.innerHTML =
+        icon(open ? "close" : "menu", 18) +
+        (open ? "Hide navigation" : "Game navigation");
+      const modal = open && mobile.matches;
+      main.inert = modal;
+      $(".site-header")?.toggleAttribute("inert", modal);
+      document.body.classList.toggle("navigation-modal", modal);
+      if (modal) {
+        sidebar.setAttribute("role", "dialog");
+        sidebar.setAttribute("aria-modal", "true");
+      } else {
+        sidebar.removeAttribute("role");
+        sidebar.removeAttribute("aria-modal");
+      }
+      if (focus && modal) dismiss.focus();
+      if (!open && (focus || restoreFocus)) toggle.focus();
+    }
+    UI.navigation = (view) => {
+      if (context === view) return;
+      context = view;
+      render(!mobile.matches && context !== "record");
+    };
+    mobile.addEventListener("change", () =>
+      render(!mobile.matches && context !== "record"),
+    );
+    toggle.onclick = () => render(!open, true);
+    dismiss.onclick = backdrop.onclick = () => render(false, true);
+    sidebar.addEventListener("click", (e) => {
+      if (mobile.matches && e.target.closest("a")) render(false, true);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (!open) return;
+      if (e.key === "Escape" && !$("dialog[open]")) {
+        e.preventDefault();
+        render(false, true);
+      }
+      if (e.key === "Tab" && mobile.matches) {
+        const items = [...sidebar.querySelectorAll("a,button")].filter(
+          (el) => el.getClientRects().length && !el.disabled,
+        );
+        const first = items[0],
+          last = items.at(-1);
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    });
+    UI.navigation(APP.params.get("view") || "overview");
+  }
+  function catalogVisual(item, stage = false) {
+    const cls = stage ? "catalog-stage-photo" : "catalog-stock-icon";
+    return item?.image
+      ? `<img class="${cls}" src="${esc(item.image)}" alt="" loading="lazy">`
+      : `<span class="${cls} catalog-image-fallback" aria-hidden="true">${esc(item?.code || (stage ? "Stage" : "—"))}</span>`;
+  }
+  function fighterIcons(m, index, side) {
+    const fighters = m.smash_games?.[index]?.fighters || [];
+    return fighters
+      .map((fighter, i) => {
+        const player = m.participants.find((p) => p.id === fighter.player_id);
+        const fighterSide = player?.side ?? (i < fighters.length / 2 ? 0 : 1);
+        return fighterSide === side
+          ? `<span class="match-fighter-icon" role="img" aria-label="${esc((player?.name || "Player " + (i + 1)) + ": " + fighter.name)}" title="${esc((player?.name || "Player " + (i + 1)) + ": " + fighter.name)}">${catalogVisual(fighter)}</span>`
+          : "";
+      })
+      .join("");
+  }
+  function smashDetails(m) {
+    return m.smash_games?.length
+      ? '<div class="smash-game-details">' +
+          m.smash_games
+            .map(
+              (g, i) =>
+                `<section class="smash-game-detail"><h3>Game ${i + 1}</h3><figure>${catalogVisual(g.stage, true)}<figcaption>${esc(g.stage.name)}</figcaption></figure><div class="match-fighter-list">${g.fighters.map((f, j) => `<span class="match-fighter-label">${catalogVisual(f)}<span>${esc(m.participants.find((p) => p.id === f.player_id)?.name || "Player " + (j + 1))}: ${esc(f.name)}</span></span>`).join("")}</div></section>`,
+            )
+            .join("") +
+          "</div>"
+      : "";
   }
   function score(m) {
     const side = (n) =>
@@ -268,21 +504,26 @@
       const rows = [0, 1]
         .map(
           (n) =>
-            `<div class="tennis-score-row ${m.winner === n ? "match-winner" : ""}"><span class="tennis-score-player"><span title="${side(n)}">${side(n)}</span></span>${s.games.map((g) => `<span class="tennis-score-cell ${g.winner === n ? "set-winner" : ""}">${n === 0 ? g.a : g.b}${g.tb ? "<sup>" + g.tb[n] + "</sup>" : ""}${g.winner === n && g.jv ? '<sup class="jv">JV</sup>' : ""}${g.suddenDeath ? "<sup>SD</sup>" : ""}</span>`).join("")}<span class="tennis-score-total">${n === 0 ? m.a_score : m.b_score}</span></div>`,
+            `<div class="tennis-score-row ${m.winner === n ? "match-winner" : ""}"><span class="tennis-score-player"><span title="${side(n)}">${side(n)}</span></span>${s.games.map((g, i) => `<span class="tennis-score-cell ${g.winner === n ? "set-winner" : ""}">${kind === "smash" ? '<span class="match-stock-icons">' + fighterIcons(m, i, n) + "</span>" : ""}${n === 0 ? g.a : g.b}${g.tb ? "<sup>" + g.tb[n] + "</sup>" : ""}${g.winner === n && g.jv ? '<sup class="jv">JV</sup>' : ""}${g.suddenDeath ? "<sup>SD</sup>" : ""}</span>`).join("")}<span class="tennis-score-total">${n === 0 ? m.a_score : m.b_score}</span></div>`,
         )
         .join("");
       return `<div class="${kind === "smash" ? "smash-scoreboard" : "tennis-scoreboard"} ${kind === "tt" ? "tt-scoreboard" : ""}" style="--tennis-set-count:${cols};--tennis-score-columns:minmax(112px,1.8fr) repeat(${cols},minmax(24px,.4fr)) 30px" aria-label="${esc(kind)} scorecard"><div class="tennis-score-row tennis-score-head"><span>Player</span>${s.games.map((_, i) => '<span class="tennis-score-cell">' + (i + 1) + "</span>").join("")}<span class="tennis-score-total-head">${totalLabel}</span></div>${rows}</div>`;
     }
-    const detail = s.games
-      ? s.games
-          .map(
-            (g) =>
-              `${g.a}–${g.b}${g.tb ? " (" + g.tb.join("–") + ")" : ""}${g.suddenDeath ? " SD" : ""}${g.jv ? " JV" : ""}`,
-          )
-          .join(" · ")
-      : `${m.a_score}–${m.b_score}${s.aet ? " a.e.t." : ""}${s.pens ? " (" + s.pens.join("–") + " pens)" : ""}`;
-    return `<div class="match-summary"><span class="side">${side(0)}</span><span class="score">${m.a_score}–${m.b_score}</span><span class="side">${side(1)}</span></div><div class="muted" style="font-size:.76rem">${esc(detail)}</div>`;
+    const team = (n) => clubMark(m.teams?.[n]);
+    const detail = [
+      s.aet ? "a.e.t." : "",
+      s.pens ? s.pens.join(" - ") + " pens" : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return `<div class="match-summary fc-scoreline"><span class="fc-player">${side(0)}</span>${team(0)}<span class="score">${m.a_score} - ${m.b_score}</span>${team(1)}<span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
   }
+  function clubMark(team) {
+    return team
+      ? `<span class="match-team-label" title="${esc(team.name)}" aria-label="${esc(team.name)}">${catalogVisual(team)}</span>`
+      : '<span class="match-team-label" aria-label="No club selected">—</span>';
+  }
+
   function status(m) {
     return m.forfeit
       ? "Forfeit · no Elo"
@@ -298,7 +539,7 @@
     const m = await APP.api("matches/" + id);
     const d = dialog(
       "Match result",
-      `${score(m)}<p class="sub">${esc(status(m))} · ${date(m.submitted)}</p>${m.locked ? '<p class="notice-strip">Locked by a downstream match submission.</p>' : ""}${m.score.note ? `<p>${esc(m.score.note)}</p>` : ""}${m.teams?.length ? "<p>" + m.teams.map((t) => esc(t.name) + " · " + (t.overall ?? "overall missing")).join(" vs ") + "</p>" : ""}${m.score.games?.some((g) => g.fighters) ? '<div class="smash-meta">' + m.score.games.map((g, i) => "<p>Game " + (i + 1) + " · " + esc(g.stage) + "<br>" + g.fighters.map((f, j) => esc(m.participants.find((p) => p.id === m.score.fighterPlayers?.[j])?.name || "Player " + (j + 1)) + ": " + esc(f)).join(" · ") + "</p>").join("") + "</div>" : ""}${m.ledger.length ? '<div class="summary-meta">' + m.ledger.map((l) => "<div><span>" + esc(m.participants.find((p) => p.id === l.player_id)?.name) + "</span><b>" + rating(l.before) + " → " + rating(l.after) + "</b></div>").join("") + "</div>" : ""}<div class="form-actions">${m.permissions.accept ? button("Accept result", "accept") : ""}${m.permissions.elo ? button("Check off Elo", "elo") : ""}${m.permissions.eloToggle ? button(m.elo_enabled ? "Exclude from Elo" : "Include in Elo", "elo-enabled") : ""}${m.permissions.edit ? button("Correct result", "edit") : ""}${m.permissions.void ? button("Void result", "void") : ""}</div><p class="hint" role="alert"></p>`,
+      `${score(m)}<p class="sub">${esc(status(m))} · ${date(m.submitted)}</p>${m.locked ? '<p class="notice-strip">Locked by a downstream match submission.</p>' : ""}${m.score.note ? `<p>${esc(m.score.note)}</p>` : ""}${m.teams?.length ? "<p>" + m.teams.map((t) => esc(t.name) + " · " + (t.overall ?? "overall missing")).join(" vs ") + "</p>" : ""}${smashDetails(m)}${m.ledger.length ? '<div class="summary-meta">' + m.ledger.map((l) => "<div><span>" + esc(m.participants.find((p) => p.id === l.player_id)?.name) + "</span><b>" + rating(l.before) + " → " + rating(l.after) + "</b></div>").join("") + "</div>" : ""}<div class="form-actions">${m.permissions.accept ? button("Accept result", "accept") : ""}${m.permissions.elo ? button("Check off Elo", "elo") : ""}${m.permissions.eloToggle ? button(m.elo_enabled ? "Exclude from Elo" : "Include in Elo", "elo-enabled") : ""}${m.permissions.edit ? button("Correct result", "edit") : ""}${m.permissions.void ? button("Void result", "void") : ""}</div><p class="hint" role="alert"></p>`,
     );
     $$("[data-action]", d).forEach(
       (b) =>
@@ -366,6 +607,8 @@
     field,
     select,
     playerLink,
+    catalogVisual,
+    clubMark,
     pager,
     tabs,
     picker,
@@ -379,6 +622,75 @@
     const styles = document.createElement("style");
     styles.textContent =
       ".live-pagination{padding:16px;flex-wrap:wrap}.live-pagination .muted{margin-right:auto}.live-game-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}.live-game-row h4,.live-game-row .wide{grid-column:1/-1}.live-score-grid{display:grid;gap:16px}.dialog{max-width:min(720px,calc(100vw - 24px))}.dialog .form-actions{flex-wrap:wrap}.input,.select{min-width:0;max-width:100%}.player-cell .name{overflow-wrap:anywhere}.avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.bracket-match{min-width:200px}.live-pagination button:disabled{opacity:.4}.table-wrap{max-width:100%;overflow:auto}.settings-layout>*,.settings-card,.sidebar,.view>*{min-width:0}.view{grid-template-columns:minmax(0,1fr)}";
+    styles.textContent += `
+      .player-picker { position: relative; min-width: 0; }
+      .player-picker-results { position: absolute; z-index: 40; top: calc(100% + 5px); left: 0; right: 0; max-height: 240px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-md); }
+      .player-picker-option { padding: 12px; cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: space-between; overflow-wrap: anywhere; }
+      .player-picker-option small, .picker-message { color: var(--muted); }
+      .picker-message { padding: 12px; font-size: .85rem; }
+      .player-picker-option:hover, .player-picker-option[aria-selected="true"] { background: var(--accent-soft); }
+      .fc-scoreline { display: inline-grid; grid-template-columns: minmax(0,1fr) auto auto auto minmax(0,1fr); align-items: center; gap: 8px; max-width: 100%; }
+      .fc-scoreline .fc-player { overflow-wrap: anywhere; min-width: 0; }
+      .fc-scoreline .fc-player:first-child { text-align: right; }
+      .fc-scoreline .score { white-space: nowrap; }
+      .fc-scoreline .catalog-stock-icon { width: 30px; height: 30px; }
+      .fc-scoreline .catalog-image-fallback { background: transparent; width: auto; min-width: 28px; }
+      .match-score-detail { margin-top: 5px; font-size: .76rem; }
+      #record-fc-score { display: block; margin-top: 18px; }
+      #record-fc-score .fc-scoreline { display: grid; }
+      .adaptive-navigation { grid-template-columns: 252px minmax(0,1fr); transition: grid-template-columns 240ms ease; }
+      .adaptive-navigation[data-nav-open="false"] { grid-template-columns: 0 minmax(0,1fr); }
+      .adaptive-navigation .sidebar { width: 252px; transition: opacity 180ms ease, transform 240ms ease, visibility 240ms; }
+      .adaptive-navigation[data-nav-open="false"] .sidebar { opacity: 0; transform: translateX(-20px); visibility: hidden; pointer-events: none; }
+      .navigation-toggle { margin-bottom: 20px; }
+      .navigation-dismiss, .navigation-backdrop { display: none; }
+      @media (max-width: 1024px) {
+        .adaptive-navigation, .adaptive-navigation[data-nav-open="false"] { grid-template-columns: minmax(0,1fr); }
+        .adaptive-navigation .sidebar { position: fixed; z-index: 71; top: 0; bottom: 0; left: 0; height: 100dvh; width: min(300px,85vw); padding: 20px 16px; background: var(--surface); overflow-y: auto; border-right: 1px solid var(--line); }
+        .adaptive-navigation[data-nav-open="false"] .sidebar { transform: translateX(-100%); }
+        .adaptive-navigation .side-nav { display: grid; overflow: visible; }
+        .adaptive-navigation .side-link { width: 100%; }
+        .adaptive-navigation .side-label { display: block; }
+        .adaptive-navigation .side-group + .side-group { margin-top: 24px; }
+        .navigation-dismiss { display: inline-flex; margin-bottom: 24px; }
+        .navigation-backdrop { display: block; position: fixed; inset: 0; z-index: 70; background: rgb(0 0 0 / .35); opacity: 0; visibility: hidden; transition: opacity 240ms ease, visibility 240ms; }
+        [data-nav-open="true"] .navigation-backdrop { opacity: 1; visibility: visible; }
+        body.navigation-modal { overflow: hidden; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .adaptive-navigation, .adaptive-navigation .sidebar, .navigation-backdrop { transition: none; }
+      }
+      .catalog-stock-icon { display: inline-block; width: 40px; height: 40px; flex: none; object-fit: contain; vertical-align: middle; }
+      .catalog-stage-photo { display: block; width: 100%; max-width: 320px; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--radius-sm); background: var(--surface-2); }
+      img.catalog-stock-icon, img.catalog-stage-photo, img.directory-avatar { background: transparent; }
+      .avatar:has(> img), .player-id .avatar:has(> img) { background: transparent; }
+      .catalog-image-fallback { display: inline-grid; place-items: center; background: var(--surface-3); color: var(--muted); font-size: .7rem; }
+      .catalog-image-row { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+      .catalog-image-row > .catalog-stage-photo { width: 120px; flex: none; }
+      .catalog-image-copy { min-width: 0; overflow-wrap: anywhere; }
+      .catalog-image-copy p { font-size: .78rem; color: var(--muted); }
+      .catalog-image-copy .form-actions { flex-wrap: wrap; margin-top: 8px; }
+      .match-team-label, .match-fighter-label { display: flex; align-items: center; gap: 8px; font-size: .78rem; }
+      .match-stock-icons { display: flex; justify-content: center; flex-wrap: wrap; }
+      .match-stock-icons .catalog-stock-icon { width: 24px; height: 24px; font-size: .55rem; }
+      .match-fighter-list { display: grid; gap: 8px; margin-top: 12px; }
+      .smash-game-details { display: grid; gap: 0; margin-top: 16px; }
+      .smash-game-detail { padding: 16px 0; border-top: 1px solid var(--line); }
+      .smash-game-detail figure { margin: 12px 0; }
+      .smash-game-detail figcaption { margin-top: 6px; font-size: .8rem; }
+      .player-id { gap: 20px; }
+      #player-avatar { display: flex; flex: none; }
+      .player-id > div { min-width: 0; overflow-wrap: anywhere; }
+      .player-id .avatar { width: 112px; height: 112px; font-size: 2rem; }
+      #overview-table .player-cell .avatar,
+      [data-view-panel="rankings"] .player-cell .avatar {
+        width: 48px; height: 48px; font-size: 1rem;
+      }
+      @media (max-width: 480px) {
+        .player-id { gap: 16px; flex-wrap: wrap; }
+        .player-id .avatar { width: 88px; height: 88px; font-size: 1.6rem; }
+      }
+    `;
     document.head.append(styles);
     const g = APP.game;
     if (document.body.hasAttribute("data-game")) {
@@ -511,6 +823,7 @@
         }
       };
     }
+    setupNavigation();
     tabs();
     icons();
     if (

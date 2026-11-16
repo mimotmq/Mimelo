@@ -1,11 +1,72 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ExcelJS from "exceljs";
+import sharp from "sharp";
 import { createApp } from "../server/app.js";
 import { passwordHash, register } from "../server/auth.js";
+
+test("uploaded PNG profile photos are served as decodable WebP images", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "mimelo-photo-"));
+  const app = await createApp({ database: ":memory:", uploads: dir });
+  t.after(async () => {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  register(
+    app.db,
+    { handle: "photoplayer", name: "Photo Player" },
+    await passwordHash("PhotoPassword!"),
+  );
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { "x-mimelo-request": "1" },
+    payload: { identity: "photoplayer", password: "PhotoPassword!" },
+  });
+  assert.equal(login.statusCode, 200, login.body);
+  const png = await sharp({
+    create: { width: 32, height: 32, channels: 4, background: "#ff6600" },
+  })
+    .png()
+    .toBuffer();
+  const boundary = "mimelo-photo-boundary";
+  const upload = await app.inject({
+    method: "POST",
+    url: "/api/me/photo",
+    headers: {
+      cookie: login.cookies.map((c) => c.name + "=" + c.value).join("; "),
+      "x-mimelo-request": "1",
+      "x-csrf-token": login.json().csrf,
+      "content-type": "multipart/form-data; boundary=" + boundary,
+    },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="profile.png"\r\nContent-Type: image/png\r\n\r\n`,
+      ),
+      png,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(upload.statusCode, 200, upload.body);
+  const { photo } = upload.json();
+  assert.equal(app.db.prepare("SELECT photo FROM players").get().photo, photo);
+  const image = await app.inject(photo);
+  assert.equal(image.statusCode, 200, image.body);
+  assert.equal(image.headers["content-type"], "image/webp");
+  assert.equal(image.headers["cache-control"], "public,max-age=86400");
+  assert.deepEqual(
+    image.rawPayload,
+    readFileSync(join(dir, photo.split("/").pop())),
+  );
+  const decoded = await sharp(image.rawPayload)
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  assert.equal(decoded.info.width, 512);
+  assert.equal(decoded.info.height, 512);
+});
 
 test("fresh persistent book, atomic CSV/XLSX imports, restart and online backup", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "mimelo-storage-"));

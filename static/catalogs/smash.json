@@ -1,0 +1,590 @@
+{
+  "fighters": [
+    {
+      "id": 1,
+      "num": 1,
+      "name": "Mario",
+      "code": "MAR"
+    },
+    {
+      "id": 2,
+      "num": 2,
+      "name": "Donkey Kong",
+      "code": "DK"
+    },
+    {
+      "id": 3,
+      "num": 3,
+      "name": "Link",
+      "code": "LINK"
+    },
+    {
+      "id": 4,
+      "num": 4,
+      "name": "Samus",
+      "code": "SAM"
+    },
+    {
+      "id": 5,
+      "num": 5,
+      "name": "Dark Samus",
+      "code": "DSAM"
+    },
+    {
+      "id": 6,
+      "num": 6,
+      "name": "Yoshi",
+      "code": "YOS"
+    },
+    {
+      "id": 7,
+      "num": 7,
+      "name": "Kirby",
+      "code": "KIR"
+    },
+    {
+      "id": 8,
+      "num": 8,
+      "name": "Fox",
+      "code": "FOX"
+    },
+    {
+      "id": 9,
+      "num": 9,
+      "name": "Pikachu",
+      "code": "PIKA"
+    },
+    {
+      "id": 10,
+      "num": 10,
+      "name": "Luigi",
+      "code": "LUI"
+    },
+    {
+      "id": 11,
+      "num": 11,
+      "name": "Ness",
+      "code": "NESS"
+    },
+    {
+      "id": 12,
+      "num": 12,
+      "name": "Captain Falcon",
+      "code": "CFAL"
+    },
+    {
+      "id": 13,
+      "num": 13,
+      "name": "Jigglypuff",
+      "code": "JIG"
+    },
+    {
+      "id": 14,
+      "num": 14,
+      "name": "Peach",
+      "code": "PEACH"
+    },
+    {
+      "id": 15,
+      "num": 15,
+      "name": "Daisy",
+      "code": "DAISY"
+    },
+    {
+      "id": 16,
+      "num": 16,
+      "name": "Bowser",
+      "code": "BOWS"
+    },
+    {
+      "id": 17,
+      "num": 17,
+      "name": "Ice Climbers",
+      "code": "ICES"
+    },
+    {
+      "id": 18,
+      "num": 18,
+      "name": "Sheik",
+      "code": "SHEIK"
+    },
+    {
+      "id": 19,
+      "num": 19,
+      "name": "Zelda",
+      "code": "ZEL"
+    },
+    {
+      "id": 20,
+      "num": 20,
+      "name": "Dr. Mario",
+      "code": "DRM"
+    },
+    {
+      "id": 21,
+      "num": 21,
+      "name": "Pichu",
+      "code": "PICHU"
+    },
+    {
+      "id": 22,
+      "num": 22,
+      "name": "Falco",
+      "code": "FALC"
+    },
+    {
+      "id": 23,
+      "num": 23,
+      "name": "Marth",
+      "code": "MART"
+    },
+    {
+      "id": 24,
+      "num": 24,
+      "name": "Lucina",
+      "code": "LUC"
+    },
+    {
+      "id": 25,
+      "num": 25,
+      "name": "Young Link",
+      "code": "YLNK"
+    },
+    {
+      "id": 26,
+      "num": 26,
+      "name": "Ganondorf",
+      "code": "GAN"
+    },
+    {
+      "id": 27,
+      "num": 27,
+      "name": "Mewtwo",
+      "code": "MEW"
+    },
+    {
+      "id": 28,
+      "num": 28,
+      "name": "Roy",
+      "code": "ROY"
+    },
+    {
+      "id": 29,
+      "num": 29,
+      "name": "Chrom",
+      "code": "CHRO"
+    },
+    {
+      "id": 30,
+      "num": 30,
+      "name": "Mr. Game & Watch",
+      "code": "GNW"
+    },
+    {
+      "id": 31,
+      "num": 31,
+      "name": "Meta Knight",
+      "code": "META"
+    },
+    {
+      "id": 32,
+      "num": 32,
+      "name": "Pit",
+      "code": "PIT"
+    },
+    {
+      "id": 33,
+      "num": 33,
+      "name": "Dark Pit",
+      "code": "DPIT"
+    },
+    {
+      "id": 34,
+      "num": 34,
+      "name": "Zero Suit Samus",
+      "code": "ZSS"
+    },
+    {
+      "id": 35,
+      "num": 35,
+      "name": "Wario",
+      "code": "WARI"
+    },
+    {
+      "id": 36,
+      "num": 36,
+      "name": "Snake",
+      "code": "SNAK"
+    },
+    {
+      "id": 37,
+      "num": 37,
+      "name": "Ike",
+      "code": "IKE"
+    },
+    {
+      "id": 38,
+      "num": 38,
+      "name": "Squirtle",
+      "code": "SQRT"
+    },
+    {
+      "id": 39,
+      "num": 39,
+      "name": "Ivysaur",
+      "code": "IVY"
+    },
+    {
+      "id": 40,
+      "num": 40,
+      "name": "Charizard",
+      "code": "CHAR"
+    },
+    {
+      "id": 41,
+      "num": 41,
+      "name": "Diddy Kong",
+      "code": "DIDD"
+    },
+    {
+      "id": 42,
+      "num": 42,
+      "name": "Lucas",
+      "code": "LUCA"
+    },
+    {
+      "id": 43,
+      "num": 43,
+      "name": "Sonic",
+      "code": "SONI"
+    },
+    {
+      "id": 44,
+      "num": 44,
+      "name": "King Dedede",
+      "code": "DEDE"
+    },
+    {
+      "id": 45,
+      "num": 45,
+      "name": "Olimar",
+      "code": "OLIM"
+    },
+    {
+      "id": 46,
+      "num": 46,
+      "name": "Lucario",
+      "code": "LCR"
+    },
+    {
+      "id": 47,
+      "num": 47,
+      "name": "R.O.B.",
+      "code": "ROB"
+    },
+    {
+      "id": 48,
+      "num": 48,
+      "name": "Toon Link",
+      "code": "TLNK"
+    },
+    {
+      "id": 49,
+      "num": 49,
+      "name": "Wolf",
+      "code": "WOLF"
+    },
+    {
+      "id": 50,
+      "num": 50,
+      "name": "Villager",
+      "code": "VILL"
+    },
+    {
+      "id": 51,
+      "num": 51,
+      "name": "Mega Man",
+      "code": "MEGA"
+    },
+    {
+      "id": 52,
+      "num": 52,
+      "name": "Wii Fit Trainer",
+      "code": "WFT"
+    },
+    {
+      "id": 53,
+      "num": 53,
+      "name": "Rosalina & Luma",
+      "code": "ROSA"
+    },
+    {
+      "id": 54,
+      "num": 54,
+      "name": "Little Mac",
+      "code": "LMAC"
+    },
+    {
+      "id": 55,
+      "num": 55,
+      "name": "Greninja",
+      "code": "GREN"
+    },
+    {
+      "id": 56,
+      "num": 56,
+      "name": "Mii Brawler",
+      "code": "MIIB"
+    },
+    {
+      "id": 57,
+      "num": 57,
+      "name": "Mii Swordfighter",
+      "code": "MIIS"
+    },
+    {
+      "id": 58,
+      "num": 58,
+      "name": "Mii Gunner",
+      "code": "MIIG"
+    },
+    {
+      "id": 59,
+      "num": 59,
+      "name": "Palutena",
+      "code": "PALU"
+    },
+    {
+      "id": 60,
+      "num": 60,
+      "name": "Pac-Man",
+      "code": "PAC"
+    },
+    {
+      "id": 61,
+      "num": 61,
+      "name": "Robin",
+      "code": "RBIN"
+    },
+    {
+      "id": 62,
+      "num": 62,
+      "name": "Shulk",
+      "code": "SHLK"
+    },
+    {
+      "id": 63,
+      "num": 63,
+      "name": "Bowser Jr.",
+      "code": "BJR"
+    },
+    {
+      "id": 64,
+      "num": 64,
+      "name": "Duck Hunt",
+      "code": "DUCK"
+    },
+    {
+      "id": 65,
+      "num": 65,
+      "name": "Ryu",
+      "code": "RYU"
+    },
+    {
+      "id": 66,
+      "num": 66,
+      "name": "Ken",
+      "code": "KEN"
+    },
+    {
+      "id": 67,
+      "num": 67,
+      "name": "Cloud",
+      "code": "CLD"
+    },
+    {
+      "id": 68,
+      "num": 68,
+      "name": "Corrin",
+      "code": "CORR"
+    },
+    {
+      "id": 69,
+      "num": 69,
+      "name": "Bayonetta",
+      "code": "BAYO"
+    },
+    {
+      "id": 70,
+      "num": 70,
+      "name": "Inkling",
+      "code": "INK"
+    },
+    {
+      "id": 71,
+      "num": 71,
+      "name": "Ridley",
+      "code": "RIDL"
+    },
+    {
+      "id": 72,
+      "num": 72,
+      "name": "Simon",
+      "code": "SIMN"
+    },
+    {
+      "id": 73,
+      "num": 73,
+      "name": "Richter",
+      "code": "RICH"
+    },
+    {
+      "id": 74,
+      "num": 74,
+      "name": "King K. Rool",
+      "code": "KR"
+    },
+    {
+      "id": 75,
+      "num": 75,
+      "name": "Isabelle",
+      "code": "ISAB"
+    },
+    {
+      "id": 76,
+      "num": 76,
+      "name": "Incineroar",
+      "code": "INC"
+    },
+    {
+      "id": 77,
+      "num": 77,
+      "name": "Piranha Plant",
+      "code": "PLNT"
+    },
+    {
+      "id": 78,
+      "num": 78,
+      "name": "Joker",
+      "code": "JOKR"
+    },
+    {
+      "id": 79,
+      "num": 79,
+      "name": "Hero",
+      "code": "HERO"
+    },
+    {
+      "id": 80,
+      "num": 80,
+      "name": "Banjo & Kazooie",
+      "code": "BK"
+    },
+    {
+      "id": 81,
+      "num": 81,
+      "name": "Terry",
+      "code": "TERR"
+    },
+    {
+      "id": 82,
+      "num": 82,
+      "name": "Byleth",
+      "code": "BYLE"
+    },
+    {
+      "id": 83,
+      "num": 83,
+      "name": "Min Min",
+      "code": "MINM"
+    },
+    {
+      "id": 84,
+      "num": 84,
+      "name": "Steve",
+      "code": "STEV"
+    },
+    {
+      "id": 85,
+      "num": 85,
+      "name": "Sephiroth",
+      "code": "SEPH"
+    },
+    {
+      "id": 86,
+      "num": 86,
+      "name": "Pyra",
+      "code": "PYRA"
+    },
+    {
+      "id": 87,
+      "num": 87,
+      "name": "Mythra",
+      "code": "MYTH"
+    },
+    {
+      "id": 88,
+      "num": 88,
+      "name": "Kazuya",
+      "code": "KAZ"
+    },
+    {
+      "id": 89,
+      "num": 89,
+      "name": "Sora",
+      "code": "SORA"
+    }
+  ],
+  "stages": [
+    {
+      "id": "battlefield",
+      "name": "Battlefield",
+      "code": "BF"
+    },
+    {
+      "id": "final-destination",
+      "name": "Final Destination",
+      "code": "FD"
+    },
+    {
+      "id": "small-battlefield",
+      "name": "Small Battlefield",
+      "code": "SBF"
+    },
+    {
+      "id": "smashville",
+      "name": "Smashville",
+      "code": "SV"
+    },
+    {
+      "id": "town-and-city",
+      "name": "Town and City",
+      "code": "T&C"
+    },
+    {
+      "id": "pokemon-stadium-2",
+      "name": "Pokémon Stadium 2",
+      "code": "PS2"
+    },
+    {
+      "id": "hollow-bastion",
+      "name": "Hollow Bastion",
+      "code": "HB"
+    },
+    {
+      "id": "lylat-cruise",
+      "name": "Lylat Cruise",
+      "code": "LC"
+    },
+    {
+      "id": "yoshis-story",
+      "name": "Yoshi's Story",
+      "code": "YS"
+    },
+    {
+      "id": "kalos",
+      "name": "Kalos Pokémon League",
+      "code": "KPL"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { mkdirSync } from "node:fs";
 import sharp from "sharp";
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
+import { registerCatalogImages } from "./catalog-images.js";
 import {
   openDb,
   json,
@@ -186,6 +187,7 @@ export async function createApp(options = {}) {
     assert(r, "Game not found.", 404);
     return { ...r, weights: json(r.weights) };
   };
+  registerCatalogImages(app, { db, uploads, game, gameAdmin });
   function login(reply, u, req, remember = true) {
     const raw = token(),
       csrf = token(),
@@ -1440,6 +1442,9 @@ export async function createApp(options = {}) {
       exported: new Date().toISOString(),
       games: db.prepare("SELECT * FROM games").all(),
       teams: db.prepare("SELECT * FROM teams").all(),
+      catalog_images: db.prepare("SELECT * FROM catalog_images").all(),
+      team_badges: db.prepare("SELECT * FROM team_badges").all(),
+      team_badge_links: db.prepare("SELECT * FROM team_badge_links").all(),
       entrants: db.prepare("SELECT * FROM entrants").all(),
       entrant_players: db.prepare("SELECT * FROM entrant_players").all(),
       qualifications: db.prepare("SELECT * FROM qualifications").all(),
@@ -1462,9 +1467,9 @@ export async function createApp(options = {}) {
     root: uploads,
     prefix: "/uploads/",
     decorateReply: false,
-    setHeaders: (res) => {
-      res.setHeader("Content-Type", "image/webp");
-      res.setHeader("Cache-Control", "public,max-age=86400");
+    setHeaders: (reply) => {
+      reply.header("Content-Type", "image/webp");
+      reply.header("Cache-Control", "public,max-age=86400");
     },
   });
   app.addHook("onClose", async () => {
