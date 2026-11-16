@@ -1,0 +1,127 @@
+/* The live application uses the reference's sidebar, panels, and player hierarchy. */
+@font-face{font-family:"Cruyff Sans";src:url("/assets/fonts/CruyffSans-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Cruyff Sans";src:url("/assets/fonts/CruyffSans-Medium.ttf") format("truetype");font-weight:500 600;font-style:normal;font-display:swap}
+@font-face{font-family:"Cruyff Sans";src:url("/assets/fonts/CruyffSans-Bold.ttf") format("truetype");font-weight:700 900;font-style:normal;font-display:swap}
+.game-page{--font-body:"Cruyff Sans",system-ui,sans-serif;--font-head:"Cruyff Sans",system-ui,sans-serif;font-family:var(--font-body)}
+[hidden]{display:none!important}
+:root{--line-strong:var(--line)}
+.header-inner{display:flex;align-items:center;flex-wrap:wrap}
+button:disabled{opacity:.45;cursor:not-allowed!important}
+input[type=search]{width:100%;min-height:44px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+.game-page main.game-main{max-width:1440px}
+.game-page .game-header .header-inner{max-width:none}
+.game-page .game-header{margin-bottom:0;padding-inline:0;border-radius:0}
+.game-page .app-head-inner{display:flex;align-items:center;gap:24px;min-height:68px}
+.game-page .app-head-inner .game-switcher{position:relative;flex:none}
+.game-page .game-switcher>summary{list-style:none;display:inline-flex;align-items:center;gap:10px;min-height:46px;padding:5px 12px 5px 8px;border:1px solid var(--line);border-radius:999px;background:var(--card);cursor:pointer;font-size:.9rem;font-weight:600}
+.game-page .game-switcher>summary::-webkit-details-marker{display:none}.game-page .game-switcher>summary:hover{border-color:var(--pitch)}
+.game-page .game-switcher .logo-plate{display:grid;place-items:center;flex:none;width:38px;height:34px;border-radius:8px;background:#fff;padding:5px}.game-page .game-switcher .logo-plate img{max-width:100%;max-height:100%;object-fit:contain}
+.game-page .switcher-caret{color:var(--mute);transition:transform .15s}.game-page .game-switcher[open] .switcher-caret{transform:rotate(180deg)}
+.game-page .switcher-menu{position:absolute;z-index:50;top:calc(100% + 8px);left:0;width:288px;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:0 10px 30px #0002}
+.game-page .switcher-menu>a{display:flex;align-items:center;gap:10px;min-height:46px;padding:8px 10px;border-radius:9px;color:var(--ink);text-decoration:none}.game-page .switcher-menu>a:hover,.game-page .switcher-menu>a[aria-current=true]{background:var(--chip)}
+.game-page .switcher-menu .monogram{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:8px;background:var(--chip);font-size:.72rem;font-weight:800}.game-page .switcher-menu .sw-name,.game-page .switcher-menu .sw-note{display:block}.game-page .switcher-menu .sw-name{font-size:.86rem;font-weight:650}.game-page .switcher-menu .sw-note{font-size:.7rem;color:var(--mute)}.game-page .switcher-sep{height:1px;margin:6px 4px;background:var(--line)}
+.game-page .app-head-inner #nav{margin-left:auto;border:0;padding:0;display:flex;align-items:center;gap:6px;flex-wrap:nowrap}.game-page .app-head-inner #nav a,.game-page .app-head-inner #nav button{color:var(--mute);text-decoration:none;padding:8px 10px;border:0;border-radius:8px;background:transparent;font:500 .84rem var(--font-body);white-space:nowrap}.game-page .app-head-inner #nav a:hover,.game-page .app-head-inner #nav button:hover{background:var(--chip);color:var(--ink)}.game-page .app-head-inner #nav .sp{margin-left:8px;color:var(--ink);font-weight:600}
+.game-page .record-book-layout{display:grid;grid-template-columns:252px minmax(0,1fr);gap:0;align-items:stretch;margin:0 -24px;min-height:calc(100vh - 68px)}
+.game-page #view{min-width:0;min-height:480px}
+.game-page .record-book-layout>#view{padding:30px 32px 80px}
+.book-sidebar{position:sticky;top:68px;align-self:start;height:calc(100vh - 68px);overflow-y:auto;min-width:0;padding:26px 16px 40px;border-right:1px solid var(--line)}
+.game-page .book-sidebar .tabs{display:block;overflow:visible;border:0;margin:0;padding:0}
+.game-page .book-sidebar .side-group+.side-group{margin-top:24px}.game-page .book-sidebar .side-label{padding:0 12px 8px;font-size:.65rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.game-page .book-sidebar .side-nav{display:grid;gap:2px}
+.game-page .book-sidebar .tabs .side-link{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;text-align:left;border:0;border-radius:11px;padding:0 12px;background:transparent;color:var(--mute);font-size:.91rem;font-weight:500;white-space:normal}
+.game-page .book-sidebar .tabs .side-link:hover{background:var(--chip);color:var(--ink)}
+.game-page .book-sidebar .tabs .side-link[aria-selected=true]{background:var(--chip);color:var(--ink);font-weight:600;box-shadow:none}
+.nav-glyph{width:20px;flex:none;font-size:1.2rem;font-family:system-ui,sans-serif;text-align:center}
+#sidebar-settings{border-top:1px solid var(--line);padding:16px 12px;font-size:.83rem}#sidebar-settings:empty{display:none}#sidebar-settings a{text-decoration:none;color:var(--mute)}
+.book-page-head{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 26px}
+.book-page-head>div{min-width:0}.book-page-head .eyebrow{margin:0 0 8px;color:var(--pitch);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700}
+.game-page #view .book-page-head h2{font-size:clamp(1.6rem,2.5vw,2.2rem);letter-spacing:-.045em;margin:0 0 7px;line-height:1.2}
+.book-page-head .sub{font-size:.9rem;max-width:55ch}.game-page .book-page-head a.b{margin:0;flex:none}
+.book-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:24px}
+.book-stat{padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.book-stat>span{font-size:.8rem;color:var(--mute)}.book-stat>strong{display:block;font-size:2.2rem;line-height:1.2;margin:9px 0;font-variant-numeric:tabular-nums;letter-spacing:-.06em}.book-stat small{display:block;color:var(--mute);font-size:.74rem}
+.book-stat:nth-child(3)>strong{font-size:clamp(1.2rem,2vw,1.6rem);letter-spacing:-.035em;overflow-wrap:anywhere}
+.book-dashboard{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,.43fr);gap:22px;align-items:start}.book-stack{display:grid;gap:22px;min-width:0}
+.book-panel{border:1px solid var(--line);border-radius:12px;background:var(--card);min-width:0;overflow:hidden}
+.book-panel>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.game-page #view .book-panel h3{margin:0;font-size:1rem}.book-panel .sub{font-size:.77rem;margin-top:4px}
+.panel-link{font-size:.8rem;font-weight:600;text-decoration:none;white-space:nowrap}.panel-link span{margin-left:5px}
+.game-page .book-panel>.tbl{border:0;border-radius:0}.book-empty{text-align:center;padding:32px 20px;color:var(--mute)}
+.book-empty>span{display:block;font-size:2rem;line-height:1;color:var(--pitch);margin-bottom:15px}.game-page #view .book-empty h3{font-size:1rem;color:var(--ink);margin:0 0 8px}.book-empty p{font-size:.85rem;max-width:38ch;margin:0 auto 15px}
+.book-leader{padding:24px}.book-leader .eyebrow{font-size:.65rem;letter-spacing:.13em;text-transform:uppercase;color:var(--mute);margin:0 0 16px}
+.game-page #view .book-leader h3{font-size:1.3rem}.book-leader>strong{display:block;font-size:3rem;letter-spacing:-.06em;margin:8px 0;color:var(--pitch)}.book-leader>strong small{font-size:.8rem;font-weight:400;letter-spacing:0}
+.book-match-list>article{padding:18px 20px;border-bottom:1px solid var(--line)}.book-match-list>article:last-child{border:0}.book-match-meta,.book-match-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.75rem;color:var(--mute);margin-bottom:8px}.book-match-actions{margin:12px 0 0}.book-match-actions>button:last-child{margin-left:auto}
+.book-competition-list>a{display:block;padding:18px 20px;text-decoration:none;border-bottom:1px solid var(--line)}.book-competition-list>a:last-child{border:0}.book-competition-list strong,.book-competition-list small{display:block;margin-top:8px}.book-competition-list strong{color:var(--ink);font-size:.9rem}.book-competition-list small{color:var(--mute);font-size:.75rem}
+.book-pending-list>article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}.book-pending-list>article:last-child{border-bottom:0}.book-pending-list>article>div{min-width:0;flex:1}.book-pending-list .book-compact-score{margin:0}.book-pending-list small{display:block;color:var(--mute);font-size:.72rem;margin-top:5px}.book-pending-list button{flex:none}
+progress{width:100%;height:5px;margin-top:12px;accent-color:var(--pitch);border:0;border-radius:5px;background:var(--chip)}progress::-webkit-progress-bar{background:var(--chip);border-radius:5px}progress::-webkit-progress-value{background:var(--pitch);border-radius:5px}
+.book-note{padding:20px;border-left:3px solid var(--pitch);border-radius:0 10px 10px 0;background:var(--chip)}.game-page #view .book-note h3{margin:0 0 8px}.book-note p{font-size:.84rem;color:var(--mute);margin:0 0 12px}
+.book-filters{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.book-segmented{display:flex;flex-wrap:wrap;gap:4px;padding:4px;background:var(--chip);border-radius:9px}.book-segmented button{min-height:38px;padding:7px 12px;background:none;border:0;border-radius:6px;font:600 .8rem var(--font-body);color:var(--mute);cursor:pointer}.book-segmented button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px #0001}
+.book-search{display:flex;gap:8px;flex:1;min-width:220px;max-width:460px}.game-page .book-search button{margin:0;min-height:44px}.book-filter-options{display:flex;align-items:end;flex-wrap:wrap;gap:14px;margin-bottom:20px}.book-filter-options label{margin:0;font-size:.75rem;min-width:180px}.book-filter-options select{margin-top:5px}.book-filter-options>.tag{align-self:center}.game-page .book-filter-options button{margin:0}
+.book-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px;color:var(--mute);font-size:.82rem}.book-pagination>div{display:flex;gap:8px}.game-page .book-pagination button{margin:0}
+.form-dots{display:inline-flex;gap:4px}.form-dots>span{display:grid;place-items:center;width:25px;height:25px;border-radius:5px;background:var(--chip);color:var(--mute);font:600 .65rem system-ui,sans-serif}.form-dots .form-w{background:#dceddf;color:#245337}.form-dots .form-l{background:#f7e1df;color:#883c36}
+.book-player-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:24px}.book-player{display:flex;align-items:center;gap:15px;padding:20px;background:var(--card);border:1px solid var(--line);border-radius:12px;text-decoration:none;min-width:0}.book-player:hover{border-color:var(--pitch)}
+.player-initials{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--chip);color:var(--pitch);font-weight:700;font-size:1rem;flex:none}.book-player>div{min-width:0}.game-page #view .book-player h3{margin:0 0 3px;color:var(--ink);overflow-wrap:anywhere}.book-player small,.book-player p{color:var(--mute);font-size:.8rem;margin:5px 0 0}.player-arrow{margin-left:auto}
+.game-page[data-game=ea-fc-26]{--bg:#f1f5fc;--card:#fff;--ink:#172744;--mute:#53637d;--line:#d5dfef;--pitch:#1d5bdb;--onpitch:#fff;--chip:#e7eef9}
+.profile-content{max-width:1160px;margin:30px auto}.profile-breadcrumb{display:flex;gap:10px;font-size:.8rem;margin:0 0 22px;color:var(--mute)}.profile-breadcrumb a{text-decoration:none}
+.profile-hero{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:30px;background:var(--card);border:1px solid var(--line);border-radius:14px}.profile-person{display:flex;align-items:center;gap:22px;min-width:0}.profile-person .player-initials{width:80px;height:80px;font-size:1.8rem}.profile-person h1{font-size:clamp(1.6rem,3vw,2.5rem);overflow-wrap:anywhere}.profile-person .chips{margin-top:12px}.profile-rating{text-align:right;flex:none}.profile-rating strong{display:block;font-size:3.5rem;line-height:1.1;letter-spacing:-.06em;color:var(--pitch)}.profile-rating span,.profile-rating small{display:block;color:var(--mute);font-size:.8rem;margin-top:5px}
+.profile-toolbar{display:flex;align-items:end;flex-wrap:wrap;justify-content:space-between;gap:18px;margin:24px 0}.profile-toolbar label{margin:0;min-width:180px}.profile-toolbar select{margin-top:6px}.profile-toolbar .book-segmented{margin-left:auto}
+.profile-game-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:24px 0 18px}.profile-game-heading h2{margin:0;font-size:1.4rem}
+.profile-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:20px 0;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}.profile-stats>div{padding:18px;background:var(--card)}.profile-stats strong{display:block;font-size:1.6rem;letter-spacing:-.04em}.profile-stats span{display:block;color:var(--mute);font-size:.75rem}
+.profile-content .tennis-profile-ratings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:20px}.tennis-profile-ratings>section{border:1px solid var(--line);border-radius:10px;padding:18px;background:var(--card);min-width:0}.tennis-profile-ratings h3{font-size:.8rem;color:var(--mute)}.tennis-profile-ratings p{font-size:.8rem;color:var(--mute);margin:6px 0 0}
+.profile-chart{padding:20px}.profile-chart svg{display:block;width:100%;height:auto;max-height:230px;overflow:visible}.profile-chart-footer{display:flex;justify-content:space-between;gap:10px;color:var(--mute);font-size:.75rem;margin-top:8px}.profile-chart-line{fill:none;stroke:var(--pitch);stroke-width:3;stroke-linejoin:round;stroke-linecap:round}.profile-chart-dot{fill:var(--pitch)}.profile-chart-grid{stroke:var(--line);stroke-width:1}.profile-chart text{fill:var(--mute);font:12px system-ui,sans-serif}
+.profile-history{margin-top:24px}.profile-history>header{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:14px}.profile-history h3{margin:0}.profile-history .sub{font-size:.8rem}.profile-history td{vertical-align:top}.profile-history .tennis-scorecard{min-width:240px}.profile-history .smash-scorecard{min-width:260px}
+.utility-page main.utility-main{max-width:1160px!important;padding:0 24px 50px}.utility-page .site-header{margin:0 -24px;padding:0 24px}.utility-page .utility-content{max-width:900px;margin:32px auto}.utility-page .utility-title{margin-bottom:24px}.utility-page .utility-title h1{font-size:2rem}.utility-page .utility-content>.card{padding:24px}.utility-page .utility-title .sub{margin-top:6px}
+.utility-page input,.utility-page select,.utility-page textarea{font:inherit}.utility-page button.b,.utility-page button.alt{min-height:44px}.utility-page .header-inner{padding-block:12px}.utility-page .header-actions{margin-left:auto}
+@media(prefers-color-scheme:dark){
+ .home-page{--bg:#101623;--card:#182133;--ink:#f0f2f7;--mute:#abb5c9;--line:#303c52;--pitch:#aabde8;--onpitch:#101623;--chip:#273249}
+ .home-page .site-header{background:var(--card)}.home-page .home-mark{color:var(--ink)}.home-page .btn-primary{background:var(--pitch);color:var(--onpitch)}.home-page nav.n a:hover,.home-page nav.n a[aria-current=page]{background:var(--chip);color:var(--ink)}
+ .game-page[data-game=ea-fc-26]{--bg:#10192b;--card:#17233a;--ink:#f0f4fc;--mute:#aebbd1;--line:#30415d;--pitch:#80aaff;--onpitch:#071326;--chip:#23344f}
+ .game-page .up{color:#8bdfac}.game-page .dn,.game-page .err{color:#ffaca3}.form-dots .form-w{background:#1d3a2c;color:#9bddae}.form-dots .form-l{background:#472b2e;color:#f1a8a0}
+}
+@media(max-width:1100px){.game-page .record-book-layout{grid-template-columns:170px minmax(0,1fr);gap:22px}.book-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.book-dashboard{grid-template-columns:1fr}.book-dashboard>aside{grid-template-columns:repeat(2,minmax(0,1fr))}.book-dashboard>aside>.book-note{grid-column:1 / -1}.book-page-head{flex-wrap:wrap}.book-player-grid{grid-template-columns:1fr}}
+@media(max-width:760px){
+ .game-page .record-book-layout{grid-template-columns:1fr;gap:18px;margin-top:16px}.book-sidebar{position:static}.book-sidebar>.eyebrow{display:none}.game-page .book-sidebar .tabs{flex-direction:row;overflow-x:auto;margin:0;gap:4px;padding:2px 2px 10px}.game-page .book-sidebar .tabs button{flex:none;white-space:nowrap;min-height:44px;padding:9px 12px}.game-page .book-sidebar .tabs button[aria-selected=true]{box-shadow:none}.nav-glyph{display:none}#sidebar-settings{padding:8px 0 0;border:0;text-align:right}.book-page-head{margin-bottom:20px}.book-stat-grid{gap:10px}.book-stat{padding:15px}.book-stat>strong{font-size:1.9rem}.book-dashboard>aside{grid-template-columns:1fr}.book-dashboard>aside>.book-note{grid-column:auto}.book-panel>header{padding:16px}.book-match-list>article{padding:16px}.book-panel header .panel-link{white-space:normal}.book-filter-options>label{min-width:0;flex:1}.book-pagination{flex-wrap:wrap}.book-segmented button{font-size:.75rem;padding-inline:10px}.book-search{max-width:none;min-width:0;flex-basis:100%}
+ .profile-hero{padding:20px;align-items:flex-start;flex-wrap:wrap}.profile-person{gap:14px}.profile-person .player-initials{width:56px;height:56px;font-size:1.3rem}.profile-rating{text-align:left;padding-left:70px}.profile-rating strong{font-size:2.5rem}.profile-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.profile-content{margin-top:22px}.profile-history>header{align-items:flex-start;flex-wrap:wrap}.profile-toolbar .book-segmented{margin-left:0}.profile-game-heading{flex-wrap:wrap}.profile-chart{padding:16px}.profile-toolbar{align-items:stretch}.profile-toolbar label{width:100%}.profile-content .tennis-profile-ratings{gap:10px}.tennis-profile-ratings>section{padding:14px}
+ .utility-page main.utility-main{padding-inline:16px}.utility-page .site-header{margin-inline:-16px;padding-inline:16px}.utility-page .header-inner{gap:12px}.utility-page .header-inner nav{order:3;width:100%}.utility-page .utility-content>.card{padding:18px}
+}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+.utility-page .auth-content{max-width:460px}
+
+/* Match the reference's compact app shell at tablet and phone widths. */
+@media(max-width:1024px){
+ .game-page .record-book-layout{grid-template-columns:1fr;min-height:0}
+ .game-page .book-sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px 16px 12px;overflow:visible}
+ .game-page .book-sidebar .side-group+.side-group{margin-top:0}
+ .game-page .book-sidebar .side-label{display:none}
+ .game-page .book-sidebar .side-nav{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+ .game-page .book-sidebar .side-nav::-webkit-scrollbar{display:none}
+ .game-page .book-sidebar .tabs .side-link{width:auto;flex:none;min-height:40px;padding:0 13px;border:1px solid var(--line);background:var(--card)}
+ .game-page .book-sidebar .tabs .side-link[aria-selected=true]{border-color:transparent}
+ .game-page .record-book-layout>#view{padding:24px 20px 64px}
+}
+@media(max-width:760px){
+ .game-page .app-head-inner{gap:10px;flex-wrap:wrap;padding-block:10px}
+ .game-page .brand-sub{display:none}
+ .game-page .app-head-inner #nav{order:3;width:100%;margin:0;overflow-x:auto}
+ .game-page .app-head-inner #nav .sp{margin-left:auto}
+ .game-page .game-switcher{margin-left:auto}
+ .game-page .record-book-layout{margin-inline:-16px}
+ .game-page .record-book-layout>#view{padding:22px 16px 50px}
+ .game-page .switcher-menu{left:auto;right:0;width:min(288px,calc(100vw - 32px))}
+}
+
+.game-page #view a.b{color:var(--onpitch)}
+.book-compact-score{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:12px 0 6px}.book-compact-score>div{display:grid;gap:4px;min-width:0}.book-compact-score strong{font-size:.9rem;overflow-wrap:anywhere}.book-compact-score>div>span{font-size:.65rem;text-transform:uppercase;color:var(--mute)}.book-compact-score>b{flex:none;font-size:1.8rem;font-variant-numeric:tabular-nums;letter-spacing:-.04em}.book-compact-score>b>span{padding:0 9px;color:var(--mute)}.book-score-note{color:var(--mute);font-size:.75rem}
+
+@media(max-width:760px){.game-page .book-panel>.tbl th,.game-page .book-panel>.tbl td{padding:10px 8px;white-space:normal}.book-panel .form-dots{gap:3px}.book-panel .form-dots>span{width:19px;height:22px;font-size:.6rem}}
+
+.competition-hero{position:relative;overflow:hidden;isolation:isolate;margin-bottom:22px;padding:clamp(24px,4vw,36px);border-radius:16px;background:#232d4b;color:#fff}
+.competition-hero:before{content:"";position:absolute;z-index:-1;width:300px;height:300px;right:-100px;top:-190px;border:1px solid #ffffff20;border-radius:50%;box-shadow:0 0 0 24px #ffffff08,0 0 0 48px #ffffff06}
+.competition-hero-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end}.competition-flairs{display:flex;gap:7px;flex-wrap:wrap}.competition-flairs .tag{background:#ffffff18;color:#e1e5f1;border:1px solid #ffffff22;font-size:.72rem}
+.game-page #view .competition-hero h2{margin:14px 0 0;color:#fff;font-size:clamp(1.8rem,3.5vw,2.7rem);line-height:1.12}.game-page #view .competition-hero .sub{max-width:60ch;margin-top:10px;color:#c6ccdc}
+.competition-hero-leader{text-align:right}.competition-hero-leader strong{display:block;font-size:clamp(2.8rem,5vw,4rem);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.05em}.competition-hero-leader span,.competition-hero-leader small{display:block;color:#c6ccdc;font-size:.74rem}.competition-hero-leader small{margin-top:10px}
+.competition-hero-stats{display:flex;gap:0;flex-wrap:wrap;margin-top:22px;padding-top:16px;border-top:1px solid #ffffff25}.competition-hero-stats>div{min-width:110px;padding:0 18px;border-right:1px solid #ffffff25}.competition-hero-stats>div:first-child{padding-left:0}.competition-hero-stats>div:last-child{border:0}.competition-hero-stats strong,.competition-hero-stats span{display:block}.competition-hero-stats strong{font-size:1.2rem;font-variant-numeric:tabular-nums}.competition-hero-stats span{font-size:.68rem;color:#c6ccdc;text-transform:uppercase;letter-spacing:.08em}
+.competition-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.competition-toolbar .book-segmented{border:1px solid var(--line);background:var(--card)}.competition-toolbar [role=tab][aria-selected=true]{background:#232d4b;color:#fff}.competition-toolbar a.b{margin:0}
+.competition-panel{margin-bottom:16px}.competition-panel>header{padding:18px 20px}.competition-panel>.tbl{border:0;border-radius:0}.competition-admin-tools{padding:18px 20px;border-top:1px solid var(--line)}.competition-admin-tools h3{margin:0 0 8px}.competition-admin-tools .chips{margin:10px 0}.competition-rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:18px 20px}.competition-rules article{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.competition-rules h3{margin:12px 0 5px}.competition-rules p{margin:0;color:var(--mute);font-size:.85rem}.rule-mark{display:inline-grid;place-items:center;width:42px;height:34px;border-radius:8px;background:var(--chip);color:var(--pitch);font-size:.68rem;font-weight:800;letter-spacing:.04em}
+@media(max-width:760px){.competition-hero-grid{grid-template-columns:1fr;gap:18px}.competition-hero-leader{text-align:left}.competition-hero-stats>div{min-width:25%;padding:0 10px}.competition-rules{grid-template-columns:1fr;padding:14px}.competition-toolbar .book-segmented{width:100%;overflow-x:auto}.competition-toolbar .book-segmented button{flex:1;white-space:nowrap}}

@@ -1,21 +1,6 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>mimELo</title><link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main>
-<header class="top"><div id="logo"></div><div><h1 id="pn">Player</h1><p class="sub" id="pu"></p></div></header><nav id="nav"></nav>
-<div id="roles"></div><div id="games"></div></main>
-<script src="/kinds.js"></script>
-<script>
-const fmt=ms=>ms?new Date(ms).toLocaleString():'';
-(async()=>{await boot('home');let p;
- try{p=await api('players/'+encodeURIComponent(qs('id')||''))}catch(e){$('#games').innerHTML='<p class="empty">Player not found.</p>';return}
- $('#pn').textContent=p.name;document.title=p.name;
- $('#pu').textContent=p.placeholder?'Hasn’t signed up yet. Their games are being kept for them.':'@'+p.username;
- $('#roles').innerHTML=p.admin_of.length?'<p class="chips">'+p.admin_of.map(g=>`<span>Admin · <a href="/game.html?g=${esc(g.slug)}">${esc(g.name)}</a></span>`).join('')+'</p>':'';
- const teamsOf={};
- $('#games').innerHTML=p.games.length?p.games.map(g=>{const K=KINDS[g.kind];const tm=new Map();const r=g.record;
-  return `<section class="card" id="g-${esc(g.slug)}"><h2><a href="/game.html?g=${esc(g.slug)}">${esc(g.title)}</a></h2>
-   ${g.flairs.length?`<p class="chips">${g.flairs.map(f=>`<span><small>${esc(f.label)}</small> · ${g.kind==='tennis'&&f.label==='Nationality'?nationalityLabel(f.value):esc(f.value)}</span>`).join('')}</p>`:''}
-    ${['tennis','smash'].includes(g.kind)?`<div class="tennis-profile-ratings">${['singles','doubles'].map(format=>{const rec=g.records[format],elo=format==='singles'?g.elo:g.doubles_elo;return `<section><h3>${format==='singles'?'Singles':'Doubles'}</h3><strong class="num">${elo==null?'Unrated':elo+' Elo'}</strong><p>${rec.w}W · ${rec.l}L · ${g.kind==='tennis'?'Sets':'Games'} ${rec.gf}–${rec.ga}</p></section>`}).join('')}</div>`:`<p><span class="num">${g.elo==null?'Unrated':g.elo+' Elo'}</span> · ${r.w}W ${r.d}D ${r.l}L · ${g.kind==='fifa'?'goals':'games'} ${r.gf}–${r.ga}</p>`}
-   <div class="tbl"><table><thead><tr><th>Date</th><th>Match</th><th>Status</th><th>Elo ±</th></tr></thead><tbody>${g.history.map(m=>`<tr><td>${new Date(m.played_at).toLocaleDateString()}</td><td>${K?K.summary(m,tm):''}${g.kind==='tennis'?`<details><summary>Match details</summary><p>Surface: ${esc(m.details.surface||'hardcourt')}</p><a href="/game.html?g=tennis&match=${m.id}">Open match</a></details>`:''}</td><td>${m.status==='rejected'?'<span class="tag pend">Needs correction</span>':m.status==='pending'?'<span class="tag pend">Pending review</span>':'<span class="tag lock">Locked '+esc(fmt(m.locked_at))+'</span>'}</td><td>${m.delta==null?'':`<span class="${m.delta>=0?'up':'dn'} num">${m.delta>0?'+':''}${m.delta}</span>`}</td></tr>`).join('')}</tbody></table></div></section>`}).join('')
-  :'<p class="card empty">No game history yet. Each game this player takes part in will get its own section here, with flairs, Elo, record and history.</p>';
- const gq=qs('g');if(gq&&$('#g-'+gq))$('#g-'+gq).scrollIntoView();
-})();
-</script></body></html>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Player ratings, match history, and competition records."><title>Player · mimELo</title><link rel="stylesheet" href="/base.css"><link rel="stylesheet" href="/app.css"><script src="/common.js"></script><script>themeLink(qs('g')||'home')</script></head>
+<body class="game-page profile-page"><a class="skip-link" href="#main">Skip to content</a><main class="game-main">
+<header class="site-header game-header"><div class="header-inner"><a class="brand" href="/" aria-label="mimELo home"><span id="logo"></span><span><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The group record book</span></span></a><div class="header-actions"><a class="btn" href="/players.html">← All players</a></div></div></header><nav id="nav" aria-label="Account navigation"></nav>
+<div class="profile-content" id="main" aria-busy="true"><p class="empty" role="status">Loading player…</p></div>
+</main><script src="/kinds.js"></script><script src="/player.js"></script></body></html>

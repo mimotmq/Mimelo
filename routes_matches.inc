@@ -249,6 +249,14 @@ svr.Post(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, h
     query("COMMIT");reply(res, matchJson(row, userNames(), nullptr), 201);
     }catch(const std::exception& e){query("ROLLBACK");fail(res,e.what());}
 });
+svr.Get(R"(/api/games/([a-z0-9-]+)/summary)", [](const httplib::Request& req, httplib::Response& res) {
+    std::lock_guard<std::mutex> l(M);
+    std::string g=req.matches[1];
+    if(gameKind(g).empty())return fail(res,"Game not found.",404);
+    auto count=[&](const std::string& where){return query("SELECT COUNT(*) FROM matches WHERE game=?"+where,{g})[0][0];};
+    auto players=query("SELECT COUNT(DISTINCT pid) FROM (SELECT p1 AS pid FROM matches WHERE game=? UNION ALL SELECT p2 FROM matches WHERE game=? UNION ALL SELECT p.user_id FROM match_partners p JOIN matches m ON m.id=p.match_id WHERE m.game=?)",{g,g,g})[0][0];
+    reply(res,{{"players",players},{"matches",count("")},{"approved",count(" AND status='approved'")},{"pending",count(" AND status='pending'")},{"rejected",count(" AND status='rejected'")},{"competitions",query("SELECT COUNT(*) FROM leagues WHERE game=?",{g})[0][0]}});
+});
 svr.Get(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, httplib::Response& res) {
     std::lock_guard<std::mutex> l(M);
     std::string g = req.matches[1];
@@ -259,12 +267,22 @@ svr.Get(R"(/api/games/([a-z0-9-]+)/matches)", [](const httplib::Request& req, ht
     if (req.has_param("player")) { sql += " AND (p1=? OR p2=? OR id IN (SELECT match_id FROM match_partners WHERE user_id=?))"; long long p = std::stoll(req.get_param_value("player")); args.push_back(p); args.push_back(p); args.push_back(p); }
      if((gameKind(g)=="tennis"||gameKind(g)=="smash") && (req.get_param_value("format")=="singles"||req.get_param_value("format")=="doubles")){sql+=" AND COALESCE(json_extract(details,'$.format'),'singles')=?";args.push_back(req.get_param_value("format"));}
     if (req.has_param("league_id")) { sql += " AND league_id=?"; args.push_back((long long)std::stoll(req.get_param_value("league_id"))); }
-    sql += " ORDER BY played_at DESC,id DESC LIMIT " + std::to_string(std::clamp(req.has_param("limit") ? std::atoi(req.get_param_value("limit").c_str()) : 100, 1, 300));
+    std::string search=trim(req.get_param_value("q"));
+    if(!search.empty()){
+        sql+=" AND (instr(lower(details),lower(?))>0 OR p1 IN (SELECT id FROM users WHERE instr(lower(name||' '||COALESCE(username,'')),lower(?))>0) OR p2 IN (SELECT id FROM users WHERE instr(lower(name||' '||COALESCE(username,'')),lower(?))>0) OR id IN (SELECT mp.match_id FROM match_partners mp JOIN users u ON u.id=mp.user_id WHERE instr(lower(u.name||' '||COALESCE(u.username,'')),lower(?))>0) OR league_id IN (SELECT id FROM leagues WHERE instr(lower(name),lower(?))>0))";
+        for(int i=0;i<5;i++)args.push_back(search);
+    }
+    if(req.get_param_value("competition")=="friendly")sql+=" AND league_id IS NULL";
+    int limit=std::clamp(req.has_param("limit")?std::atoi(req.get_param_value("limit").c_str()):100,1,300);
+    int offset=std::max(0,std::atoi(req.get_param_value("offset").c_str()));
+    bool paged=req.get_param_value("paged")=="1";
+    json total=paged?query("SELECT COUNT(*)"+sql.substr(sql.find(" FROM matches")),args)[0][0]:json(nullptr);
+    sql += " ORDER BY played_at DESC,id DESC LIMIT "+std::to_string(limit)+" OFFSET "+std::to_string(offset);
     auto nm = userNames();
     Replay rp = replay(g);
     json out = json::array();
     for (auto& r : query(sql, args)) out.push_back(matchJson(r, nm, &rp));
-    reply(res, out);
+    if(paged)reply(res,{{"rows",out},{"total",total},{"offset",offset},{"limit",limit}});else reply(res,out);
 });
 svr.Get(R"(/api/matches/(\d+))", [](const httplib::Request& req, httplib::Response& res) {
     std::lock_guard<std::mutex> l(M);
@@ -274,6 +292,7 @@ svr.Get(R"(/api/matches/(\d+))", [](const httplib::Request& req, httplib::Respon
     Replay rp=replay(S(m[1]));
     json o = matchJson(m, userNames(), &rp);
     o["can_edit"] = u && canEditMatch(u, m);
+    o["can_delete"] = u && (canAdminGame(u,S(m[1])) || ((S(m[8])=="pending"||S(m[8])=="rejected") && m[10]==u.id));
     if (canAdminGame(u, S(m[1]))) {
         auto nm = userNames();
         json log = json::array();

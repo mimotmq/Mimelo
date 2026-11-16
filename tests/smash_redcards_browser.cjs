@@ -62,7 +62,7 @@ const {spawn}=require('node:child_process');
   await score(0,6,5);for(const side of ['a','b'])for(const slot of [0,1])await pick(0,side,slot,slot?'01':'04e');await stage(0,'T&C');await page.locator('#rsend').click();await page.locator('#mapp').waitFor();await page.locator('#mapp').click();await page.locator('#panel .tag.lock').waitFor();
   await tab('leagues');await page.getByRole('heading',{name:'Smash doubles cup'}).click();await page.locator('.bracket .smash-scorecard').waitFor();await noOverflow();
   for(const colorScheme of ['dark','light']){await page.emulateMedia({colorScheme});await tab('record');await noOverflow()}
-  await page.reload();await page.locator('.smash-scorecard').first().waitFor();assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);
+  await page.reload();await page.locator('#rsend').waitFor();await tab('matches');await page.locator('.smash-scorecard').first().waitFor();assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);
   console.log('PASS Chromium: EA FC 26/27 red cards submit/correct/approve/reload; Smash best-of 1/3/5 singles/doubles, roster/stage pickers, review/correction, ratings, partner profile, paired double-elimination fixture, desktop/mobile and light/dark');
  }finally{if(browser)await browser.close();server.kill();await new Promise(r=>server.once('exit',r));fs.rmSync(work,{recursive:true,force:true})}
 })().catch(e=>{console.error(e);process.exitCode=1});

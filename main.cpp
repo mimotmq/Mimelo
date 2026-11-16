@@ -179,11 +179,18 @@ static json defaultTheme(const std::string& scope) {
         auto r = query("SELECT name FROM games WHERE slug=?", {scope});
         if (!r.empty()) { title = r[0][0].get<std::string>(); tag = ""; }
     }
-    return {{"title", title}, {"tagline", tag},
+    json theme={{"title", title}, {"tagline", tag},
             {"light", {{"bg", "#f1f4ee"}, {"card", "#ffffff"}, {"ink", "#14231b"}, {"accent", "#1f6b45"}}},
             {"dark", {{"bg", "#0f1812"}, {"card", "#17221b"}, {"ink", "#e8efe9"}, {"accent", "#4fbf84"}}},
             {"headingFont", ""}, {"bodyFont", ""}, {"radius", 10},
             {"images", {{"logo", nullptr}, {"bgImage", nullptr}, {"faceWin", nullptr}, {"faceLoss", nullptr}, {"faceDraw", nullptr}}}};
+    auto palette=[&](const char* mode,const char* bg,const char* card,const char* ink,const char* accent){theme[mode]={{"bg",bg},{"card",card},{"ink",ink},{"accent",accent}};};
+    if(scope=="home"){palette("light","#f4f4f1","#ffffff","#232d4b","#232d4b");palette("dark","#101623","#182133","#f0f2f7","#aabde8");}
+    if(scope=="ea-fc-26"){palette("light","#f1f5fc","#ffffff","#172744","#1d5bdb");palette("dark","#10192b","#17233a","#f0f4fc","#80aaff");}
+    if(scope=="tennis"){palette("light","#f0f4f1","#ffffff","#14251c","#0f2f24");palette("dark","#07120d","#0f231a","#eef5f0","#a58adc");}
+    if(scope=="smash-ultimate"){palette("light","#f1f2f6","#ffffff","#1a2030","#c72d4e");palette("dark","#151521","#201f2d","#f4f0f2","#f04f70");}
+    if(scope=="table-tennis"){palette("light","#f4f3ed","#fffefa","#172638","#142b40");palette("dark","#101923","#1a2936","#f0f4f4","#ff7968");}
+    return theme;
 }
 static json loadTheme(const std::string& scope) {
     json t = defaultTheme(scope);
@@ -216,12 +223,13 @@ static std::string buildThemeCss(const std::string& scope) {
         return "--bg:" + s["bg"].get<std::string>() + ";--card:" + s["card"].get<std::string>() + ";--ink:" + s["ink"].get<std::string>() + ";--pitch:" + a +
                ";--onpitch:" + onColor(a) + ";--mute:color-mix(in srgb,var(--ink) 60%,var(--bg));--line:color-mix(in srgb,var(--ink) 14%,var(--bg));--chip:color-mix(in srgb,var(--ink) 8%,var(--bg));";
     };
-    css += ":root{" + vars(t["light"]) + "}\n@media (prefers-color-scheme:dark){:root{" + vars(t["dark"]) + "}}\n";
+    // Saved admin themes must override the page's built-in game palette.
+    css += ":root:root body{" + vars(t["light"]) + "}\n@media (prefers-color-scheme:dark){:root:root body{" + vars(t["dark"]) + "}}\n";
     int R = t["radius"];
-    css += ".card,.tbl,form.g{border-radius:" + std::to_string(R) + "px}select,input:not([type=checkbox]),textarea,button{border-radius:" + std::to_string(R > 4 ? R - 4 : R) + "px}\n";
+    css += ":root:root body :is(.card,.tbl,form.g,.book-panel,.book-stat,.profile-hero),:root:root #view .card{border-radius:" + std::to_string(R) + "px}:root:root body :is(select,input:not([type=checkbox]),textarea,button){border-radius:" + std::to_string(R > 4 ? R - 4 : R) + "px}\n";
     std::string bf = t["bodyFont"], hf = t["headingFont"], bg = mediaUrl(t["images"]["bgImage"]);
-    if (!bf.empty()) css += "body{font-family:\"" + bf + "\",system-ui,sans-serif}\n";
-    if (!hf.empty()) css += "h1,h2,h3{font-family:\"" + hf + "\",system-ui,sans-serif}\n";
+    if (!bf.empty()) css += ":root:root body{--font-body:\"" + bf + "\",system-ui,sans-serif;font-family:var(--font-body)}\n";
+    if (!hf.empty()) css += ":root:root body{--font-head:\"" + hf + "\",system-ui,sans-serif}:root:root body :is(h1,h2,h3){font-family:var(--font-head)}\n";
     if (!bg.empty()) css += "body{background-image:url(" + bg + ");background-size:cover;background-position:center;background-attachment:fixed}\n";
     return css;
 }
