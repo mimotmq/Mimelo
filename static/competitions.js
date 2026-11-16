@@ -13,7 +13,7 @@ function competitionExtras(l){window.__competition=l;const cfg=l.config||{};let 
   return html;
 }
 function wireCompetition(){const l=window.__competition;if(!l)return;bindOpen();
- $$('[data-brfx]').forEach(b=>b.onclick=()=>{const f=l.fixtures.find(x=>x.id===+b.dataset.brfx);go('record',{fixture:{...f,league:l.name}})});
+ $$('[data-brfx]').forEach(b=>b.onclick=()=>{const f=l.fixtures.find(x=>x.id===+b.dataset.brfx);go('record',{fixture:{...f,league:l.name,league_id:l.id}})});
  if($('#startKO'))$('#startKO').onclick=async()=>{try{await api(`leagues/${l.id}/advance`,{body:{}});render()}catch(e){say('#kom',e.message,1)}};
  if($('#resolveQualifiers'))$('#resolveQualifiers').onclick=async()=>{try{const selections={};$$('[data-qualifier-pool]').forEach(f=>selections[f.dataset.qualifierPool]=[...f.querySelectorAll('input:checked')].map(x=>Number(x.value)));await api(`leagues/${l.id}/advance`,{body:{selections}});await render()}catch(e){say('#qualifierMsg',e.message,1)}};
  if($('#cpreview')){

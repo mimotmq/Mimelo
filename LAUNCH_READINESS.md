@@ -10,12 +10,26 @@ This is the C++/SQLite application, ready to open as a folder in Cursor or anoth
 - Configurable groups/advancement, optional league playoffs, manual/pre-seeded/Elo/random seeding, single/double elimination, byes and conditional grand-final resets across all five games.
 - New draws qualify players automatically after all preliminary fixtures are approved. Tied qualifying places pause for an admin; recorded downstream results protect earlier winners against conflicting corrections.
 - Existing EA FC/Table Tennis competitions retain their previous qualification behavior. Create new draws to use the expanded options.
+- The server-backed game shell follows the Open Design reference structure: a game switcher, grouped navigation, live season overview, and competition detail tabs for standings, fixtures, bracket and rules. Counts, match activity, standings, and review items come from the application API rather than mockup samples.
+- Game, player, and competition layouts are responsive. Game-specific typefaces remain in place, with the reference typography used in shared areas.
+
+## Application source map
+
+| File | Responsibility |
+| --- | --- |
+| `static/game.html` | Shared app shell, game switcher, grouped game navigation, and live view container |
+| `static/game.js` | Game API, permissions, match actions, standings, results, and competition state |
+| `static/game-ui.js` | Reference-aligned overview, search, pagination, accessible navigation, and player directory |
+| `static/competitions.js` | Draw setup, seeding, qualification, bracket rendering, and competition actions |
+| `static/player.js` | Player profiles, Elo history, format selection, and match history |
+| `static/app.css` | Responsive app, profile, and competition layouts based on the mockup hierarchy |
+| `static/assets/fonts/` | Bundled app and game typefaces |
 
 Smash fighter stock icons and stage images remain optional artwork inputs; current controls identify fighters and stages by names/numbers. Map supplied local artwork in `static/kinds.js`. This does not prevent score recording or competition progression.
 
 ## Verification of this source
 
-Reverified on 2026-11-15: all suites below passed, including all three Chromium suites and syntax checks for 19 JavaScript files/inline scripts. Runtime file hashes matched the private backup after release staging.
+Reverified on 2026-11-15. The API and domain suites below passed on the release source. After the UI alignment changes, all four Chromium suites passed at desktop/mobile widths, including overflow, page-error, and failed-request checks. The JavaScript files changed in the UI pass passed `node --check`. Runtime hashes mentioned in the original release verification refer to the release staging step before these UI changes.
 
 A fresh optimized executable was built at `/tmp/mimelo-resume-check` using:
 
@@ -37,6 +51,7 @@ All three Chromium suites passed using `/home/drrev/my-playwright-tests/node_mod
 - `tests/competition_formats_browser.cjs`: EA FC 26/27 and Table Tennis double-elimination/group/playoff creation, pre-seeded entrants, approved qualification, tied-qualifier resolution and fixed-fixture entry at desktop/mobile widths.
 - `tests/tennis_browser.cjs`: singles/doubles best-of 1/3/5, tiebreaks, correction/resubmission, approval, ratings/reload, partner profiles, paired fixtures and dark/light layouts.
 - `tests/smash_redcards_browser.cjs`: both EA FC red-card workflows and Smash singles/doubles scoring, character/stage pickers, approval, ratings, profiles and paired double-elimination fixtures at desktop/mobile widths.
+- `tests/record_book_browser.cjs`: live overview metrics, match search/pagination and back navigation, profile charts/history, keyboard navigation, all five games, utility pages, and guest permissions.
 
 Each suite exited successfully with its page-error/request-failure and overflow assertions passing. The checked app is ready for a local trial and Cursor handoff; public deployment remains pending. These checks are functional regressions, not a load test or a guarantee about an unconfigured production host.
 

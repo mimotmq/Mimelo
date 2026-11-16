@@ -1,5 +1,5 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>mimELo</title><link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main style="max-width:560px">
-<header class="top"><div id="logo"></div><div><h1>My account</h1></div></header><nav id="nav"></nav>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>mimELo</title><link rel="stylesheet" href="/base.css"><link rel="stylesheet" href="/app.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body class="home-page utility-page"><a class="skip-link" href="#main">Skip to content</a><main class="utility-main">
+<header class="site-header"><div class="header-inner"><a class="brand" href="/" aria-label="mimELo home"><span class="crest-plate" id="logo"></span><span><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The group record book</span></span></a><nav id="nav" aria-label="Account navigation"></nav></div></header><div class="utility-content" id="main"><header class="utility-title"><h1>My account</h1></header>
 <section class="card"><h2>Details</h2><label for="n">Name</label><input type="text" id="n" maxlength="40">
  <label for="e">Email (optional)</label><input type="email" id="e"><p class="sub" id="un"></p>
  <button class="b" id="sv" type="button">Save</button> <a href="#" id="pub">View my player page</a><div class="msg" id="m1" role="status"></div></section>
@@ -8,7 +8,7 @@
  <label for="np">New password (8+ characters)</label><input type="password" id="np" autocomplete="new-password">
  <button class="b" id="pw" type="button">Change password</button><div class="msg" id="m2" role="status"></div>
  <p class="sub">Changing it signs you out of other devices.</p></section>
-<section class="card"><h2>My games</h2><div id="mg"><p class="empty">Games you play will show up here, with flairs you can set.</p></div></section></main>
+<section class="card"><h2>My games</h2><div id="mg"><p class="empty">Games you play will show up here, with flairs you can set.</p></div></section></div></main>
 <script>
 (async()=>{const {me}=await boot('home');if(!me){location.href='/login.html?next=/account.html';return}
  $('#n').value=me.name;$('#e').value=me.email;$('#un').textContent='Username: '+me.username;$('#pub').href='/player.html?id='+me.id;
@@ -16,7 +16,7 @@
  $('#pw').onclick=async()=>{try{await api('me/password',{body:{current:$('#cp').value,new:$('#np').value}});$('#cp').value=$('#np').value='';say('#m2','Password changed.')}catch(e){say('#m2',e.message,1)}};
 
  const gs=await api('me/games');
- if(gs.length)$('#mg').innerHTML=gs.map(g=>`<div style="margin-bottom:16px"><h3><a href="/game.html?g=${esc(g.slug)}">${esc(g.title)}</a> <small class="sub">${g.elo==null?'Unrated':g.elo+' Elo'}${g.kind==='tennis'?' singles · '+(g.doubles_elo==null?'Unrated':g.doubles_elo+' Elo')+' doubles':''} · ${g.record.w}W ${g.record.d}D ${g.record.l}L</small></h3>
+ if(gs.length)$('#mg').innerHTML=gs.map(g=>`<div style="margin-bottom:16px"><h3><a href="/game.html?g=${esc(g.slug)}">${esc(g.title)}</a> <small class="sub">${g.elo==null?'Unrated':g.elo+' Elo'}${['tennis','smash'].includes(g.kind)?' singles · '+(g.doubles_elo==null?'Unrated':g.doubles_elo+' Elo')+' doubles':''} · ${g.record.w}W ${g.record.d}D ${g.record.l}L</small></h3>
   ${g.flairs.length?g.flairs.map(f=>`<label for="fl${f.id}">${esc(f.label)}${g.kind==='tennis'&&f.label==='Nationality'?' (country code, e.g. US or GB)':''}</label><input type="text" id="fl${f.id}" data-g="${esc(g.slug)}" data-id="${f.id}" maxlength="40" value="${esc(f.value)}">`).join('')+`<button class="b" type="button" data-save="${esc(g.slug)}">Save flairs</button><div class="msg" id="fm-${esc(g.slug)}" role="status"></div>`:'<p class="sub">This game has no flairs set up.</p>'}</div>`).join('');
  $$('[data-save]').forEach(b=>b.onclick=async()=>{const s=b.dataset.save,values={};$$(`input[data-g="${s}"]`).forEach(i=>values[i.dataset.id]=i.value);
   try{await api(`games/${s}/flairs/me`,{body:{values}});say('#fm-'+s,'Saved.')}catch(e){say('#fm-'+s,e.message,1)}});

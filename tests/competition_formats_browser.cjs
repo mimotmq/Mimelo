@@ -31,14 +31,14 @@ const {spawn}=require('node:child_process');
     for(let i=0;i<4;i++){await page.locator(`[data-entrant="${ids[i]}"]`).check();await page.locator(`[data-seed="${ids[i]}"]`).fill(String(i+1))}
     if(format==='league')await page.locator('#cplayoffs').fill('2');
     if(format==='groups'){await page.locator('#cgroups').fill('2');await page.locator('#cadvance').fill('1')}
-    await page.locator('#cpreview').click();await page.locator('#cgenerate').waitFor();await noOverflow();await page.locator('#cgenerate').click();await page.getByText('Draw seeds · preseeded',{exact:false}).waitFor();
+    await page.locator('#cpreview').click();await page.locator('#cgenerate').waitFor();await noOverflow();await page.locator('#cgenerate').click();await page.locator('[data-competition-tab=bracket]').click();await page.getByText('Draw seeds · preseeded',{exact:false}).waitFor();
     const leagues=await api(`games/${slug}/leagues`),lid=leagues.find(l=>l.name===name).id;let league=await api(`leagues/${lid}`);
     assert.equal(league.config.elimination,'double');assert.equal(league.config.qualification_mode,'automatic');
     for(const f of league.fixtures){
      const body={p1:f.p1,p2:f.p2,fixture_id:f.id,...(slug==='table-tennis'?{best_of:1,games:[{a:11,b:8}]}:{team1:'Arsenal',team2:'Barcelona',s1:2,s2:0,red_cards1:1,red_cards2:0})};
      const m=await api(`games/${slug}/matches`,body);await api(`matches/${m.id}/approve`,{});
     }
-    await tab('leagues');await page.getByRole('heading',{name,exact:true}).click();await page.locator('.bracket').waitFor();await noOverflow();
+    await tab('leagues');await page.getByRole('heading',{name,exact:true}).click();await page.locator('[data-competition-tab=bracket]').click();await page.locator('.bracket').waitFor();await noOverflow();
     if(format!=='knockout')assert.equal((await api(`leagues/${lid}`)).bracket.entrants.length,2);
     await page.locator('[data-brfx]').first().click();await page.locator('#rsend').waitFor();assert(await page.locator('#f_p1').isDisabled());await noOverflow();
    }
@@ -52,9 +52,9 @@ const {spawn}=require('node:child_process');
    const m=await api('games/table-tennis/matches',{p1:f.p1,p2:f.p2,fixture_id:f.id,best_of:1,games:[{a:winner===f.p1?11:8,b:winner===f.p2?11:8}]});
    await api(`matches/${m.id}/approve`,{});
   }
-  await tab('leagues');await page.getByRole('heading',{name:'Tied qualification browser',exact:true}).click();
+  await tab('leagues');await page.getByRole('heading',{name:'Tied qualification browser',exact:true}).click();await page.locator('[data-competition-tab=bracket]').click();
   await page.locator('#resolveQualifiers').waitFor();await page.locator(`[data-qualifier-pool="1"] input[value="${a}"]`).check();await page.locator(`[data-qualifier-pool="1"] input[value="${c}"]`).check();
-  await page.locator('#resolveQualifiers').click();await page.locator('.bracket').waitFor();await noOverflow();
+  await page.locator('#resolveQualifiers').click();await page.locator('[data-competition-tab=bracket]').click();await page.locator('.bracket').waitFor();await noOverflow();
   assert.deepEqual((await api(`leagues/${tiedId}`)).bracket.entrants,[a,c]);
   assert(!(await page.locator('#view').innerText()).includes('Shoot-outs'),'Football copy leaked into Table Tennis');
   assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);

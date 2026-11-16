@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Settings</title>
-<link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink(qs('scope')||'home')</script></head><body><main>
-<header class="top"><div id="logo"></div><div><h1 id="hd">Settings</h1><p class="sub" id="sc"></p></div></header><nav id="nav"></nav>
+<link rel="stylesheet" href="/base.css"><link rel="stylesheet" href="/app.css"><script src="/common.js"></script><script>themeLink(qs('scope')||'home')</script></head><body class="home-page utility-page"><a class="skip-link" href="#main">Skip to content</a><main class="utility-main">
+<header class="site-header"><div class="header-inner"><a class="brand" href="/" aria-label="mimELo home"><span class="crest-plate" id="logo"></span><span><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The group record book</span></span></a><nav id="nav" aria-label="Account navigation"></nav></div></header><div class="utility-content" id="main"><header class="utility-title"><h1 id="hd">Settings</h1><p class="sub" id="sc"></p></header>
 <div id="body" hidden>
 <section class="card"><h2>Text</h2><label for="title">Title</label><input type="text" id="title" maxlength="60"><label for="tg">Tagline</label><input type="text" id="tg" maxlength="120"></section>
 <section class="card"><h2>Colours</h2><p class="sub" style="margin-top:0">Light mode</p>
@@ -19,7 +19,7 @@
 <section class="card" id="flsec" hidden><h2>Flairs</h2><p class="sub" style="margin-top:0">Extra info players can show on their profile for this game (for example <i>Favourite club</i>). One per line, up to 8.</p>
  <textarea id="flairTxt" rows="4" style="width:100%" aria-label="Flair names"></textarea><button class="alt" id="flairSave" type="button">Save flairs</button></section>
 <button class="b" id="save" type="button">Save</button> <button class="alt" id="reset" type="button">Reset to default</button><div class="msg" id="m1" role="status"></div>
-</div></main>
+</div></div></main>
 <script>
 const scope=qs('scope')||'home';let T,fonts=[],img={};
 const LABELS={logo:'Logo',bgImage:'Page background',faceWin:'Win face',faceLoss:'Loss face',faceDraw:'Draw / neutral face'};

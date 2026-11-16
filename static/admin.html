@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin</title>
-<link rel="stylesheet" href="/base.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body><main>
-<header class="top"><div id="logo"></div><div><h1>Main admin</h1><p class="sub">People, game admins and sign-ups</p></div></header><nav id="nav"></nav>
+<link rel="stylesheet" href="/base.css"><link rel="stylesheet" href="/app.css"><script src="/common.js"></script><script>themeLink('home')</script></head><body class="home-page utility-page"><a class="skip-link" href="#main">Skip to content</a><main class="utility-main">
+<header class="site-header"><div class="header-inner"><a class="brand" href="/" aria-label="mimELo home"><span class="crest-plate" id="logo"></span><span><span class="brand-word">mim<span>ELo</span></span><span class="brand-sub">The group record book</span></span></a><nav id="nav" aria-label="Account navigation"></nav></div></header><div class="utility-content" id="main"><header class="utility-title"><h1>Main admin</h1><p class="sub">People, game admins and sign-ups</p></header>
 
 <section class="card"><h2>Add a person</h2>
  <p class="sub" style="margin-top:0">Fill in a username and password to create a full account you can hand over. Leave both empty to make a <b>placeholder</b> instead: they get a claim code, and when they sign up with it, their history becomes theirs.</p>
@@ -13,7 +13,7 @@
 
 <section class="card"><h2>Sign-ups</h2><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="checkbox" id="so"> Let anyone create their own account</label>
  <p class="sub">Turn this off if you’d rather create every account yourself.</p><div class="msg" id="m4" role="status"></div></section>
-</main>
+</div></main>
 <script>
 let USERS=[],GAMES=[];
 const load=async()=>{[USERS,GAMES]=await Promise.all([api('users'),api('games')]);draw();

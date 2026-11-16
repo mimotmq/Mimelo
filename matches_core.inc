@@ -412,10 +412,15 @@ static json playerGames(long long uid, bool forEditing) {
         for(const auto& f:query("SELECT d.id,d.label,COALESCE(v.value,'') FROM flair_defs d LEFT JOIN flair_values v ON v.def_id=d.id AND v.user_id=? WHERE d.game=? ORDER BY d.sort,d.id",{uid,slug}))
             if(forEditing||!S(f[2]).empty())flairs.push_back({{"id",f[0]},{"label",f[1]},{"value",f[2]}});
         json records={{"singles",{{"w",0},{"d",0},{"l",0},{"gf",0},{"ga",0}}},{"doubles",{{"w",0},{"d",0},{"l",0},{"gf",0},{"ga",0}}}};
+        json timeline={{"singles",json::array()},{"doubles",json::array()}};int historyCount=0;
         for(const auto& row:query(std::string("SELECT ")+MCOLS+" FROM matches WHERE game=? AND (p1=? OR p2=? OR id IN (SELECT match_id FROM match_partners WHERE user_id=?)) ORDER BY played_at DESC,id DESC",{slug,uid,uid,uid})) {
             auto m=matchJson(row,nm,&rp);bool first=firstSide(m,uid);auto details=m["details"];
             if(!first&&m["delta"].is_number())m["delta"]=-m["delta"].get<double>();
             if(hist.size()<100)hist.push_back(m);
+            historyCount++;
+            std::string format=details.value("format",std::string("singles"))=="doubles"?"doubles":"singles";
+            auto& published=format=="doubles"?dp:rp;auto delta=published.delta.find(row[0].get<long long>());
+            if(delta!=published.delta.end())timeline[format].push_back({{"id",row[0]},{"played_at",row[9]},{"delta",(first?1:-1)*delta->second}});
             if(m["status"]!="approved")continue;
             auto& r=records[details.value("format",std::string("singles"))=="doubles"?"doubles":"singles"];
             int a=m[first?"s1":"s2"],b=m[first?"s2":"s1"];r["gf"]=r["gf"].get<int>()+a;r["ga"]=r["ga"].get<int>()+b;
@@ -423,7 +428,10 @@ static json playerGames(long long uid, bool forEditing) {
             auto k=a>b?"w":a==b?"d":"l";r[k]=r[k].get<int>()+1;
         }
         auto rating=[&](const Replay& r){auto it=r.st.find(uid);return it==r.st.end()?json(nullptr):json((int)std::lround(it->second.elo));};
-        out.push_back({{"slug",slug},{"kind",g[1]},{"title",loadTheme(slug)["title"]},{"flairs",flairs},{"elo",rating(rp)},{"doubles_elo",(S(g[1])=="tennis"||S(g[1])=="smash")?rating(dp):json(nullptr)},{"record",records["singles"]},{"records",records},{"history",hist}});
+        auto state=query("SELECT dirty FROM rating_state WHERE game=?",{slug});bool dirty=!state.empty()&&state[0][0].get<int>()!=0;
+        for(auto format:{"singles","doubles"}){auto& points=timeline[format];if(dirty){points=json::array();continue;}std::reverse(points.begin(),points.end());double elo=1000;for(auto& point:points){elo+=point["delta"].get<double>();point["elo"]=std::round(elo);}}
+        auto summary=[&](const Replay& r){auto it=r.st.find(uid);if(it==r.st.end())return json{{"rank",nullptr},{"peak",nullptr}};int rank=1;for(const auto& item:r.st)if(item.second.elo>it->second.elo)rank++;return json{{"rank",rank},{"peak",(int)std::lround(it->second.peak)}};};
+        out.push_back({{"slug",slug},{"kind",g[1]},{"title",loadTheme(slug)["title"]},{"flairs",flairs},{"elo",rating(rp)},{"doubles_elo",(S(g[1])=="tennis"||S(g[1])=="smash")?rating(dp):json(nullptr)},{"record",records["singles"]},{"records",records},{"history",hist},{"history_count",historyCount},{"rating_history",timeline},{"ratings_dirty",dirty},{"rating_stats",{{"singles",summary(rp)},{"doubles",summary(dp)}}}});
     }
     return out;
 }
