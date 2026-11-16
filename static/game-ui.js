@@ -9,13 +9,13 @@ const compactMatch=m=>`<div class="book-compact-score"><div><strong>${esc(tennis
 drawTabs=function(){
  const tabs=TABS();$('#tabs').hidden=false;
  const groups=[['The game',['overview','matches','rankings']],['Play',['leagues','record']],['Group',['players','review']]];
- $('#tabs').innerHTML=groups.map(([label,keys])=>{const items=keys.map(key=>tabs.find(([k])=>k===key)).filter(Boolean);return items.length?`<section class="side-group"><div class="side-label">${label}</div><nav class="side-nav">${items.map(([key,text])=>`<button class="side-link" role="tab" id="tab-${key}" aria-controls="view" data-t="${key}" tabindex="${key===tab?0:-1}" aria-selected="${key===tab}"><span class="nav-glyph" aria-hidden="true">${bookIcons[key]}</span>${text}</button>`).join('')}</nav></section>`:''}).join('');
+ $('#tabs').innerHTML=groups.map(([label,keys])=>{const items=keys.map(key=>tabs.find(([k])=>k===key)).filter(Boolean);return items.length?`<section class="side-group"><div class="side-label">${label}</div><nav class="side-nav">${items.map(([key,text])=>`<button type="button" class="side-link" role="tab" id="tab-${key}" aria-controls="view" data-t="${key}" tabindex="${key===tab?0:-1}" aria-selected="${key===tab}"><span class="nav-glyph" aria-hidden="true">${bookIcons[key]}</span>${text}${key==='review'&&counts.pending?`<span class="side-badge" aria-label="${counts.pending} pending">${counts.pending}</span>`:''}</button>`).join('')}${label==='Group'&&isAdmin()?`<a class="side-link" href="/settings.html?scope=${encodeURIComponent(slug)}"><span class="nav-glyph" aria-hidden="true">⚙</span>Game settings</a>`:''}</nav></section>`:''}).join('');
  $('#view').setAttribute('aria-labelledby','tab-'+tab);
  $$('#tabs button').forEach((button,index)=>{
   button.onclick=()=>go(button.dataset.t);
   button.onkeydown=e=>{let next=index;if(['ArrowDown','ArrowRight'].includes(e.key))next=(index+1)%tabs.length;else if(['ArrowUp','ArrowLeft'].includes(e.key))next=(index+tabs.length-1)%tabs.length;else if(e.key==='Home')next=0;else if(e.key==='End')next=tabs.length-1;else return;e.preventDefault();go(tabs[next][0]);$('#tab-'+tabs[next][0]).focus()};
  });
- $('#sidebar-settings').innerHTML=isAdmin()?`<a href="/settings.html?scope=${encodeURIComponent(slug)}">Game settings <span aria-hidden="true">↗</span></a>`:'';
+ $('#sidebar-settings').innerHTML='';
 };
 function navigateGame(view,state={},replace=false){
  tab=TABS().some(([key])=>key===view)?view:'overview';sub=state;
