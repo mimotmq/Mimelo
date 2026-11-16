@@ -43,7 +43,7 @@
       : resolve(),
   );
   app.ready = Promise.all([app.api("me"), app.api("games")]).then(
-    ([session, games]) => {
+    async ([session, games]) => {
       app.me = session.user;
       if (app.me)
         app.players.set(app.me.player_id, {
@@ -54,6 +54,8 @@
       app.games = games;
       app.game = games.find((g) => g.slug === slug) || games[0];
       app.slug = app.game.slug;
+      if (app.game.kind === "smash")
+        app.smashCatalog = await app.api("catalogs/smash");
       return app;
     },
   );

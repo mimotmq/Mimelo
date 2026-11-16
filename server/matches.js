@@ -2,6 +2,7 @@ import { admin, assert, json, audit, notify, integer } from "./db.js";
 import { validateScore, eloDelta } from "./scoring.js";
 import { getCompetition, locked, progress, entries } from "./competitions.js";
 import { organizer } from "./db.js";
+import { catalogImage, smashMedia } from "./catalog-images.js";
 export function members(db, id) {
   return db
     .prepare(
@@ -34,6 +35,8 @@ export function serializeMatch(db, m, user) {
     rules: json(m.rules),
     team_snapshot: m.team_snapshot ? json(m.team_snapshot) : null,
     participants: members(db, m.id),
+    smash_games:
+      json(m.rules).kind === "smash" ? smashMedia(db, json(m.score)) : [],
     teams:
       json(m.rules).kind === "fc"
         ? [json(m.score).teamA, json(m.score).teamB]
@@ -43,6 +46,10 @@ export function serializeMatch(db, m, user) {
                 .get(id),
             )
             .filter(Boolean)
+            .map((team) => ({
+              ...team,
+              image: catalogImage(db, m.game, "team", team.code),
+            }))
         : [],
     confirmations: db
       .prepare("SELECT side FROM confirmations WHERE match_id=? AND revision=?")

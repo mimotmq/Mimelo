@@ -33,6 +33,9 @@ export function openDb(path) {
  CREATE TABLE IF NOT EXISTS links(token TEXT PRIMARY KEY,kind TEXT NOT NULL,target INTEGER NOT NULL,issuer INTEGER NOT NULL REFERENCES accounts(id),expires INTEGER NOT NULL,used INTEGER NOT NULL DEFAULT 0);
  CREATE TABLE IF NOT EXISTS requests(id INTEGER PRIMARY KEY,kind TEXT NOT NULL,account_id INTEGER NOT NULL REFERENCES accounts(id),payload TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',created INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS teams(id INTEGER PRIMARY KEY,game TEXT NOT NULL REFERENCES games(slug),code TEXT NOT NULL,name TEXT NOT NULL,overall REAL CHECK(overall IS NULL OR overall BETWEEN 0 AND 100),nation TEXT NOT NULL DEFAULT '',league TEXT NOT NULL DEFAULT '',gender TEXT NOT NULL DEFAULT 'men',updated INTEGER NOT NULL,UNIQUE(game,code));
+ CREATE TABLE IF NOT EXISTS catalog_images(game TEXT NOT NULL REFERENCES games(slug),kind TEXT NOT NULL CHECK(kind IN ('team','fighter','stage')),key TEXT NOT NULL,image TEXT NOT NULL,updated INTEGER NOT NULL,PRIMARY KEY(game,kind,key));
+ CREATE TABLE IF NOT EXISTS team_badges(id INTEGER PRIMARY KEY,name TEXT NOT NULL,image TEXT NOT NULL UNIQUE,updated INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS team_badge_links(code TEXT NOT NULL,gender TEXT NOT NULL,badge_id INTEGER NOT NULL REFERENCES team_badges(id),PRIMARY KEY(code,gender));
  CREATE TABLE IF NOT EXISTS competitions(id INTEGER PRIMARY KEY,game TEXT NOT NULL REFERENCES games(slug),owner INTEGER NOT NULL REFERENCES accounts(id),name TEXT NOT NULL,kind TEXT NOT NULL,format TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'registration',enrollment TEXT NOT NULL,deadline INTEGER,settings TEXT NOT NULL,created INTEGER NOT NULL,champion INTEGER);
  CREATE INDEX IF NOT EXISTS competitions_game ON competitions(game,id);
  CREATE TABLE IF NOT EXISTS entrants(id INTEGER PRIMARY KEY,competition_id INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,seed INTEGER,withdrawn INTEGER NOT NULL DEFAULT 0);
@@ -57,6 +60,32 @@ export function openDb(path) {
  `);
   const insert = db.prepare("INSERT OR IGNORE INTO games VALUES(?,?,?,?,?)");
   for (const g of games) insert.run(...g, JSON.stringify(weights));
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=2").get()) return;
+    // Preserve old uploads in the library. If editions disagree, the newest
+    // upload becomes the shared default; all older badges remain selectable.
+    const legacy = db
+      .prepare(
+        `SELECT c.*,t.name,t.gender FROM catalog_images c
+      JOIN teams t ON t.game=c.game AND t.code=c.key
+      JOIN games g ON g.slug=t.game AND g.kind='fc'
+      WHERE c.kind='team' ORDER BY c.updated DESC,c.game DESC`,
+      )
+      .all();
+    for (const row of legacy) {
+      db.prepare(
+        "INSERT OR IGNORE INTO team_badges(name,image,updated) VALUES(?,?,?)",
+      ).run(row.name + " · " + row.gender, row.image, row.updated);
+      const badge = db
+        .prepare("SELECT id FROM team_badges WHERE image=?")
+        .get(row.image);
+      db.prepare(
+        "INSERT OR IGNORE INTO team_badge_links(code,gender,badge_id) VALUES(?,?,?)",
+      ).run(row.key, row.gender, badge.id);
+    }
+    db.prepare("DELETE FROM catalog_images WHERE kind='team'").run();
+    db.prepare("INSERT INTO migrations VALUES(2)").run();
+  })();
   return db;
 }
 export const json = (v, fallback = {}) => {

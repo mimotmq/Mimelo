@@ -8,6 +8,18 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(
   process.env.MIMELO_PLAYWRIGHT_MODULE || "@playwright/test",
 );
+async function choosePlayer(page, selector, id) {
+  const player = await page.evaluate((id) => APP.api("players/" + id), id);
+  const search = page.locator(selector + "-search");
+  await search.fill(player.name);
+  await page
+    .locator(selector + "-search-results")
+    .getByRole("option")
+    .filter({ hasText: player.name })
+    .click();
+  assert.equal(await page.locator(selector).inputValue(), String(id));
+}
+
 test("template screens and live workflows at desktop and mobile widths", async (t) => {
   const app = await createApp({ database: ":memory:" });
   t.after(() => app.close());
@@ -119,15 +131,27 @@ test("template screens and live workflows at desktop and mobile widths", async (
         "record",
         "review",
       ]) {
+        if (
+          (await page
+            .locator(".navigation-toggle")
+            .getAttribute("aria-expanded")) === "false"
+        )
+          await page.locator(".navigation-toggle").click();
         await page.locator(`.sidebar [data-view="${view}"]`).click();
+        assert.equal(
+          await page
+            .locator(".navigation-toggle")
+            .getAttribute("aria-expanded"),
+          String(width > 1024 && view !== "record"),
+        );
         await noOverflow();
       }
     }
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
   await visit("/game.html?game=tennis&view=record");
-  await page.locator("#field-p00").selectOption(String(admin.player_id));
-  await page.locator("#field-p10").selectOption(String(other.player_id));
+  await choosePlayer(page, "#field-p00", admin.player_id);
+  await choosePlayer(page, "#field-p10", other.player_id);
   await page.locator("#field-bestOf").selectOption("1");
   await page.locator("#field-score0a").fill("6");
   await page.locator("#field-score0b").fill("2");
@@ -254,8 +278,30 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     });
   });
   await visit("/game.html?game=eafc27&view=record");
-  await page.locator("#r-p1").selectOption(String(users[0].player_id));
-  await page.locator("#r-p2").selectOption(String(users[1].player_id));
+  await choosePlayer(page, "#r-p1", users[0].player_id);
+  assert.equal(await page.locator("#r-p2").isVisible(), false);
+  await page.locator("#r-p2-search").fill("Nobody matches this name");
+  await page
+    .locator("#r-p2-search-results")
+    .getByText("No matches found. Try another name.")
+    .waitFor();
+  assert.equal(await page.locator("#r-p2").inputValue(), "");
+  assert.equal(
+    await page.locator("#r-p2-search").evaluate((el) => el.validity.valid),
+    false,
+  );
+  await page.locator("#r-p2-search").fill("sportplayer1");
+  await page.locator("#r-p2-search-results [role=option]").waitFor();
+  await page.locator("#r-p2-search").press("ArrowDown");
+  await page.locator("#r-p2-search").press("Enter");
+  assert.equal(
+    await page.locator("#r-p2").inputValue(),
+    String(users[1].player_id),
+  );
+  assert.equal(
+    await page.locator("#r-p2-search").getAttribute("aria-expanded"),
+    "false",
+  );
   for (const side of [1, 2]) {
     await page.locator("#team-btn" + side).click();
     // Opening fetches the catalog before showing the dialog.
@@ -309,8 +355,35 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     /Alpha Club/,
   );
   await page.locator("#team-dialog .dialog-close").click();
-  await page.locator("#r-s1").fill("3");
-  await page.locator("#r-s2").fill("2");
+  await page.locator("#r-s1").fill("6");
+  await page.locator("#r-s2").fill("1");
+  assert.equal(
+    await page.locator("#record-fc-score").innerText(),
+    "Browser Player 0\nALP\n6 - 1\nBET\nBrowser Player 1",
+  );
+  await page.screenshot({
+    path: "artifacts/fc-record-mobile.png",
+    fullPage: true,
+  });
+  await page.locator(".navigation-toggle").click();
+  assert.equal(
+    await page.locator(".sidebar").getAttribute("aria-modal"),
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page.locator(".navigation-toggle").getAttribute("aria-expanded"),
+    "false",
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  assert.equal(
+    await page.locator(".navigation-toggle").getAttribute("aria-expanded"),
+    "false",
+  );
+  await page.screenshot({
+    path: "artifacts/fc-record-desktop.png",
+    fullPage: true,
+  });
   await page.waitForFunction(() =>
     document.querySelector("#sum-elo-note").textContent.includes("Estimate"),
   );
@@ -320,10 +393,32 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   assert.equal(
     app.db.prepare("SELECT a_score FROM matches WHERE game='eafc27'").get()
       .a_score,
-    3,
+    6,
   );
+  const scoreline = page.locator("dialog[open] .fc-scoreline");
+  assert.equal(await scoreline.locator(".score").innerText(), "6 - 1");
+  assert.equal(
+    (await page.locator("dialog[open]").innerText()).match(/6 - 1/g)?.length,
+    1,
+  );
+  assert.deepEqual(await scoreline.locator(":scope > *").allTextContents(), [
+    "Browser Player 0",
+    "ALP",
+    "6 - 1",
+    "BET",
+    "Browser Player 1",
+  ]);
+  await page.locator('dialog[open] [data-action="edit"]').click();
+  await page.waitForURL(/edit=/);
+  await ready();
+  assert.equal(
+    await page.locator("#r-p2-search").inputValue(),
+    "Browser Player 1",
+  );
+  assert.equal(await page.locator("#r-p2-search").isDisabled(), true);
+  await page.setViewportSize({ width: 390, height: 1000 });
   await visit("/game.html?game=tt&view=record");
-  await page.locator("#field-p10").selectOption(String(users[1].player_id));
+  await choosePlayer(page, "#field-p10", users[1].player_id);
   await page.locator("#field-bestOf").selectOption("1");
   await page.locator("#field-target").selectOption("21");
   await page.locator("#field-score0a").fill("23");
@@ -339,12 +434,14 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   );
   await visit("/game.html?game=smash&view=record");
   await page.locator("#field-record-format").selectOption("doubles");
-  await page.locator("#field-p01").waitFor();
+  await page.locator("#field-p01-search").waitFor();
   for (let side = 0; side < 2; side++)
     for (let i = 0; i < 2; i++)
-      await page
-        .locator(`#field-p${side}${i}`)
-        .selectOption(String(users[side * 2 + i].player_id));
+      await choosePlayer(
+        page,
+        `#field-p${side}${i}`,
+        users[side * 2 + i].player_id,
+      );
   await page.locator("#field-bestOf").selectOption("1");
   await page.locator("#field-score0a").fill("6");
   await page.locator("#field-score0b").fill("4");

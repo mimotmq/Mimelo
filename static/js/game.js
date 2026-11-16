@@ -303,6 +303,7 @@ APP.run(async () => {
       u.searchParams.set("view", view);
       history.pushState({}, "", u);
     }
+    UI.navigation?.(view);
     document.title = `${g.name} · ${view} · mimELo`;
     const fn = { overview, matches, rankings, competitions, players, review }[
       view
@@ -377,6 +378,14 @@ APP.run(async () => {
     }
     text("#record-title", editing ? "Correct result" : "Record a result");
     const setsGame = g.kind !== "fc";
+    if (!setsGame) {
+      const summary = $(".summary-match");
+      $$(".summary-club,.summary-score", summary).forEach((el) => el.remove());
+      $(".form-section-title", summary).insertAdjacentHTML(
+        "afterend",
+        '<div id="record-fc-score"></div>',
+      );
+    }
     const config = () =>
       fixed?.c.settings || {
         bestOf: Number($("#field-bestOf")?.value || editing?.score.bestOf || 3),
@@ -578,9 +587,13 @@ APP.run(async () => {
             ? APP.api(`players/${el.value}/last-team?game=${APP.slug}`)
             : null;
         setTeam(selected ? APP.teams.get(selected) : await lastTeam());
+        let teamRequest = 0;
         el.onchange = async () => {
+          const request = ++teamRequest;
           try {
-            setTeam(await lastTeam());
+            const team = await lastTeam();
+            if (request !== teamRequest) return;
+            setTeam(team);
             preview();
           } catch (e) {
             UI.toast(e.message);
@@ -741,6 +754,32 @@ APP.run(async () => {
           ? recordFormat
           : Number($("#r-s1").value) + "–" + Number($("#r-s2").value),
       );
+      if (!setsGame) {
+        $("#record-fc-score").innerHTML = UI.score({
+          participants: ss.flatMap((ids, side) =>
+            ids.map((id) => ({
+              side,
+              name: APP.players.get(id)?.name || "Choose player",
+            })),
+          ),
+          teams: [1, 2].map((n) =>
+            APP.teams.get(Number($("#r-club" + n).value)),
+          ),
+          score: {
+            aet: $("#r-aet").checked,
+            ...($("#r-pens").checked
+              ? {
+                  pens: [
+                    Number($("#r-pen1").value),
+                    Number($("#r-pen2").value),
+                  ],
+                }
+              : {}),
+          },
+          a_score: Number($("#r-s1").value),
+          b_score: Number($("#r-s2").value),
+        });
+      }
       text("#sum-elo", $("#r-elo").checked ? "Elo on" : "Elo off");
     }
     $$("input", form).forEach((e) => {
