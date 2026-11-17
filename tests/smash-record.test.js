@@ -75,6 +75,18 @@ test("Smash roster, inherited picks, sudden death, doubles and corrections on de
     const dialog = page.locator("dialog.smash-picker-dialog[open]");
     await dialog.locator("[data-entry]").first().waitFor();
     assert.equal(await dialog.locator("[data-entry]").count(), 86);
+    assert(
+      (await dialog.locator(".fighter-number").allTextContents()).every(
+        (number) => !number.includes("#"),
+      ),
+    );
+    assert(
+      await dialog
+        .locator(".fighter-number")
+        .first()
+        .evaluate((el) => parseFloat(getComputedStyle(el).fontSize) >= 38),
+      "Roster numbers are large background numerals.",
+    );
     if (width === 1440) {
       assert(
         await dialog

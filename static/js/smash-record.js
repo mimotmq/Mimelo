@@ -19,7 +19,7 @@ export function createSmashRecorder(form, { catalog, format, initial = [] }) {
   const stockLimit = () => perSide() * 3;
   const number = (fighter) =>
     fighter
-      ? `<small class="fighter-number" ${String(fighter.num).length > 3 ? "data-wide-number" : ""}>#${esc(fighter.num)}${fighter.echo ? "<sup>ε</sup>" : ""}</small>`
+      ? `<small class="fighter-number" ${String(fighter.num).length > 3 ? "data-wide-number" : ""}>${esc(fighter.num)}${fighter.echo ? "<sup>ε</sup>" : ""}</small>`
       : "";
   const lookup = (key, name) =>
     (key === "stage" ? catalog.stages : fighters).find((f) => f.name === name);

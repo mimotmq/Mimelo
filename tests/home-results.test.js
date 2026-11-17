@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
 
-test("homepage continuously loops recent results horizontally with transparent logos and accessible pauses", async (t) => {
+test("homepage loops overview scorecards with club crests, per-game fighters, watermarks and accessible pauses", async (t) => {
   const app = await createApp({ database: ":memory:" });
   t.after(() => app.close());
   const pw = await passwordHash("HomeResultsPassword!");
@@ -47,6 +47,12 @@ test("homepage continuously loops recent results horizontally with transparent l
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
   });
+  await page.route("**/test-crest/*.svg", (route) =>
+    route.fulfill({
+      contentType: "image/svg+xml",
+      body: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 56"><path fill="${route.request().url().includes("AAA") ? "#f5c747" : "#63c6e8"}" d="M4 4h40v30L24 52 4 34z"/></svg>`,
+    }),
+  );
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(base);
@@ -61,6 +67,16 @@ test("homepage continuously loops recent results horizontally with transparent l
       ["BBB", "Beta"],
     ])
       await call("POST", "/api/teams/" + game, { code, name, overall: 80 });
+  for (const code of ["AAA", "BBB"]) {
+    const badge = app.db
+      .prepare("INSERT INTO team_badges(name,image,updated) VALUES(?,?,?)")
+      .run(code, "/test-crest/" + code + ".svg", Date.now());
+    app.db
+      .prepare(
+        "INSERT INTO team_badge_links(code,gender,badge_id) VALUES(?,?,?)",
+      )
+      .run(code, "men", badge.lastInsertRowid);
+  }
   async function result(game, accepted = true) {
     let score;
     if (game.startsWith("eafc")) {
@@ -80,6 +96,13 @@ test("homepage continuously loops recent results horizontally with transparent l
           },
         ],
       };
+    if (game === "smash") {
+      score.bestOf = 3;
+      score.games.push(
+        { a: 1, b: 3, fighters: ["Luigi", "Samus"], stage: "Battlefield" },
+        { a: 3, b: 2, fighters: ["Kirby", "Fox"], stage: "Battlefield" },
+      );
+    }
     const match = await call("POST", "/api/games/" + game + "/matches", {
       format: "singles",
       sides: users.map((u) => [u.player_id]),
@@ -183,19 +206,79 @@ test("homepage continuously loops recent results horizontally with transparent l
       (await position()) < moving - 8,
       "Results move continuously from right to left on desktop and mobile.",
     );
+    const originals = page.locator(".recent-results-list:not([aria-hidden])");
     assert.equal(
-      await page
-        .locator(".recent-result-logo")
-        .first()
-        .evaluate((el) => getComputedStyle(el).backgroundColor),
-      "rgba(0, 0, 0, 0)",
+      await page.locator(".recent-result-logo").count(),
+      0,
+      "No standalone game logo beside scores.",
     );
     assert.equal(
-      await page
-        .locator(".recent-result-logo")
+      await originals.locator(".recent-result-watermark").count(),
+      5,
+    );
+    assert(
+      await originals
+        .locator(".recent-result-watermark")
         .first()
-        .evaluate((el) => getComputedStyle(el).padding),
-      "0px",
+        .evaluate(
+          (el) =>
+            el.alt === "" &&
+            getComputedStyle(el).position === "absolute" &&
+            Number(getComputedStyle(el).opacity) < 0.15,
+        ),
+    );
+    assert(!/\b(Singles|Doubles)\b/.test(await originals.innerText()));
+    const football = originals.locator('[data-game="eafc26"]');
+    assert.equal(
+      await football.locator(".fc-scoreline .catalog-stock-icon").count(),
+      2,
+    );
+    assert.equal(
+      await football.locator(".fc-scoreline .score").innerText(),
+      "2 - 1",
+    );
+    assert.match(
+      await football
+        .locator(".match-team-label")
+        .first()
+        .getAttribute("aria-label"),
+      /Alpha|Beta/,
+    );
+    const smash = originals.locator('[data-game="smash"]');
+    assert.equal(
+      await smash.locator(".match-fighter-icon").count(),
+      6,
+      "Show both fighters in every game.",
+    );
+    assert.deepEqual(
+      await smash
+        .locator(".match-fighter-icon")
+        .evaluateAll((icons) =>
+          icons.map((el) => el.getAttribute("aria-label")),
+        ),
+      [
+        "Home Player 0: Mario",
+        "Home Player 0: Luigi",
+        "Home Player 0: Kirby",
+        "Home Player 1: Link",
+        "Home Player 1: Samus",
+        "Home Player 1: Fox",
+      ],
+    );
+    assert.deepEqual(
+      await smash
+        .locator(".tennis-score-row:not(.tennis-score-head) .tennis-score-cell")
+        .allTextContents(),
+      ["3", "1", "3", "1", "3", "2"],
+    );
+    assert.deepEqual(
+      await smash.locator(".tennis-score-total").allTextContents(),
+      ["2", "1"],
+    );
+    assert.notEqual(
+      await football.evaluate((el) => getComputedStyle(el).backgroundImage),
+      await smash.evaluate((el) => getComputedStyle(el).backgroundImage),
+      "Games use different background hues.",
     );
     assert(
       await page

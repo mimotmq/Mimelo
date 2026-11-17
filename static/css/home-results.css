@@ -69,9 +69,22 @@
   list-style: none;
 }
 .recent-result {
-  flex: 0 0 350px;
-  width: 350px;
-  border-left: 1px solid rgb(255 255 255 / 0.12);
+  --recent-tint: #25364c;
+  --recent-highlight: 3%;
+  --ink: var(--on-navy);
+  --ink-2: var(--on-navy);
+  --muted: var(--on-navy-muted);
+  --line: rgb(255 255 255 / 0.14);
+  flex: 0 0 410px;
+  width: 410px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--recent-tint), white var(--recent-highlight)),
+    var(--recent-tint)
+  );
 }
 .is-browsing-results .recent-results-viewport {
   overflow-x: auto;
@@ -98,69 +111,130 @@
     display: none;
   }
 }
+.recent-result[data-game="eafc27"] {
+  --recent-tint: #153b31;
+}
+.recent-result[data-game="eafc26"] {
+  --recent-tint: #19374f;
+}
+.recent-result[data-game="smash"] {
+  --recent-tint: #3d2947;
+}
+.recent-result[data-game="tennis"] {
+  --recent-tint: #21413f;
+}
+.recent-result[data-game="tt"] {
+  --recent-tint: #30344d;
+}
+.recent-result:nth-child(even) {
+  --recent-highlight: 9%;
+}
 .recent-result a {
-  display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 20px;
-  align-items: center;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   gap: 12px;
-  padding: 12px 8px;
+  height: 100%;
+  padding: 14px 16px;
   color: var(--on-navy);
   text-decoration: none;
-  border-radius: var(--radius-sm);
 }
 .recent-result a:hover {
-  background: rgb(255 255 255 / 0.055);
+  background: rgb(255 255 255 / 0.035);
 }
-.recent-result-logo {
-  width: 40px;
-  height: 40px;
+.recent-result-watermark {
+  position: absolute;
+  z-index: -1;
+  right: -12px;
+  top: 5%;
+  width: 75%;
+  height: 100%;
   object-fit: contain;
-}
-.recent-result-copy {
-  min-width: 0;
+  opacity: 0.075;
+  transform: rotate(-8deg) scale(1.15);
+  pointer-events: none;
 }
 .recent-result-meta {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 12px;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--on-navy-muted);
-  font-size: 0.66rem;
+  font-size: 0.65rem;
 }
 .recent-result-meta b {
   font-weight: 500;
 }
 .recent-result-meta time {
-  margin-left: auto;
+  flex: none;
   white-space: nowrap;
 }
 .recent-result-score {
+  min-width: 0;
+  width: 100%;
+  margin-block: auto;
+}
+.recent-result .fc-scoreline {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  margin-top: 3px;
-  font-size: 0.86rem;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) 28px auto 28px minmax(0, 1fr);
+  gap: 7px;
+  font-size: 0.8rem;
 }
-.recent-result-score > span {
-  overflow-wrap: anywhere;
-}
-.recent-result-score > span:first-child {
-  text-align: right;
-}
-.recent-result-score strong {
+.recent-result .fc-scoreline .score {
   font-family: var(--font-mono);
   font-size: 1.05rem;
-  white-space: nowrap;
+  font-weight: 700;
 }
-.recent-result-copy > small {
-  display: block;
-  margin-top: 3px;
-  color: var(--on-navy-muted);
+.recent-result .fc-scoreline .catalog-stock-icon {
+  width: 28px;
+  height: 28px;
+}
+.recent-result .fc-scoreline .catalog-image-fallback {
+  min-width: 0;
+  width: 28px;
+  font-size: 0.6rem;
+}
+.recent-result .tennis-scoreboard,
+.recent-result .smash-scoreboard {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.78rem;
+}
+.recent-result .tennis-score-row {
+  grid-template-columns:
+    minmax(0, 1.7fr) repeat(var(--tennis-set-count), minmax(0, 0.5fr))
+    28px !important;
+  gap: 5px;
+  min-height: 33px;
+}
+.recent-result .tennis-score-head {
+  min-height: 20px;
+}
+.recent-result .tennis-score-player,
+.recent-result .tennis-score-player > span:last-child {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.recent-result .match-stock-icons .catalog-stock-icon {
+  width: 20px;
+  height: 20px;
+}
+.recent-result .match-score-detail,
+.recent-result-competition {
   font-size: 0.65rem;
-}
-.recent-result-arrow {
   color: var(--on-navy-muted);
+}
+.recent-result-competition {
+  display: block;
+  margin-top: auto;
 }
 .recent-results-empty {
   color: var(--on-navy-muted);
@@ -175,29 +249,25 @@
     gap: 8px;
   }
   .recent-result {
-    flex-basis: 290px;
-    width: 290px;
+    flex-basis: 330px;
+    width: 330px;
   }
   .recent-result a {
-    grid-template-columns: 30px minmax(0, 1fr);
-    gap: 8px;
-    padding: 12px 3px;
+    padding: 12px;
   }
-  .recent-result-logo {
-    width: 30px;
-    height: 30px;
+  .recent-result .fc-scoreline {
+    gap: 5px;
+    font-size: 0.74rem;
   }
-  .recent-result-arrow {
-    display: none;
+  .recent-result .tennis-score-row {
+    font-size: 0.74rem;
+    gap: 3px;
   }
-  .recent-result-meta time {
-    margin-left: 0;
+  .recent-result .tennis-score-head {
+    font-size: 0.58rem;
   }
-  .recent-result-score {
-    gap: 8px;
-    font-size: 0.76rem;
-  }
-  .recent-result-score strong {
-    font-size: 0.9rem;
+  .recent-result .match-stock-icons .catalog-stock-icon {
+    width: 17px;
+    height: 17px;
   }
 }

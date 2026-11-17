@@ -330,13 +330,13 @@ dialog.smash-stage-dialog {
 .smash-roster-tile .fighter-number {
   position: absolute;
   z-index: 0;
-  inset: 5px 3px auto;
-  height: 44px;
+  inset: 0 1px auto;
+  height: 58px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-condensed);
-  font-size: clamp(1.2rem, 2.2vw, 2rem);
+  font-size: clamp(2.4rem, 4.4vw, 3.8rem);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -345,7 +345,7 @@ dialog.smash-stage-dialog {
   pointer-events: none;
 }
 .smash-roster-tile .fighter-number[data-wide-number] {
-  font-size: clamp(0.85rem, 1.5vw, 1.35rem);
+  font-size: clamp(1.5rem, 2.8vw, 2.5rem);
 }
 .smash-roster-tile .fighter-number sup {
   position: relative;
