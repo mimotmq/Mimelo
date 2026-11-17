@@ -53,6 +53,7 @@ export function openDb(path) {
  CREATE TABLE IF NOT EXISTS revisions(match_id INTEGER NOT NULL REFERENCES matches(id),revision INTEGER NOT NULL,payload TEXT NOT NULL,actor INTEGER NOT NULL REFERENCES accounts(id),created INTEGER NOT NULL,PRIMARY KEY(match_id,revision));
  CREATE TABLE IF NOT EXISTS ratings(game TEXT NOT NULL REFERENCES games(slug),format TEXT NOT NULL,player_id INTEGER NOT NULL REFERENCES players(id),elo REAL NOT NULL,peak REAL NOT NULL,PRIMARY KEY(game,format,player_id));
  CREATE TABLE IF NOT EXISTS ledger(match_id INTEGER NOT NULL REFERENCES matches(id),player_id INTEGER NOT NULL REFERENCES players(id),revision INTEGER NOT NULL,before REAL NOT NULL,delta REAL NOT NULL,after REAL NOT NULL,PRIMARY KEY(match_id,player_id));
+ CREATE INDEX IF NOT EXISTS ledger_player ON ledger(player_id,match_id);
  CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY,account_id INTEGER NOT NULL REFERENCES accounts(id),kind TEXT NOT NULL,message TEXT NOT NULL,href TEXT NOT NULL,created INTEGER NOT NULL,seen INTEGER NOT NULL DEFAULT 0);
  CREATE INDEX IF NOT EXISTS notifications_account ON notifications(account_id,seen,id);
  CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,actor INTEGER REFERENCES accounts(id),action TEXT NOT NULL,subject TEXT NOT NULL,detail TEXT NOT NULL,created INTEGER NOT NULL);

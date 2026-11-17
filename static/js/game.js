@@ -19,12 +19,12 @@ APP.run(async () => {
     `${g.name}: independent ratings, competitions, and match records.`,
   );
   text("#overview-table-title", "Elo rankings");
-  text("#overview-table-sub", "Published after admin checkoff");
+  text("#overview-table-sub", "? = provisional until 8 rated matches");
   text("#stat-leader-foot", "Singles Elo leader");
   text("#stat-leader .label", "Rating leader");
   text(
     "#rankings-title + .sub",
-    "Continuous ratings, with separate singles and doubles records where supported.",
+    "Continuous ratings. ? = provisional until 8 rated matches in this game and format.",
   );
   text(
     "[data-view-panel=matches] .page-head .sub",
@@ -100,12 +100,12 @@ APP.run(async () => {
     text("#stat-leader", s.leader?.name || "—");
     text(
       "#stat-leader-foot",
-      s.leader ? UI.rating(s.leader.elo) + " Elo" : "No rated matches yet",
+      s.leader ? UI.elo(s.leader) + " Elo" : "No rated matches yet",
     );
-    text("#stat-matches-foot", `${s.accepted || 0} accepted results`);
+    text("#stat-matches-foot", UI.count(s.accepted || 0, "accepted result"));
     text(
       "#stat-pending-foot",
-      `${s.pending || 0} results · ${s.elo_pending || 0} Elo checkoffs`,
+      `${UI.count(s.pending || 0, "result")} · ${UI.count(s.elo_pending || 0, "Elo checkoff")}`,
     );
     text("#review-badge", (s.pending || 0) + (s.elo_pending || 0));
     const table = $("#overview-table").closest("table");
@@ -115,7 +115,7 @@ APP.run(async () => {
       r.rows
         .map(
           (p) =>
-            `<tr><td>${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num">${UI.rating(p.elo)}</td><td>${p.w || 0}</td><td>${p.l || 0}</td></tr>`,
+            `<tr><td>${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num">${UI.elo(p)}</td><td>${p.w || 0}</td><td>${p.l || 0}</td></tr>`,
         )
         .join("") ||
       '<tr><td colspan="5">The first Elo checkoff starts the rankings.</td></tr>';
@@ -140,6 +140,7 @@ APP.run(async () => {
       `matches?game=${APP.slug}&offset=${offset}&status=${matchStatus}&q=${encodeURIComponent($("#match-search").value)}`,
     );
     $("#matches-body").innerHTML = matchRows(result.rows);
+    UI.matchTable($("#matches-body").closest("table"));
     UI.pager($("[data-view-panel=matches]"), result, matches);
     bindMatches();
   }
@@ -183,7 +184,7 @@ APP.run(async () => {
       result.rows
         .map(
           (p) =>
-            `<tr><td>${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num">${UI.rating(p.elo)}</td><td>${UI.rating(p.peak)}</td><td>${p.w || 0}</td><td>${p.d || 0}</td><td>${p.l || 0}</td></tr>`,
+            `<tr><td>${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num">${UI.elo(p)}</td><td>${UI.elo(p, p.peak)}</td><td>${p.w || 0}</td><td>${p.d || 0}</td><td>${p.l || 0}</td></tr>`,
         )
         .join("") ||
       '<tr><td colspan="7">No rated results in this format yet.</td></tr>';
@@ -240,7 +241,7 @@ APP.run(async () => {
       result.rows
         .map(
           (c) =>
-            `<a class="competition-card panel" href="${APP.url("competition", { id: c.id })}"><div class="panel-body"><div class="tag-row"><span class="chip">${esc(c.kind)}</span><span class="status status-live">${esc(c.state)}</span><span class="chip">${esc(c.format)}</span></div><h2 style="margin:16px 0">${esc(c.name)}</h2><p class="sub">${c.entry_count} entries · ${c.played} of ${c.fixture_count} fixtures accepted</p><span class="link-arrow">Open competition ${UI.icon("arrow", 16)}</span></div></a>`,
+            `<a class="competition-card panel" href="${APP.url("competition", { id: c.id })}"><div class="panel-body"><div class="tag-row"><span class="chip">${esc(c.kind)}</span><span class="status status-live">${esc(c.state)}</span><span class="chip">${esc(c.format)}</span></div><h2 style="margin:16px 0">${esc(c.name)}</h2><p class="sub">${UI.count(c.entry_count, "entry", "entries")} · ${c.played} of ${UI.count(c.fixture_count, "fixture")} accepted</p><span class="link-arrow">Open competition ${UI.icon("arrow", 16)}</span></div></a>`,
         )
         .join("") || UI.empty("No competitions yet. Create the first one.");
     UI.pager($("[data-view-panel=competitions]"), result, competitions);
@@ -256,7 +257,7 @@ APP.run(async () => {
     $("#players-body").innerHTML = result.rows
       .map(
         (p) =>
-          `<tr><td>${UI.playerLink(p)}</td><td>${esc(p.handle ? "@" + p.handle : "Fill-in")}</td><td>${UI.rating(p.ratings.find((r) => r.game === APP.slug && r.format === "singles")?.elo)}</td><td><a class="panel-link" href="${APP.url("player", { player: p.id })}">View</a></td></tr>`,
+          `<tr><td>${UI.playerLink(p)}</td><td>${esc(p.handle ? "@" + p.handle : "Fill-in")}</td><td>${UI.elo(p.ratings.find((r) => r.game === APP.slug && r.format === "singles"))}</td><td><a class="panel-link" href="${APP.url("player", { player: p.id })}">View</a></td></tr>`,
       )
       .join("");
     UI.pager($("[data-view-panel=players]"), result, players);
@@ -273,7 +274,10 @@ APP.run(async () => {
       APP.api(`matches?game=${APP.slug}&status=submitted&offset=${offset}`),
       APP.api(`matches?game=${APP.slug}&status=elo&offset=${offset}`),
     ]);
-    text("#review-count", `${pending.total} results · ${elo.total} Elo`);
+    text(
+      "#review-count",
+      `${UI.count(pending.total, "result")} · ${elo.total} Elo`,
+    );
     for (const [id, result, title] of [
       ["#review-body", pending, "Pending result acceptance"],
       ["#locked-body", elo, "Accepted · awaiting Elo"],
@@ -282,6 +286,7 @@ APP.run(async () => {
       $("thead", b.closest("table")).innerHTML =
         "<tr><th>Submitted</th><th>Match</th><th>Competition</th><th>Elo</th><th>Status</th><th>Action</th></tr>";
       b.innerHTML = matchRows(result.rows);
+      UI.matchTable(b.closest("table"));
       $(".panel-head h2", b.closest(".panel")).textContent = title;
       UI.pager(b.closest(".panel"), result, review);
     }
@@ -304,6 +309,7 @@ APP.run(async () => {
       history.pushState({}, "", u);
     }
     UI.navigation?.(view);
+    UI.gameIdentity?.(view);
     document.title = `${g.name} · ${view} · mimELo`;
     const fn = { overview, matches, rankings, competitions, players, review }[
       view
@@ -453,7 +459,7 @@ APP.run(async () => {
             "bestOf",
             opts.map((n) => [
               n,
-              n + (g.kind === "tennis" ? " sets" : " games"),
+              UI.count(n, g.kind === "tennis" ? "set" : "game"),
             ]),
             s.bestOf || 3,
           ) +
@@ -614,8 +620,8 @@ APP.run(async () => {
     text(
       ".elo-projection-head span:last-child",
       g.kind === "fc"
-        ? "K 24 · team overall included"
-        : "K 24 · margin included",
+        ? "Adaptive K · team overall included"
+        : "Adaptive K · margin included",
     );
     $$(".summary-meta > div")
       .filter((e) => /Season/.test(e.textContent))
@@ -714,7 +720,7 @@ APP.run(async () => {
         }
         text(
           "#sum-elo-note",
-          `Estimate at current ratings · ${result.weight}× weight. Admin checkoff applies Elo in submission order.`,
+          `Estimate · K ${UI.rating(result.k)} · ${result.weight}× weight. Admin checkoff applies Elo in submission order.`,
         );
       } catch (e) {
         if (version !== projectionVersion) return;

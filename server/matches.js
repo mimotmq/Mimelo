@@ -1,7 +1,8 @@
 import { admin, assert, json, audit, notify, integer } from "./db.js";
-import { validateScore, eloDelta } from "./scoring.js";
+import { validateScore, eloDelta, ratingK } from "./scoring.js";
 import { getCompetition, locked, progress, entries } from "./competitions.js";
 import { organizer } from "./db.js";
+import { ratingProgress, ESTABLISHED_MATCHES } from "./ratings.js";
 import { catalogImage, smashMedia } from "./catalog-images.js";
 export function members(db, id) {
   return db
@@ -59,7 +60,16 @@ export function serializeMatch(db, m, user) {
       .prepare(
         "SELECT player_id,before,delta,after FROM ledger WHERE match_id=?",
       )
-      .all(m.id),
+      .all(m.id)
+      .map((l) => {
+        const progress = ratingProgress(db, m.game, m.format, l.player_id, m);
+        return {
+          ...l,
+          ...progress,
+          provisional_before: progress.rated_matches - 1 < ESTABLISHED_MATCHES,
+          k_before: ratingK(progress.rated_matches - 1),
+        };
+      }),
     competition_name: c?.name || null,
     locked: isLocked,
     permissions: {
@@ -132,6 +142,7 @@ export function rebuild(db, game, format) {
     "DELETE FROM ledger WHERE match_id IN(SELECT id FROM matches WHERE game=? AND format=?)",
   ).run(game, format);
   db.prepare("DELETE FROM ratings WHERE game=? AND format=?").run(game, format);
+  const counts = new Map();
   const rating = (id) =>
     db
       .prepare(
@@ -164,6 +175,8 @@ export function rebuild(db, game, format) {
         sc.margin,
         r.weight,
         snapshot(db, m),
+        ps.reduce((sum, p) => sum + ratingK(counts.get(p.id) || 0), 0) /
+          ps.length,
       );
       for (const p of ps) {
         const before = rating(p.id),
@@ -180,6 +193,7 @@ export function rebuild(db, game, format) {
         db.prepare(
           "INSERT INTO ratings VALUES(?,?,?,?,?) ON CONFLICT(game,format,player_id) DO UPDATE SET elo=excluded.elo,peak=excluded.peak",
         ).run(game, format, p.id, after, Math.max(before.peak, after));
+        counts.set(p.id, (counts.get(p.id) || 0) + 1);
       }
     }
   }
@@ -378,6 +392,7 @@ export function preview(db, game, body, user) {
   const ratings = sides.map((ps) =>
     ps.map((id) => ({
       id,
+      ...ratingProgress(db, game, format, id),
       elo:
         db
           .prepare(
@@ -399,6 +414,8 @@ export function preview(db, game, body, user) {
         "Team overall missing. An admin must supply it before Elo checkoff.",
     };
   const avg = (side) => side.reduce((sum, p) => sum + p.elo, 0) / side.length;
+  const participants = ratings.flat();
+  const k = participants.reduce((sum, p) => sum + p.k, 0) / participants.length;
   const delta =
     body.elo_enabled === false
       ? 0
@@ -409,8 +426,10 @@ export function preview(db, game, body, user) {
           sc.margin,
           rules.weight,
           overalls,
+          k,
         );
   return {
+    k,
     a: sc.a,
     b: sc.b,
     weight: rules.weight,
@@ -671,4 +690,19 @@ export function forfeit(db, fixtureId, winnerEntry, user) {
   resultProgress(db, getMatch(db, id));
   audit(db, user, "fixture.forfeit", f.id, { winnerEntry });
   return serializeMatch(db, getMatch(db, id), user);
+}
+
+// Reprice existing checked-off matches once when the adaptive K policy ships.
+// Runs atomically and preserves approvals, submission order, and team snapshots.
+export function upgradeRatings(db) {
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=3").get()) return;
+    const pools = db
+      .prepare(
+        "SELECT DISTINCT game,format FROM matches WHERE elo_checked IS NOT NULL",
+      )
+      .all();
+    for (const pool of pools) rebuild(db, pool.game, pool.format);
+    db.prepare("INSERT INTO migrations VALUES(3)").run();
+  })();
 }

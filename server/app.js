@@ -8,6 +8,7 @@ import { mkdirSync } from "node:fs";
 import sharp from "sharp";
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
+import { ratedRating, ratingProgress } from "./ratings.js";
 import { registerCatalogImages } from "./catalog-images.js";
 import {
   openDb,
@@ -57,6 +58,7 @@ import {
   getMatch,
   serializeMatch,
   rebuild,
+  upgradeRatings,
   members,
   preview,
 } from "./matches.js";
@@ -69,6 +71,7 @@ export async function createApp(options = {}) {
         process.env.MIMELO_DATABASE ||
         join(root, ".runtime/book.sqlite"),
     );
+  upgradeRatings(db);
   const uploads = options.uploads || join(root, ".runtime/uploads");
   mkdirSync(uploads, { recursive: true });
   const app = Fastify({
@@ -487,7 +490,8 @@ export async function createApp(options = {}) {
           profile: json(p.profile),
           ratings: db
             .prepare("SELECT * FROM ratings WHERE player_id=?")
-            .all(p.id),
+            .all(p.id)
+            .map((r) => ratedRating(db, r)),
         })),
     };
   }
@@ -538,7 +542,13 @@ export async function createApp(options = {}) {
             )
             .all(id, g.slug, id)
         : [];
-    return { rank, ...record, history, teams };
+    return {
+      rank,
+      ...record,
+      history,
+      teams,
+      ...ratingProgress(db, g.slug, format, id),
+    };
   });
   app.get("/api/players/:id", async (req) => {
     const id = integer(req.params.id, 1),
@@ -553,7 +563,10 @@ export async function createApp(options = {}) {
     return {
       ...p,
       profile: json(p.profile),
-      ratings: db.prepare("SELECT * FROM ratings WHERE player_id=?").all(id),
+      ratings: db
+        .prepare("SELECT * FROM ratings WHERE player_id=?")
+        .all(id)
+        .map((r) => ratedRating(db, r)),
       history: db
         .prepare(
           "SELECT l.*,m.game,m.format,m.submitted FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? ORDER BY m.submitted DESC,m.id DESC LIMIT 200",
@@ -1281,7 +1294,7 @@ export async function createApp(options = {}) {
       )
       .all(g, f, limit, offset)
       .map((r, i) => ({
-        ...r,
+        ...ratedRating(db, r),
         rank: offset + i + 1,
         ...db
           .prepare(
@@ -1307,10 +1320,10 @@ export async function createApp(options = {}) {
     const leader =
       db
         .prepare(
-          "SELECT r.elo,p.name,r.player_id FROM ratings r JOIN players p ON p.id=r.player_id WHERE r.game=? AND r.format='singles' ORDER BY r.elo DESC LIMIT 1",
+          "SELECT r.*,p.name FROM ratings r JOIN players p ON p.id=r.player_id WHERE r.game=? AND r.format='singles' ORDER BY r.elo DESC LIMIT 1",
         )
         .get(g) || null;
-    return { ...stats, players, leader };
+    return { ...stats, players, leader: ratedRating(db, leader) };
   });
   app.get("/api/notifications", async (req) => {
     const u = signed(req),

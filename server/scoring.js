@@ -188,10 +188,13 @@ export function validateScore(kind, format, input, knockout = false) {
   s.note = String(s.note || "").slice(0, 1000);
   return { score: s, a, b, winner, outcome, margin };
 }
-export function eloDelta(a, b, outcome, margin, weight, overalls) {
+// ratedMatches is the number completed before the match being calculated.
+export function ratingK(ratedMatches) {
+  const completed = Math.max(0, Math.min(44, ratedMatches));
+  return 24 + 100 * (1 - Math.log1p(completed) / Math.log(45));
+}
+export function eloDelta(a, b, outcome, margin, weight, overalls, k = 24) {
   const strength = overalls ? (overalls[0] - overalls[1]) * 20 : 0;
   const expected = 1 / (1 + 10 ** ((b - a - strength) / 400));
-  return (
-    Math.round(24 * weight * margin * (outcome - expected) * 10000) / 10000
-  );
+  return Math.round(k * weight * margin * (outcome - expected) * 10000) / 10000;
 }

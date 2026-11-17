@@ -166,6 +166,22 @@ test("template screens and live workflows at desktop and mobile widths", async (
   await page.locator("dialog[open] [data-action=elo]").click();
   await page.locator("dialog[open]").waitFor({ state: "detached" });
   assert.equal(app.db.prepare("SELECT COUNT(*) n FROM ratings").get().n, 2);
+  await visit("/player.html?game=tennis&player=" + admin.player_id);
+  assert.match(await page.locator("[data-player-elo]").innerText(), /\?$/);
+  assert.equal(
+    await page.locator(".player-elo .label").textContent(),
+    "Provisional · 1 of 8 rated matches",
+  );
+  assert.equal(await page.locator("#match-count").innerText(), "1 match");
+  await visit("/game.html?game=tennis&view=rankings");
+  assert.match(await page.locator("#elo-body .num").first().innerText(), /\?$/);
+  assert.equal(
+    await page.evaluate(() =>
+      UI.elo({ elo: 1200, provisional: false }).endsWith("?"),
+    ),
+    false,
+  );
+
   await visit("/game.html?game=tennis&view=competitions");
   await page.locator("#comp-new").click();
   await page.locator("#comp-name").fill("Browser Cup");
@@ -475,5 +491,177 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     await page.locator(".home-players,.result-line,.auth-board").count(),
     0,
   );
+  assert.deepEqual(errors, []);
+});
+
+test("long EAFC names stay readable in mobile match cards and dialogs", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  await app.listen({ port: 0, host: "127.0.0.1" });
+  const base = "http://127.0.0.1:" + app.server.address().port;
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  const match = {
+    id: 99,
+    game: "eafc27",
+    submitted: Date.now(),
+    status: "accepted",
+    a_score: 6,
+    b_score: 1,
+    score: { a: 6, b: 1 },
+    participants: [
+      { id: 1, side: 0, name: "Bashar Fakhreddin" },
+      { id: 2, side: 1, name: "Mimo" },
+    ],
+    teams: [
+      { name: "Hull City", code: "HUL" },
+      { name: "Aston Villa", code: "AVL" },
+    ],
+    elo_enabled: true,
+    elo_checked: true,
+    ledger: [],
+    permissions: {},
+  };
+  await page.route("**/api/matches**", (route) =>
+    route.fulfill({
+      json: new URL(route.request().url()).pathname.endsWith("/99")
+        ? match
+        : { rows: [match], total: 1, limit: 50, offset: 0 },
+    }),
+  );
+  for (const width of [320, 390, 640, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(base + "/game.html?game=eafc27&view=matches");
+    await page.waitForFunction(() => document.body.dataset.ready === "true");
+    const row = page.locator("#matches-body tr");
+    assert.equal(await row.locator(".score").innerText(), "6 - 1");
+    if (width <= 640) {
+      assert(
+        await row.evaluate((el) => el.getBoundingClientRect().height < 330),
+        "A name must not turn a match into a tall column of letters",
+      );
+      assert(
+        await page
+          .locator("#matches-body")
+          .evaluate(
+            (el) =>
+              el.closest(".table-wrap").scrollWidth <=
+              el.closest(".table-wrap").clientWidth + 1,
+          ),
+        "Match cards must fit without horizontal scrolling",
+      );
+    }
+    const checkName = async (scope) => {
+      const name = scope.locator(".fc-player").first();
+      assert.equal(await name.innerText(), "Bashar Fakhreddin");
+      assert(
+        await name.evaluate(
+          (el) =>
+            el.clientHeight <= parseFloat(getComputedStyle(el).lineHeight) * 3,
+        ),
+        "Full names should fit in at most three lines",
+      );
+    };
+    await checkName(row);
+    await row.locator("[data-match]").click();
+    const dialog = page.locator("dialog[open]");
+    await checkName(dialog);
+    assert(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
+    await page.screenshot({
+      path: `artifacts/long-name-match-${width}.png`,
+      fullPage: true,
+    });
+    await dialog.locator(".dialog-close").click();
+  }
+});
+
+test("game banners adapt to the view and dark mode shares neutral surfaces", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  await app.listen({ port: 0, host: "127.0.0.1" });
+  const base = "http://127.0.0.1:" + app.server.address().port;
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  let darkSurfaces;
+  for (const colorScheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      for (const game of ["eafc27", "eafc26", "smash", "tennis", "tt"]) {
+        await page.goto(base + "/game.html?game=" + game);
+        await page.waitForFunction(
+          () => document.body.dataset.ready === "true",
+        );
+        assert.equal(await page.locator("#load-error").count(), 0);
+        const banner = page.locator(".game-identity"),
+          logo = banner.locator("img");
+        assert.equal(await banner.getAttribute("data-size"), "large");
+        await logo.evaluate((img) => img.decode());
+        const largeHeight = await banner.evaluate(
+          (el) => el.getBoundingClientRect().height,
+        );
+        assert(largeHeight >= 150);
+        assert(
+          await logo.evaluate(
+            (img) =>
+              img.naturalWidth > 0 &&
+              getComputedStyle(img).objectFit === "contain",
+          ),
+        );
+        assert.equal(
+          await page
+            .locator(".logo-plate")
+            .first()
+            .evaluate((el) => getComputedStyle(el).backgroundColor),
+          "rgba(0, 0, 0, 0)",
+        );
+        assert(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1,
+          ),
+        );
+        if (colorScheme === "dark") {
+          const surfaces = await page.evaluate(() => {
+            const style = getComputedStyle(document.body);
+            return ["--bg", "--surface", "--surface-2", "--line", "--ink"].map(
+              (key) => style.getPropertyValue(key).trim(),
+            );
+          });
+          darkSurfaces ||= surfaces;
+          assert.deepEqual(
+            surfaces,
+            darkSurfaces,
+            "Only accents should vary by game in dark mode",
+          );
+        }
+        await page.screenshot({
+          path: `artifacts/banner-${game}-${colorScheme}-${width}.png`,
+          fullPage: true,
+        });
+        if (width <= 1024) await page.locator(".navigation-toggle").click();
+        await page.locator('.sidebar [data-view="matches"]').click();
+        assert.equal(await banner.getAttribute("data-size"), "compact");
+        await page.waitForFunction(
+          (height) =>
+            document.querySelector(".game-identity").getBoundingClientRect()
+              .height < height,
+          largeHeight,
+        );
+        assert(
+          (await banner.evaluate((el) => el.getBoundingClientRect().height)) <
+            largeHeight,
+          `${game} ${colorScheme} ${width}: compact header must shrink from ${largeHeight}px`,
+        );
+        assert.equal(await page.locator(".game-identity").count(), 1);
+        await page.screenshot({
+          path: `artifacts/header-${game}-${colorScheme}-${width}.png`,
+        });
+      }
+    }
+  }
   assert.deepEqual(errors, []);
 });

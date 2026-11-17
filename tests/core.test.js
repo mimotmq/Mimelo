@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
-import { validateScore } from "../server/scoring.js";
+import { upgradeRatings } from "../server/matches.js";
+import { validateScore, ratingK } from "../server/scoring.js";
 async function harness(t) {
   const app = await createApp({ database: ":memory:" });
   t.after(() => app.close());
@@ -589,4 +590,183 @@ test("three-way qualification resolves through an additional round without chang
     state.fixtures.some((f) => f.stage === "final" && f.status === "ready"),
   );
   assert(state.standings[""].every((r) => r.played === 2 && r.w === 1));
+});
+
+test("provisional ratings count only rated matches and replay across the eighth-match boundary", async (t) => {
+  const { call, users, db } = await harness(t);
+  const [admin, a, b] = users;
+  const record = () =>
+    call(null, "GET", `/api/players/${a.player_id}/record?game=tennis`);
+  assert.equal((await record()).rated_matches, 0);
+  const matches = [];
+  for (let i = 0; i < 8; i++) {
+    const m = await call(a, "POST", "/api/games/tennis/matches", tennis(a, b));
+    matches.push(m);
+    await call(admin, "POST", `/api/matches/${m.id}/accept`, { revision: 1 });
+    assert.equal(
+      (await record()).rated_matches,
+      i,
+      "Acceptance alone cannot establish a rating",
+    );
+    const rated = await call(admin, "POST", `/api/matches/${m.id}/elo`, {
+      revision: 1,
+    });
+    const progress = await record();
+    assert.equal(progress.rated_matches, i + 1);
+    assert.equal(progress.provisional, i < 7);
+    assert.equal(progress.provisional_matches, 8);
+    const line = rated.ledger.find((l) => l.player_id === a.player_id);
+    assert.equal(line.provisional, i < 7);
+    assert.equal(line.provisional_before, true);
+    assert.notEqual(
+      line.before,
+      line.after,
+      "Provisional matches still change Elo",
+    );
+  }
+  const ranks = await call(null, "GET", "/api/games/tennis/rankings");
+  assert.equal(
+    ranks.rows.find((r) => r.player_id === a.player_id).provisional,
+    false,
+  );
+  const profile = await call(null, "GET", `/api/players/${a.player_id}`);
+  assert.equal(profile.ratings[0].rated_matches, 8);
+  const leader = (await call(null, "GET", "/api/games/tennis/summary")).leader;
+  assert.equal(leader.provisional, false);
+  assert.equal(
+    (
+      await call(
+        null,
+        "GET",
+        `/api/players/${a.player_id}/record?game=tennis&format=doubles`,
+      )
+    ).rated_matches,
+    0,
+  );
+  assert.equal(
+    (await call(null, "GET", `/api/players/${a.player_id}/record?game=tt`))
+      .rated_matches,
+    0,
+  );
+  const off = await call(
+    a,
+    "POST",
+    "/api/games/tennis/matches",
+    tennis(a, b, { elo_enabled: false }),
+  );
+  await call(admin, "POST", `/api/matches/${off.id}/accept`, { revision: 1 });
+  assert.equal((await record()).rated_matches, 8);
+  await call(admin, "DELETE", `/api/matches/${matches[0].id}`, { revision: 1 });
+  assert.equal((await record()).rated_matches, 7);
+  assert.equal((await record()).provisional, true);
+  const before = db
+    .prepare("SELECT * FROM ledger ORDER BY match_id,player_id")
+    .all();
+  await call(admin, "POST", "/api/games/tennis/recalculate", {});
+  assert.deepEqual(
+    db.prepare("SELECT * FROM ledger ORDER BY match_id,player_id").all(),
+    before,
+  );
+  const last = await call(null, "GET", `/api/matches/${matches[7].id}`);
+  assert(last.ledger.every((l) => l.provisional && l.rated_matches === 7));
+});
+
+test("adaptive K tapers logarithmically from 124 to 24 by rated match 45", () => {
+  assert.equal(ratingK(0), 124);
+  assert.equal(ratingK(44), 24);
+  assert.equal(ratingK(1000), 24);
+  for (let n = 1; n <= 44; n++) assert(ratingK(n) < ratingK(n - 1));
+  assert(ratingK(0) - ratingK(1) > ratingK(29) - ratingK(30));
+});
+
+test("preview and replay use the mean participant K, with isolation and an atomic policy upgrade", async (t) => {
+  const { call, users, db } = await harness(t);
+  const [admin, a, b, c, d] = users;
+  const saveRated = async (body) => {
+    const prediction = await call(
+      admin,
+      "POST",
+      "/api/games/tennis/preview",
+      body,
+    );
+    const m = await call(admin, "POST", "/api/games/tennis/matches", body);
+    await call(admin, "POST", `/api/matches/${m.id}/accept`, { revision: 1 });
+    const rated = await call(admin, "POST", `/api/matches/${m.id}/elo`, {
+      revision: 1,
+    });
+    for (const side of prediction.sides)
+      for (const p of side) {
+        assert.equal(
+          rated.ledger.find((l) => l.player_id === p.id).delta,
+          p.delta,
+        );
+      }
+    return { prediction, rated };
+  };
+  for (let n = 0; n < 44; n++) {
+    const { prediction } = await saveRated(tennis(a, b));
+    assert.equal(prediction.k, ratingK(n));
+    assert.equal(prediction.sides[0][0].rated_matches, n);
+  }
+  const mature = await call(
+    admin,
+    "POST",
+    "/api/games/tennis/preview",
+    tennis(a, b),
+  );
+  assert.equal(mature.k, 24);
+  const mixed = await saveRated(tennis(a, c));
+  assert.equal(mixed.prediction.k, 74);
+  assert.equal(mixed.prediction.sides[0][0].k, 24);
+  assert.equal(mixed.prediction.sides[1][0].k, 124);
+  assert.equal(
+    mixed.prediction.sides[0][0].delta,
+    -mixed.prediction.sides[1][0].delta,
+  );
+  const pairs = {
+    format: "doubles",
+    sides: [
+      [a.player_id, b.player_id],
+      [c.player_id, d.player_id],
+    ],
+    score: { bestOf: 1, games: [{ a: 6, b: 2 }] },
+  };
+  const freshPairs = await saveRated(pairs);
+  assert.equal(
+    freshPairs.prediction.k,
+    124,
+    "Singles experience must not affect doubles K",
+  );
+  assert(freshPairs.rated.ledger.every((l) => l.rated_matches === 1));
+  const experiencedPair = {
+    ...pairs,
+    sides: [
+      [a.player_id, b.player_id],
+      [users[5].player_id, users[6].player_id],
+    ],
+  };
+  await saveRated(experiencedPair);
+  await saveRated(experiencedPair);
+  const mixedPairs = await saveRated(pairs);
+  assert(
+    Math.abs(mixedPairs.prediction.k - (ratingK(3) + ratingK(1)) / 2) < 1e-10,
+    "Doubles K must average all four participants",
+  );
+  const first = (await call(null, "GET", "/api/matches/1")).ledger;
+  assert(first.every((l) => l.k_before === 124 && l.provisional));
+  const expected = db
+    .prepare("SELECT * FROM ledger ORDER BY match_id,player_id")
+    .all();
+  db.prepare("DELETE FROM migrations WHERE version=3").run();
+  db.prepare("UPDATE ledger SET delta=0,after=before").run();
+  upgradeRatings(db);
+  assert.deepEqual(
+    db.prepare("SELECT * FROM ledger ORDER BY match_id,player_id").all(),
+    expected,
+  );
+  upgradeRatings(db);
+  assert.deepEqual(
+    db.prepare("SELECT * FROM ledger ORDER BY match_id,player_id").all(),
+    expected,
+  );
 });

@@ -1,0 +1,205 @@
+/* Live appearance refinements; the original design-reference styles stay intact. */
+.logo-plate,
+.game-icon,
+.game-identity img {
+  background: transparent;
+}
+
+.game-identity {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 240px;
+  margin-bottom: 28px;
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-bottom: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--ink);
+  text-decoration: none;
+}
+.game-identity:hover {
+  color: var(--ink);
+}
+.game-identity img {
+  display: block;
+  width: min(100%, 560px);
+  height: auto;
+  max-height: 180px;
+  object-fit: contain;
+}
+.game-identity-name {
+  display: none;
+}
+.game-identity[data-kind="fc"] {
+  border-radius: var(--radius-md);
+}
+.game-identity[data-kind="smash"] {
+  min-height: 270px;
+  border-bottom-width: 4px;
+}
+.game-identity[data-kind="smash"] img {
+  width: min(100%, 500px);
+}
+.game-identity[data-kind="tennis"],
+.game-identity[data-kind="tt"] {
+  justify-content: flex-start;
+  gap: 28px;
+}
+.game-identity[data-kind="tennis"] img,
+.game-identity[data-kind="tt"] img {
+  width: 140px;
+  height: 140px;
+}
+.game-identity[data-kind="tennis"] .game-identity-name,
+.game-identity[data-kind="tt"] .game-identity-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 700;
+}
+.game-identity[data-size="compact"] {
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 0 0 18px;
+  margin-bottom: 24px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  gap: 14px;
+}
+.game-identity[data-size="compact"] img {
+  width: 130px;
+  height: 46px;
+}
+.game-identity[data-size="compact"][data-kind="fc"] img {
+  width: 150px;
+}
+.game-identity[data-size="compact"][data-kind="tennis"] img,
+.game-identity[data-size="compact"][data-kind="tt"] img {
+  width: 46px;
+  height: 46px;
+}
+.game-identity[data-size="compact"] .game-identity-name {
+  font-size: 1.15rem;
+}
+
+@media (max-width: 640px) {
+  .game-identity {
+    min-height: 155px;
+    padding: 24px 20px;
+    margin-bottom: 24px;
+  }
+  .game-identity[data-kind="smash"] {
+    min-height: 185px;
+  }
+  .game-identity[data-kind="tennis"],
+  .game-identity[data-kind="tt"] {
+    gap: 18px;
+  }
+  .game-identity[data-kind="tennis"] img,
+  .game-identity[data-kind="tt"] img {
+    width: 86px;
+    height: 86px;
+  }
+  .game-identity[data-size="compact"] {
+    min-height: 0;
+    padding: 0 0 16px;
+  }
+  .game-identity[data-size="compact"] img {
+    width: 110px;
+    height: 42px;
+  }
+  .game-identity[data-size="compact"][data-kind="fc"] img {
+    width: 130px;
+  }
+  .game-identity[data-size="compact"][data-kind="tennis"] img,
+  .game-identity[data-size="compact"][data-kind="tt"] img {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root,
+  :root body,
+  :root body[data-game],
+  :root body[data-game][data-game-variant],
+  :root body.home-page,
+  :root body.player-directory-page {
+    --bg: #0e141f;
+    --bg-2: #111b29;
+    --surface: #151e2b;
+    --surface-2: #182333;
+    --surface-3: #202d3e;
+    --ink: #eceeea;
+    --ink-2: #d1d9df;
+    --muted: #adb8c5;
+    --line: #2b3646;
+    --line-strong: #414e60;
+    --navy: #111b29;
+    --navy-deep: #0a101a;
+    --on-navy: #eceeea;
+    --on-navy-muted: #adb8c5;
+    --success: #83cba4;
+    --success-soft: #1d332e;
+    --danger: #e39b92;
+    --danger-soft: #38282d;
+    --pending: #dbc28b;
+    --pending-bg: #332f26;
+    --locked-bg: #202d3e;
+    --accent: #e8ae70;
+    --accent-hover: #efc290;
+    --on-accent: #101722;
+    --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 8px 24px rgb(0 0 0 / 0.18);
+    --shadow-lg: 0 16px 48px rgb(0 0 0 / 0.24);
+  }
+  :root body[data-game="eafc"] {
+    --accent: #70c59a;
+    --accent-hover: #8cd4af;
+  }
+  :root body[data-game="eafc"][data-game-variant="eafc26"] {
+    --accent: #88ade8;
+    --accent-hover: #a5c2ef;
+  }
+  :root body[data-game="smash"] {
+    --accent: #e58da2;
+    --accent-hover: #efa8b9;
+  }
+  :root body[data-game="tennis"] {
+    --accent: #b6a2dc;
+    --accent-hover: #c8b8e6;
+  }
+  :root body[data-game="table-tennis"] {
+    --accent: #e7a38e;
+    --accent-hover: #efbba9;
+  }
+  :root body,
+  :root body[data-game],
+  :root body[data-game][data-game-variant],
+  :root body.home-page,
+  :root body.player-directory-page {
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    --game: var(--accent);
+    --game-soft: var(--accent-soft);
+    --link: var(--accent);
+    --focus: var(--accent);
+    --chart: var(--accent);
+    --chart-2: var(--ink-2);
+  }
+  .game-identity {
+    background: var(--surface);
+  }
+  .game-identity[data-size="compact"] {
+    background: transparent;
+  }
+  .game-identity[data-kind="fc"] img,
+  .logo-plate img[src*="ea-fc"],
+  .game-logo[src*="ea-fc"] {
+    filter: brightness(1.4);
+  }
+}

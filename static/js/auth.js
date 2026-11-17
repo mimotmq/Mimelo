@@ -28,7 +28,7 @@ APP.run(async () => {
       ? rankings.rows
           .map(
             (p) =>
-              `<div class="board-row"><span class="rank">${p.rank}</span><span class="board-player">${UI.avatar(p.name)}<span class="nm">${esc(p.name)}</span></span><span class="elo">${UI.rating(p.elo)}</span></div>`,
+              `<div class="board-row"><span class="rank">${p.rank}</span><span class="board-player">${UI.avatar(p.name)}<span class="nm">${esc(p.name)}</span></span><span class="elo">${UI.elo(p)}</span></div>`,
           )
           .join("")
       : '<div class="board-row"><span>—</span><span>The first result starts the book.</span><span>1000</span></div>');

@@ -107,7 +107,8 @@ Status: interview in progress. This file distinguishes user decisions from imple
 ## Delegated implementation decisions
 
 - Server submission time is immutable; no backdating. Stable match ID breaks timestamp ties. Admin checkoff/correction replays eligible results chronologically.
-- K=24, baseline1000, football overall scale20, bounded sport-specific margins, and proportional JV bonus are implemented in server/scoring.js and documented in README.md.
+- Latest rating decisions: show numeric Elo with `?` until 8 matches receive Elo checkoff in that game/format. Player K starts at 124, tapers logarithmically to 24 on rated match 45, and stays at 24. Match K is the arithmetic mean of the participants’ individual K values; doubles averages all four.
+- Baseline1000, football overall scale20, bounded sport-specific margins, and proportional JV bonus are implemented in server/scoring.js and documented in README.md.
 - Freeze structure at draw generation; schedules stay editable. Withdrawals after the draw use organizer/admin forfeits.
 - Claim links last seven days; resets one hour. Reissue revokes older links. Existing-account merges require site-admin review and reject identity conflicts.
 - Additional multi-player qualifying rounds use round robin. Still-tied entrants can play another round or receive an explained admin decision. League title ties are not silently settled by ID.

@@ -183,7 +183,7 @@ APP.run(async () => {
   await sessions();
   const profile = await APP.api("players/" + me.player_id);
   $(".settings-side .panel-body").innerHTML =
-    `<div class="player-cell">${UI.avatar(me.name, "", me.photo)}<b>${esc(me.name)}</b></div><div class="summary-meta">${APP.games.map((g) => `<div><span>${esc(g.name)}</span><b>${UI.rating(profile.ratings.find((r) => r.game === g.slug && r.format === "singles")?.elo)} Elo</b></div>`).join("")}</div><a class="btn btn-outline btn-block" href="${APP.url("player", { player: me.player_id })}">Public profile</a>`;
+    `<div class="player-cell">${UI.avatar(me.name, "", me.photo)}<b>${esc(me.name)}</b></div><div class="summary-meta">${APP.games.map((g) => `<div><span>${esc(g.name)}</span><b>${UI.elo(profile.ratings.find((r) => r.game === g.slug && r.format === "singles"))} Elo</b></div>`).join("")}</div><a class="btn btn-outline btn-block" href="${APP.url("player", { player: me.player_id })}">Public profile</a>`;
   const notes = $$(".settings-side .notice-card");
   notes[0].innerHTML =
     '<h3>Your roles</h3><div class="tag-row">' +

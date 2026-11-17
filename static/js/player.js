@@ -2,7 +2,7 @@ APP.run(async () => {
   const { $, $$, esc, text } = UI,
     id = Number(APP.params.get("player"));
   let format = "singles";
-  const p = await APP.api("players/" + id);
+  let p = await APP.api("players/" + id);
   if (p.merged_into) {
     location.replace(APP.url("player", { player: p.merged_into }));
     return;
@@ -52,20 +52,31 @@ APP.run(async () => {
   $(".filter-row").before(selector);
   $("#field-profile-game").onchange = (e) =>
     (location.href = "player.html?player=" + id + "&game=" + e.target.value);
-  async function render(offset = 0) {
+  async function render(offset = 0, refresh = false) {
+    if (refresh) p = await APP.api("players/" + id);
     const r = p.ratings.find((r) => r.game === APP.slug && r.format === format);
-    text("[data-player-elo]", UI.rating(r?.elo));
-    text("[data-player-peak]", UI.rating(r?.peak));
+    text("[data-player-elo]", UI.elo(r));
+    text("[data-player-peak]", UI.elo(r, r?.peak));
     const book = await APP.api(
       `players/${id}/record?game=${APP.slug}&format=${format}`,
     );
     text("[data-player-rank]", book.rank ? "#" + book.rank : "Unranked");
+    text(
+      ".player-elo .label",
+      book.provisional
+        ? `Provisional · ${book.rated_matches} of ${book.provisional_matches} rated matches`
+        : "Established Elo",
+    );
     const result = await APP.api(
       `matches?game=${APP.slug}&player=${id}&format=${format}&offset=${offset}`,
     );
     const history = book.history.reverse();
-    text("#elo-change", (r ? UI.rating(r.elo - 1000) : "0") + " all time");
-    text("#match-count", `${result.total} matches`);
+    text(
+      "#elo-change",
+      (r ? UI.rating(r.elo - 1000) : "0") +
+        (book.provisional ? " · provisional" : " all time"),
+    );
+    text("#match-count", UI.count(result.total, "match", "matches"));
     text("#spark-wrap", "");
     text(
       ".player-grid .panel:first-child .sub",
@@ -83,13 +94,13 @@ APP.run(async () => {
             "</span><b>" +
             esc(t.name) +
             "</b><span>" +
-            t.appearances +
-            " matches</span></div>",
+            UI.count(t.appearances, "match", "matches") +
+            "</span></div>",
         )
         .join("");
     text("#team-count", book.teams.length || "Profile");
     $("#player-stats").innerHTML =
-      `<div class="player-stat"><b>${book.w} / ${book.l}${APP.game.kind === "fc" ? " / " + book.d : ""}</b><span>Wins / losses${APP.game.kind === "fc" ? " / draws" : ""}</span></div><div class="player-stat"><b>${UI.rating(r?.elo)}</b><span>${format} Elo</span></div>`;
+      `<div class="player-stat"><b>${book.w} / ${book.l}${APP.game.kind === "fc" ? " / " + book.d : ""}</b><span>Wins / losses${APP.game.kind === "fc" ? " / draws" : ""}</span></div><div class="player-stat"><b>${UI.elo(r)}</b><span>${format} Elo</span></div>`;
     const rows = result.rows
       .map(
         (m) =>
@@ -102,6 +113,7 @@ APP.run(async () => {
         "<tr><th>Date</th><th>Match</th><th>Competition</th><th>Status</th><th>Elo change</th><th></th></tr>";
       b.innerHTML =
         rows || '<tr><td colspan="6">No matches in this game yet.</td></tr>';
+      UI.matchTable(b.closest("table"));
     }
     $$("[data-match]").forEach(
       (b) => (b.onclick = () => UI.matchDialog(b.dataset.match)),
@@ -125,12 +137,15 @@ APP.run(async () => {
         `<svg viewBox="0 0 700 210" role="img" aria-label="Published Elo history"><line x1="20" y1="180" x2="680" y2="180" stroke="var(--line)"/><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="3"/><text x="20" y="205" fill="currentColor">${UI.date(history[0].submitted)}</text></svg>`;
     }
     $("#snapshot-body").innerHTML =
-      `<div class="summary-meta"><div><span>Game</span><b>${esc(APP.game.name)}</b></div><div><span>Format</span><b>${format}</b></div><div><span>Peak</span><b>${UI.rating(r?.peak)}</b></div></div>`;
+      `<div class="summary-meta"><div><span>Game</span><b>${esc(APP.game.name)}</b></div><div><span>Format</span><b>${format}</b></div><div><span>Peak</span><b>${UI.elo(r, r?.peak)}</b></div></div>`;
   }
   if ($("#field-profile-format"))
     $("#field-profile-format").onchange = async (e) => {
       format = e.target.value;
       await render();
     };
+  window.addEventListener("records-changed", () =>
+    render(0, true).catch((e) => UI.toast(e.message)),
+  );
   await render();
 });

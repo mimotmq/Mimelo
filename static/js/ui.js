@@ -91,8 +91,13 @@
           timeStyle: "short",
         })
       : "Not scheduled";
+  const count = (value, singular, plural = singular + "s") =>
+    `${value} ${Number(value) === 1 ? singular : plural}`;
   const rating = (v) =>
     Number(v ?? 1000).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const elo = (state, value = state?.elo) =>
+    Number(value ?? 1000).toLocaleString(undefined, { maximumFractionDigits: 0 }) +
+    (state?.provisional === false ? "" : "?");
   function icons(root = document) {
     $$("[data-icon]", root).forEach((el) => {
       el.innerHTML = icon(el.dataset.icon, Number(el.dataset.size) || 20);
@@ -301,7 +306,7 @@
               .join("")
           : '<div class="picker-message">No matches found. Try another name.</div>';
         status.textContent = rows.length
-          ? `${rows.length} results. Use arrow keys to choose.`
+          ? `${count(rows.length, "result")}. Use arrow keys to choose.`
           : "No matches found.";
       } catch (e) {
         if (request !== version) return;
@@ -373,6 +378,23 @@
       requestAnimationFrame(() => setValue(player, true)),
     );
     return load;
+  }
+  function setupGameIdentity() {
+    const main = $("main#main");
+    if (!main || !document.body.hasAttribute("data-game")) return;
+    const g = APP.game;
+    const banner = document.createElement("a");
+    banner.className = "game-identity";
+    banner.dataset.kind = g.kind;
+    banner.dataset.size = "compact";
+    banner.href = APP.url("game");
+    banner.setAttribute("aria-label", g.name + " overview");
+    banner.innerHTML = `<img src="assets/brand/${esc(g.logo)}" alt="${esc(g.name)}"><span class="game-identity-name" aria-hidden="true">${esc(g.name)}</span>`;
+    main.prepend(banner);
+    UI.gameIdentity = (view) => {
+      banner.dataset.size = view === "overview" ? "large" : "compact";
+    };
+    if ($(".app-body")) UI.gameIdentity(APP.params.get("view") || "overview");
   }
   function setupNavigation() {
     const sidebar = $(".sidebar"),
@@ -524,6 +546,23 @@
       : '<span class="match-team-label" aria-label="No club selected">—</span>';
   }
 
+  function matchTable(table) {
+    table.classList.add("match-table");
+    const labels = [...table.querySelectorAll("thead th")].map(
+      (th) => th.textContent,
+    );
+    table.querySelectorAll("tbody tr").forEach((row) => {
+      if (row.children.length !== labels.length) return;
+      row.classList.add("match-record");
+      [...row.children].forEach((cell, i) => {
+        cell.dataset.label = labels[i];
+        if (i === 0) cell.classList.add("match-date");
+        else if (i === 1) cell.classList.add("match-result");
+        else if (i === labels.length - 1) cell.classList.add("match-open");
+        else cell.classList.add("match-meta");
+      });
+    });
+  }
   function status(m) {
     return m.forfeit
       ? "Forfeit · no Elo"
@@ -539,7 +578,7 @@
     const m = await APP.api("matches/" + id);
     const d = dialog(
       "Match result",
-      `${score(m)}<p class="sub">${esc(status(m))} · ${date(m.submitted)}</p>${m.locked ? '<p class="notice-strip">Locked by a downstream match submission.</p>' : ""}${m.score.note ? `<p>${esc(m.score.note)}</p>` : ""}${m.teams?.length ? "<p>" + m.teams.map((t) => esc(t.name) + " · " + (t.overall ?? "overall missing")).join(" vs ") + "</p>" : ""}${smashDetails(m)}${m.ledger.length ? '<div class="summary-meta">' + m.ledger.map((l) => "<div><span>" + esc(m.participants.find((p) => p.id === l.player_id)?.name) + "</span><b>" + rating(l.before) + " → " + rating(l.after) + "</b></div>").join("") + "</div>" : ""}<div class="form-actions">${m.permissions.accept ? button("Accept result", "accept") : ""}${m.permissions.elo ? button("Check off Elo", "elo") : ""}${m.permissions.eloToggle ? button(m.elo_enabled ? "Exclude from Elo" : "Include in Elo", "elo-enabled") : ""}${m.permissions.edit ? button("Correct result", "edit") : ""}${m.permissions.void ? button("Void result", "void") : ""}</div><p class="hint" role="alert"></p>`,
+      `${score(m)}<p class="sub">${esc(status(m))} · ${date(m.submitted)}</p>${m.locked ? '<p class="notice-strip">Locked by a downstream match submission.</p>' : ""}${m.score.note ? `<p>${esc(m.score.note)}</p>` : ""}${m.teams?.length ? "<p>" + m.teams.map((t) => esc(t.name) + " · " + (t.overall ?? "overall missing")).join(" vs ") + "</p>" : ""}${smashDetails(m)}${m.ledger.length ? '<div class="summary-meta">' + m.ledger.map((l) => "<div><span>" + esc(m.participants.find((p) => p.id === l.player_id)?.name) + "</span><b>" + elo({ elo: l.before, provisional: l.provisional_before }) + " → " + elo({ elo: l.after, provisional: l.provisional }) + "</b></div>").join("") + "</div>" : ""}<div class="form-actions">${m.permissions.accept ? button("Accept result", "accept") : ""}${m.permissions.elo ? button("Check off Elo", "elo") : ""}${m.permissions.eloToggle ? button(m.elo_enabled ? "Exclude from Elo" : "Include in Elo", "elo-enabled") : ""}${m.permissions.edit ? button("Correct result", "edit") : ""}${m.permissions.void ? button("Void result", "void") : ""}</div><p class="hint" role="alert"></p>`,
     );
     $$("[data-action]", d).forEach(
       (b) =>
@@ -600,6 +639,8 @@
     empty,
     date,
     rating,
+    elo,
+    count,
     toast,
     dialog,
     button,
@@ -615,10 +656,20 @@
     score,
     status,
     matchDialog,
+    matchTable,
     standingsTable,
   };
   APP.shell = Promise.all([APP.ready, APP.dom]).then(async () => {
     // All runtime deviations correspond to explicit requirements; original HTML/CSS remain unchanged.
+    const appearance = document.createElement("link");
+    appearance.rel = "stylesheet";
+    appearance.href = "css/appearance.css";
+    await new Promise((resolve, reject) => {
+      appearance.onload = resolve;
+      appearance.onerror = () =>
+        reject(new Error("Could not load the site appearance. Please reload."));
+      document.head.append(appearance);
+    });
     const styles = document.createElement("style");
     styles.textContent =
       ".live-pagination{padding:16px;flex-wrap:wrap}.live-pagination .muted{margin-right:auto}.live-game-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}.live-game-row h4,.live-game-row .wide{grid-column:1/-1}.live-score-grid{display:grid;gap:16px}.dialog{max-width:min(720px,calc(100vw - 24px))}.dialog .form-actions{flex-wrap:wrap}.input,.select{min-width:0;max-width:100%}.player-cell .name{overflow-wrap:anywhere}.avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.bracket-match{min-width:200px}.live-pagination button:disabled{opacity:.4}.table-wrap{max-width:100%;overflow:auto}.settings-layout>*,.settings-card,.sidebar,.view>*{min-width:0}.view{grid-template-columns:minmax(0,1fr)}";
@@ -630,7 +681,7 @@
       .picker-message { padding: 12px; font-size: .85rem; }
       .player-picker-option:hover, .player-picker-option[aria-selected="true"] { background: var(--accent-soft); }
       .fc-scoreline { display: inline-grid; grid-template-columns: minmax(0,1fr) auto auto auto minmax(0,1fr); align-items: center; gap: 8px; max-width: 100%; }
-      .fc-scoreline .fc-player { overflow-wrap: anywhere; min-width: 0; }
+      .fc-scoreline .fc-player { overflow-wrap: anywhere; min-width: 0; line-height: 1.5; }
       .fc-scoreline .fc-player:first-child { text-align: right; }
       .fc-scoreline .score { white-space: nowrap; }
       .fc-scoreline .catalog-stock-icon { width: 30px; height: 30px; }
@@ -638,6 +689,24 @@
       .match-score-detail { margin-top: 5px; font-size: .76rem; }
       #record-fc-score { display: block; margin-top: 18px; }
       #record-fc-score .fc-scoreline { display: grid; }
+      .match-table .match-result { min-width: 280px; }
+      .match-table .fc-scoreline { width: 100%; }
+      @media (max-width: 640px) {
+        .match-table { display: block; min-width: 0; }
+        .match-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); }
+        .match-table tbody { display: block; }
+        .match-table .match-record { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 16px; padding: 18px 14px; border-bottom: 1px solid var(--line); }
+        .match-table .match-record:last-child { border-bottom: 0; }
+        .match-table .match-record td { display: block; padding: 0; border: 0; min-width: 0; overflow-wrap: anywhere; }
+        .match-table .match-result { grid-column: 1 / -1; order: -2; padding-bottom: 12px !important; border-bottom: 1px solid var(--line) !important; }
+        .match-table .match-date { grid-column: 1 / -1; order: -1; color: var(--muted); font-size: .76rem; }
+        .match-table .match-meta { font-size: .8rem; }
+        .match-table .match-meta::before { content: attr(data-label); display: block; color: var(--muted); font-family: var(--font-condensed); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
+        .match-table .match-open { grid-column: 1 / -1; text-align: right; }
+        .fc-scoreline { column-gap: 5px; }
+        .fc-scoreline .catalog-stock-icon { width: 24px; height: 24px; }
+        .fc-scoreline .catalog-image-fallback { min-width: 24px; }
+      }
       .adaptive-navigation { grid-template-columns: 252px minmax(0,1fr); transition: grid-template-columns 240ms ease; }
       .adaptive-navigation[data-nav-open="false"] { grid-template-columns: 0 minmax(0,1fr); }
       .adaptive-navigation .sidebar { width: 252px; transition: opacity 180ms ease, transform 240ms ease, visibility 240ms; }
@@ -741,7 +810,7 @@
         el.onclick = () =>
           dialog(
             "How Elo works",
-            "<p>Ratings start at 1000. Results need a separate admin Elo checkoff. Game strength, winning margin, and competition importance affect the change. Penalty shootouts count as draws for football Elo. Singles and doubles are independent.</p>",
+            "<p>Ratings start at 1000. A question mark marks a provisional rating until 8 matches receive Elo checkoff in that game and format. Early matches still affect the rating. Each player starts at K=124, tapering logarithmically to K=24 on rated match 45. Each match uses the average K of its participants. Results need a separate admin Elo checkoff. Game strength, winning margin, and competition importance affect the change. Penalty shootouts count as draws for football Elo. Singles and doubles are independent.</p>",
           );
       else if (/forgot password/i.test(el.textContent)) {
         el.href = "#";
@@ -823,6 +892,7 @@
         }
       };
     }
+    setupGameIdentity();
     setupNavigation();
     tabs();
     icons();
@@ -836,7 +906,7 @@
         $(".home-players .avatar-stack").innerHTML = p.rows
           .map((p) => avatar(p.name, "avatar-sm", p.photo))
           .join("");
-      text(".home-players-copy b", `${p.total} players`);
+      text(".home-players-copy b", count(p.total, "player"));
       text(".home-players-copy span", "One group. Independent game records.");
       $(".home-players .avatar-stack")?.setAttribute(
         "aria-label",
