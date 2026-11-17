@@ -1204,6 +1204,14 @@ export async function createApp(options = {}) {
   app.post("/api/fixtures/:id/forfeit", async (req) =>
     tx(() => forfeit(db, req.params.id, req.body.winner, signed(req))),
   );
+  app.get("/api/recent-results", async (req) => ({
+    rows: db
+      .prepare(
+        "SELECT * FROM matches WHERE status='accepted' ORDER BY accepted DESC,id DESC LIMIT 5",
+      )
+      .all()
+      .map((match) => serializeMatch(db, match, req.user)),
+  }));
   app.get("/api/matches", async (req) => {
     const g = req.query.game || "eafc27";
     game(g);

@@ -2,6 +2,8 @@
 
 A public record book for one shared group, with independent EA FC 26, EA FC 27, tennis, table tennis, and Smash records. This is a fresh implementation. It does not read or migrate the previous application's database, accounts, settings, or themes.
 
+The homepage's Recently accepted panel shows the latest five accepted results across every game, ordered by acceptance time. Its vertical news ticker pauses on hover or keyboard focus, offers a pause/resume control, and stays still for reduced-motion preferences. Each result links to its game and match details.
+
 The eight HTML files, stylesheet, fonts, and images in `static/` are byte-identical to the supplied OpenDesign Cloud mockup. JavaScript connects them to a new Fastify/SQLite backend. `design-reference/` preserves the complete source and its hashes; see [REBUILD.md](REBUILD.md) for the integration map.
 
 ## Run locally

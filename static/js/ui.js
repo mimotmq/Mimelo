@@ -1015,15 +1015,9 @@
         "Games to 11 or 21, best of 1, 3, 5, or 7.",
       );
       $$(".game-card .avatar-stack").forEach((e) => (e.innerHTML = ""));
-      const recent = await APP.api(
-        "matches?game=eafc27&status=accepted&limit=1",
-      );
-      text(".hero-result-label", "Latest accepted result");
-      const result = $(".result-line");
-      if (result)
-        result.innerHTML = recent.rows.length
-          ? score(recent.rows[0])
-          : "<span>No results yet. Start the record book.</span>";
+      const recent = await APP.api("recent-results");
+      const { renderHomeResults } = await import("./home-results.js");
+      renderHomeResults($(".last-approved-band"), recent.rows);
       document.body.dataset.ready = "true";
       document.documentElement.style.visibility = "";
     }
