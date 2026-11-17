@@ -561,7 +561,10 @@ test("catalog uploads validate permissions, persist associations, and enrich his
   assert.equal(match.smash_games[0].fighters[0].image, fighter.image);
   assert.equal(match.smash_games[1].fighters[1].image, fighter.image);
   assert.equal(match.smash_games[0].stage.image, stage.image);
-  assert.equal(match.smash_games[1].stage.image, null);
+  assert.equal(
+    match.smash_games[1].stage.image,
+    "/assets/smash/stages/final-destination.webp",
+  );
   const replacement = await h.upload(teamPath);
   assert.notEqual(replacement.image, badge.image);
   await h.restart();
@@ -754,10 +757,10 @@ test("admins manage match images and players see badges, per-game stock icons, a
     await visit("/game.html?game=smash&view=matches");
     assert.equal(
       await page.locator("#matches-body .match-fighter-icon img").count(),
-      2,
+      8,
     );
     const labels = await page
-      .locator("#matches-body .match-fighter-icon:has(img)")
+      .locator('#matches-body .match-fighter-icon:has(img[src^="/uploads/"])')
       .evaluateAll((items) =>
         items.map((item) => item.getAttribute("aria-label")),
       );
@@ -771,7 +774,7 @@ test("admins manage match images and players see badges, per-game stock icons, a
     await page.locator(".smash-game-detail").first().waitFor();
     assert.equal(
       await page.locator(".smash-game-detail img.catalog-stage-photo").count(),
-      1,
+      2,
     );
     await page.waitForFunction(() =>
       [...document.querySelectorAll("dialog[open] img")].every(
@@ -781,6 +784,7 @@ test("admins manage match images and players see badges, per-game stock icons, a
     assert(
       await page
         .locator("dialog[open] img.catalog-stage-photo")
+        .first()
         .evaluate(
           (img) => getComputedStyle(img).backgroundColor === "rgba(0, 0, 0, 0)",
         ),

@@ -397,17 +397,72 @@
     if ($(".app-body")) UI.gameIdentity(APP.params.get("view") || "overview");
   }
   function setupNavigation() {
-    const sidebar = $(".sidebar"),
-      shell = $(".app-body"),
-      main = $(".app-main");
-    if (!sidebar || !shell || !main) return;
+    let sidebar = $(".sidebar"),
+      shell = $(".app-body");
+    const main = $("main#main");
+    if (!main || !document.body.hasAttribute("data-game")) return;
+    const gamePage = !!shell;
+    if (!shell) {
+      shell = document.createElement("div");
+      shell.className = "app-body";
+      main.before(shell);
+      sidebar = document.createElement("aside");
+      sidebar.className = "sidebar";
+      sidebar.setAttribute("aria-label", "Game navigation");
+      const groups = [
+        [
+          "The game",
+          [
+            ["overview", "Overview", "home"],
+            ["matches", "Matches", "calendar"],
+            ["rankings", "Rankings", "chart"],
+          ],
+        ],
+        [
+          "Play",
+          [
+            ["competitions", "Competitions", "trophy"],
+            ["record", "Record a result", "plus"],
+          ],
+        ],
+        [
+          "Group",
+          [
+            ["players", "Players", "users"],
+            ...(APP.admin()
+              ? [
+                  ["review", "Admin review", "shield"],
+                  ["settings", "Game administration", "settings"],
+                ]
+              : []),
+          ],
+        ],
+      ];
+      sidebar.innerHTML = groups
+        .map(
+          ([title, links]) =>
+            `<div class="side-group"><div class="side-label">${title}</div><nav class="side-nav">${links.map(([view, label, glyph]) => `<a class="side-link" href="${view === "players" ? "players.html" : view === "settings" ? APP.url("admin") : APP.url("game", { view })}">${icon(glyph, 19)} ${label}</a>`).join("")}</nav></div>`,
+        )
+        .join("");
+      shell.append(sidebar, main);
+      main.classList.add("app-main");
+    }
     shell.classList.add("adaptive-navigation");
     sidebar.id = "game-navigation";
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.className = "btn btn-outline btn-sm navigation-toggle";
-    toggle.setAttribute("aria-controls", sidebar.id);
-    main.prepend(toggle);
+    const menu = document.createElement("button");
+    menu.type = "button";
+    menu.className = "icon-btn navigation-menu";
+    menu.setAttribute("aria-label", "Game navigation");
+    menu.setAttribute("aria-controls", sidebar.id);
+    menu.innerHTML = icon("menu", 20);
+    $(".header-actions").prepend(menu);
+    // An edge target supports hover and keyboard access without taking page space.
+    const edge = document.createElement("button");
+    edge.type = "button";
+    edge.className = "navigation-edge";
+    edge.setAttribute("aria-label", "Game navigation");
+    edge.setAttribute("aria-controls", sidebar.id);
+    shell.prepend(edge);
     const dismiss = document.createElement("button");
     dismiss.type = "button";
     dismiss.className = "btn btn-ghost btn-sm navigation-dismiss";
@@ -417,68 +472,125 @@
     backdrop.className = "navigation-backdrop";
     backdrop.setAttribute("aria-hidden", "true");
     shell.append(backdrop);
-    const mobile = matchMedia("(max-width: 1024px)");
+    const mobile = matchMedia("(max-width: 1024px), (hover: none)");
     let context,
-      open = false;
+      open = false,
+      restoringFocus = false,
+      suppressHover = false,
+      closeTimer;
+    const pinned = () => !mobile.matches && gamePage && context === "overview";
     function render(value, focus = false) {
-      open = value;
+      clearTimeout(closeTimer);
+      open = pinned() || value;
       const restoreFocus = !open && sidebar.contains(document.activeElement);
+      shell.dataset.navMode = pinned() ? "pinned" : "drawer";
       shell.dataset.navOpen = String(open);
       sidebar.inert = !open;
       sidebar.setAttribute("aria-hidden", String(!open));
-      toggle.setAttribute("aria-expanded", String(open));
-      toggle.innerHTML =
-        icon(open ? "close" : "menu", 18) +
-        (open ? "Hide navigation" : "Game navigation");
+      for (const opener of [menu, edge])
+        opener.setAttribute("aria-expanded", String(open));
       const modal = open && mobile.matches;
       main.inert = modal;
       $(".site-header")?.toggleAttribute("inert", modal);
       document.body.classList.toggle("navigation-modal", modal);
+      sidebar.toggleAttribute("aria-modal", modal);
       if (modal) {
         sidebar.setAttribute("role", "dialog");
         sidebar.setAttribute("aria-modal", "true");
-      } else {
-        sidebar.removeAttribute("role");
-        sidebar.removeAttribute("aria-modal");
+      } else sidebar.removeAttribute("role");
+      if (focus && open && !pinned()) dismiss.focus();
+      if (!open && (focus || restoreFocus)) {
+        restoringFocus = true;
+        if (!mobile.matches && !focus) {
+          main.tabIndex = -1;
+          main.focus({ preventScroll: true });
+        } else {
+          suppressHover = true;
+          (mobile.matches ? menu : edge).focus({ preventScroll: true });
+        }
+        restoringFocus = false;
       }
-      if (focus && modal) dismiss.focus();
-      if (!open && (focus || restoreFocus)) toggle.focus();
+    }
+    function closeSoon() {
+      clearTimeout(closeTimer);
+      closeTimer = setTimeout(() => {
+        if (
+          !mobile.matches &&
+          !pinned() &&
+          !sidebar.matches(":hover") &&
+          !edge.matches(":hover") &&
+          !sidebar.contains(document.activeElement) &&
+          document.activeElement !== edge
+        )
+          render(false);
+      }, 180);
     }
     UI.navigation = (view) => {
       if (context === view) return;
       context = view;
-      render(!mobile.matches && context !== "record");
+      render(false);
     };
-    mobile.addEventListener("change", () =>
-      render(!mobile.matches && context !== "record"),
-    );
-    toggle.onclick = () => render(!open, true);
+    mobile.addEventListener("change", () => render(false));
+    menu.onclick = () => render(!open, true);
+    edge.onclick = () => render(true, true);
+    const openOnHover = () => {
+      if (
+        !open &&
+        !mobile.matches &&
+        !pinned() &&
+        !suppressHover &&
+        !$("dialog[open]")
+      ) {
+        if (document.activeElement === edge) edge.blur();
+        render(true);
+      }
+    };
+    edge.onpointerenter = edge.onpointermove = openOnHover;
+    edge.onfocus = () => {
+      if (!pinned() && !restoringFocus) render(true);
+    };
+    edge.onpointerleave = () => {
+      suppressHover = false;
+      closeSoon();
+    };
+    edge.onblur = closeSoon;
+    sidebar.onpointerenter = () => clearTimeout(closeTimer);
+    sidebar.onpointerleave = closeSoon;
+    sidebar.addEventListener("focusout", closeSoon);
     dismiss.onclick = backdrop.onclick = () => render(false, true);
-    sidebar.addEventListener("click", (e) => {
-      if (mobile.matches && e.target.closest("a")) render(false, true);
+    sidebar.addEventListener("click", (event) => {
+      if (event.target.closest("a") && !pinned()) render(false);
     });
-    document.addEventListener("keydown", (e) => {
-      if (!open) return;
-      if (e.key === "Escape" && !$("dialog[open]")) {
-        e.preventDefault();
+    document.addEventListener("keydown", (event) => {
+      if (!open || pinned()) return;
+      if (event.key === "Escape" && !$("dialog[open]")) {
+        event.preventDefault();
         render(false, true);
       }
-      if (e.key === "Tab" && mobile.matches) {
+      if (event.key === "Tab" && mobile.matches) {
         const items = [...sidebar.querySelectorAll("a,button")].filter(
           (el) => el.getClientRects().length && !el.disabled,
         );
         const first = items[0],
           last = items.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
           last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
           first.focus();
         }
       }
     });
-    UI.navigation(APP.params.get("view") || "overview");
+    const header = $(".site-header");
+    const headerObserver = new ResizeObserver(() =>
+      shell.style.setProperty(
+        "--nav-top",
+        header.getBoundingClientRect().height + "px",
+      ),
+    );
+    headerObserver.observe(header);
+    UI.navigation(gamePage ? APP.params.get("view") || "overview" : "detail");
   }
   function catalogVisual(item, stage = false) {
     const cls = stage ? "catalog-stage-photo" : "catalog-stock-icon";
@@ -706,28 +818,6 @@
         .fc-scoreline { column-gap: 5px; }
         .fc-scoreline .catalog-stock-icon { width: 24px; height: 24px; }
         .fc-scoreline .catalog-image-fallback { min-width: 24px; }
-      }
-      .adaptive-navigation { grid-template-columns: 252px minmax(0,1fr); transition: grid-template-columns 240ms ease; }
-      .adaptive-navigation[data-nav-open="false"] { grid-template-columns: 0 minmax(0,1fr); }
-      .adaptive-navigation .sidebar { width: 252px; transition: opacity 180ms ease, transform 240ms ease, visibility 240ms; }
-      .adaptive-navigation[data-nav-open="false"] .sidebar { opacity: 0; transform: translateX(-20px); visibility: hidden; pointer-events: none; }
-      .navigation-toggle { margin-bottom: 20px; }
-      .navigation-dismiss, .navigation-backdrop { display: none; }
-      @media (max-width: 1024px) {
-        .adaptive-navigation, .adaptive-navigation[data-nav-open="false"] { grid-template-columns: minmax(0,1fr); }
-        .adaptive-navigation .sidebar { position: fixed; z-index: 71; top: 0; bottom: 0; left: 0; height: 100dvh; width: min(300px,85vw); padding: 20px 16px; background: var(--surface); overflow-y: auto; border-right: 1px solid var(--line); }
-        .adaptive-navigation[data-nav-open="false"] .sidebar { transform: translateX(-100%); }
-        .adaptive-navigation .side-nav { display: grid; overflow: visible; }
-        .adaptive-navigation .side-link { width: 100%; }
-        .adaptive-navigation .side-label { display: block; }
-        .adaptive-navigation .side-group + .side-group { margin-top: 24px; }
-        .navigation-dismiss { display: inline-flex; margin-bottom: 24px; }
-        .navigation-backdrop { display: block; position: fixed; inset: 0; z-index: 70; background: rgb(0 0 0 / .35); opacity: 0; visibility: hidden; transition: opacity 240ms ease, visibility 240ms; }
-        [data-nav-open="true"] .navigation-backdrop { opacity: 1; visibility: visible; }
-        body.navigation-modal { overflow: hidden; }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .adaptive-navigation, .adaptive-navigation .sidebar, .navigation-backdrop { transition: none; }
       }
       .catalog-stock-icon { display: inline-block; width: 40px; height: 40px; flex: none; object-fit: contain; vertical-align: middle; }
       .catalog-stage-photo { display: block; width: 100%; max-width: 320px; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--radius-sm); background: var(--surface-2); }

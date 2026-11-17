@@ -1,3 +1,5 @@
+@import url("./record.css");
+@import url("./navigation.css");
 /* Live appearance refinements; the original design-reference styles stay intact. */
 .logo-plate,
 .game-icon,

@@ -7,6 +7,20 @@ import { assert, fail, page, audit } from "./db.js";
 export const smashCatalog = JSON.parse(
   readFileSync(new URL("../static/catalogs/smash.json", import.meta.url)),
 );
+const allFighters = [
+  ...smashCatalog.fighters,
+  ...(smashCatalog.legacyFighters || []),
+];
+const smashEntries = (kind) =>
+  kind === "fighter" ? allFighters : smashCatalog.stages;
+const withSmashImage = (db, kind, entry) => {
+  const customImage = catalogImage(db, "smash", kind, entry.id);
+  return {
+    ...entry,
+    image: customImage || entry.image || null,
+    custom_image: !!customImage,
+  };
+};
 
 export function catalogImage(db, game, kind, key) {
   if (kind === "team") {
@@ -44,11 +58,11 @@ function linkBadge(db, team, id) {
 // used by uploads without rewriting historical score or approval records.
 export function smashMedia(db, score) {
   const resolve = (kind, value) => {
-    const entry = smashCatalog[kind === "fighter" ? "fighters" : "stages"].find(
+    const entry = smashEntries(kind).find(
       (item) => item.name === value || String(item.id) === String(value),
     );
     return entry
-      ? { ...entry, image: catalogImage(db, "smash", kind, entry.id) }
+      ? withSmashImage(db, kind, entry)
       : { name: String(value || "Unknown"), image: null };
   };
   return (score.games || []).map((game) => ({
@@ -61,7 +75,18 @@ export function smashMedia(db, score) {
 }
 
 export function registerCatalogImages(app, { db, uploads, game, gameAdmin }) {
-  app.get("/api/catalogs/smash", async () => smashCatalog);
+  app.get("/api/catalogs/smash", async () => ({
+    ...smashCatalog,
+    fighters: smashCatalog.fighters.map((entry) =>
+      withSmashImage(db, "fighter", entry),
+    ),
+    legacyFighters: (smashCatalog.legacyFighters || []).map((entry) =>
+      withSmashImage(db, "fighter", entry),
+    ),
+    stages: smashCatalog.stages.map((entry) =>
+      withSmashImage(db, "stage", entry),
+    ),
+  }));
   app.get("/api/team-badges", async (req) => {
     const { limit, offset } = page(req.query);
     const q = `%${String(req.query.q || "").trim()}%`;
@@ -93,9 +118,7 @@ export function registerCatalogImages(app, { db, uploads, game, gameAdmin }) {
         ? db
             .prepare("SELECT * FROM teams WHERE game=? AND code=?")
             .get(slug, key)
-        : smashCatalog[kind === "fighter" ? "fighters" : "stages"].find(
-            (item) => String(item.id) === key,
-          );
+        : smashEntries(kind).find((item) => String(item.id) === key);
     assert(item, "Catalog entry not found.", 404);
     return item;
   }
@@ -120,11 +143,9 @@ export function registerCatalogImages(app, { db, uploads, game, gameAdmin }) {
         )
         .all(...args, limit, offset);
     } else {
-      const all = smashCatalog[
-        kind === "fighter" ? "fighters" : "stages"
-      ].filter((item) =>
-        [item.name, item.code, String(item.id)].some((v) =>
-          v.toLowerCase().includes(q.toLowerCase()),
+      const all = smashEntries(kind).filter((item) =>
+        [item.name, item.code, String(item.id), String(item.num || "")].some(
+          (v) => v.toLowerCase().includes(q.toLowerCase()),
         ),
       );
       total = all.length;
@@ -141,7 +162,7 @@ export function registerCatalogImages(app, { db, uploads, game, gameAdmin }) {
               image: null,
               ...teamBadge(db, item),
             }
-          : { ...item, key, image: catalogImage(db, slug, kind, key) };
+          : { ...withSmashImage(db, kind, item), key };
       }),
       total,
       limit,

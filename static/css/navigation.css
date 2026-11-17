@@ -1,0 +1,156 @@
+.adaptive-navigation {
+  grid-template-columns: minmax(0, 1fr);
+}
+.adaptive-navigation[data-nav-mode="pinned"] {
+  grid-template-columns: 252px minmax(0, 1fr);
+}
+.adaptive-navigation .sidebar {
+  width: 252px;
+  padding: 26px 16px 40px;
+  background: var(--surface);
+  overflow-y: auto;
+  transition: transform 220ms ease;
+}
+.adaptive-navigation[data-nav-mode="pinned"] .sidebar {
+  position: sticky;
+  top: var(--nav-top, 72px);
+  height: calc(100dvh - var(--nav-top, 72px));
+}
+.adaptive-navigation[data-nav-mode="drawer"] .sidebar {
+  position: fixed;
+  z-index: 71;
+  inset: var(--nav-top, 72px) auto 0 0;
+  height: calc(100dvh - var(--nav-top, 72px));
+  border-right: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+}
+.adaptive-navigation[data-nav-open="false"] .sidebar {
+  transform: translateX(-100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 220ms ease,
+    visibility 0s 220ms;
+}
+.adaptive-navigation .side-nav {
+  display: grid;
+  overflow: visible;
+}
+.adaptive-navigation .side-link {
+  width: 100%;
+}
+.adaptive-navigation .side-label {
+  display: block;
+}
+.adaptive-navigation .side-group + .side-group {
+  margin-top: 24px;
+}
+.adaptive-navigation .side-nav {
+  padding-bottom: 0;
+}
+.navigation-menu.icon-btn {
+  display: none;
+}
+.navigation-edge {
+  position: fixed;
+  z-index: 69;
+  inset: var(--nav-top, 72px) auto 0 0;
+  width: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.navigation-edge::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 45%;
+  width: 3px;
+  height: 40px;
+  border-radius: 3px;
+  background: var(--muted);
+  opacity: 0.3;
+}
+.navigation-edge:hover::after,
+.navigation-edge:focus-visible::after {
+  opacity: 1;
+  background: var(--accent);
+}
+.navigation-edge:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+[data-nav-mode="pinned"] .navigation-edge,
+[data-nav-mode="pinned"] .navigation-dismiss {
+  display: none;
+}
+.navigation-dismiss {
+  display: inline-flex;
+  margin-bottom: 20px;
+}
+.navigation-backdrop {
+  display: none;
+}
+.adaptive-navigation > main.detail-main {
+  width: 100%;
+}
+@media (max-width: 1024px), (hover: none) {
+  .adaptive-navigation[data-nav-mode="drawer"] .sidebar {
+    inset: 0 auto 0 0;
+    width: min(300px, 85vw);
+    height: 100dvh;
+    padding-top: 20px;
+  }
+  .site-header .header-actions .navigation-menu.icon-btn {
+    display: inline-flex;
+  }
+  .navigation-edge {
+    display: none;
+  }
+  .navigation-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: rgb(0 0 0 / 0.35);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 220ms ease,
+      visibility 220ms;
+  }
+  [data-nav-open="true"] .navigation-backdrop {
+    opacity: 1;
+    visibility: visible;
+  }
+  body.navigation-modal {
+    overflow: hidden;
+  }
+  .header-actions:has(.navigation-menu) {
+    gap: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adaptive-navigation[data-nav-open] .sidebar,
+  .navigation-backdrop {
+    transition: none;
+  }
+}
+@media (max-width: 700px) {
+  .app-head-inner:has(.navigation-menu) {
+    gap: 10px;
+  }
+  .app-header:has(.navigation-menu) .game-switcher {
+    min-width: 0;
+  }
+  .header-actions:has(.navigation-menu) .header-user {
+    white-space: nowrap;
+  }
+  .site-header .header-actions:has(.navigation-menu) > .btn-ghost {
+    display: none;
+  }
+  .app-header:has(.navigation-menu) .brand > span:last-child {
+    display: none;
+  }
+}

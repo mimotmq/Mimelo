@@ -1,0 +1,432 @@
+[
+  {
+    "fighter": "Mario",
+    "file": "MarioHeadSSBUWebsite.png",
+    "asset": "fighters/1.png"
+  },
+  {
+    "fighter": "Donkey Kong",
+    "file": "DonkeyKongHeadSSBUWebsite.png",
+    "asset": "fighters/2.png"
+  },
+  {
+    "fighter": "Link",
+    "file": "LinkHeadSSBUWebsite.png",
+    "asset": "fighters/3.png"
+  },
+  {
+    "fighter": "Samus",
+    "file": "SamusHeadSSBUWebsite.png",
+    "asset": "fighters/4.png"
+  },
+  {
+    "fighter": "Dark Samus",
+    "file": "DarkSamusHeadSSBUWebsite.png",
+    "asset": "fighters/5.png"
+  },
+  {
+    "fighter": "Yoshi",
+    "file": "YoshiHeadSSBUWebsite.png",
+    "asset": "fighters/6.png"
+  },
+  {
+    "fighter": "Kirby",
+    "file": "KirbyHeadSSBUWebsite.png",
+    "asset": "fighters/7.png"
+  },
+  {
+    "fighter": "Fox",
+    "file": "FoxHeadSSBUWebsite.png",
+    "asset": "fighters/8.png"
+  },
+  {
+    "fighter": "Pikachu",
+    "file": "PikachuHeadSSBUWebsite.png",
+    "asset": "fighters/9.png"
+  },
+  {
+    "fighter": "Luigi",
+    "file": "LuigiHeadSSBUWebsite.png",
+    "asset": "fighters/10.png"
+  },
+  {
+    "fighter": "Ness",
+    "file": "NessHeadSSBUWebsite.png",
+    "asset": "fighters/11.png"
+  },
+  {
+    "fighter": "Captain Falcon",
+    "file": "CaptainFalconHeadSSBUWebsite.png",
+    "asset": "fighters/12.png"
+  },
+  {
+    "fighter": "Jigglypuff",
+    "file": "JigglypuffHeadSSBUWebsite.png",
+    "asset": "fighters/13.png"
+  },
+  {
+    "fighter": "Peach",
+    "file": "PeachHeadSSBUWebsite.png",
+    "asset": "fighters/14.png"
+  },
+  {
+    "fighter": "Daisy",
+    "file": "DaisyHeadSSBUWebsite.png",
+    "asset": "fighters/15.png"
+  },
+  {
+    "fighter": "Bowser",
+    "file": "BowserHeadSSBUWebsite.png",
+    "asset": "fighters/16.png"
+  },
+  {
+    "fighter": "Ice Climbers",
+    "file": "IceClimbersHeadSSBUWebsite.png",
+    "asset": "fighters/17.png"
+  },
+  {
+    "fighter": "Sheik",
+    "file": "SheikHeadSSBUWebsite.png",
+    "asset": "fighters/18.png"
+  },
+  {
+    "fighter": "Zelda",
+    "file": "ZeldaHeadSSBUWebsite.png",
+    "asset": "fighters/19.png"
+  },
+  {
+    "fighter": "Dr. Mario",
+    "file": "DrMarioHeadSSBUWebsite.png",
+    "asset": "fighters/20.png"
+  },
+  {
+    "fighter": "Pichu",
+    "file": "PichuHeadSSBUWebsite.png",
+    "asset": "fighters/21.png"
+  },
+  {
+    "fighter": "Falco",
+    "file": "FalcoHeadSSBUWebsite.png",
+    "asset": "fighters/22.png"
+  },
+  {
+    "fighter": "Marth",
+    "file": "MarthHeadSSBUWebsite.png",
+    "asset": "fighters/23.png"
+  },
+  {
+    "fighter": "Lucina",
+    "file": "LucinaHeadSSBUWebsite.png",
+    "asset": "fighters/24.png"
+  },
+  {
+    "fighter": "Young Link",
+    "file": "YoungLinkHeadSSBUWebsite.png",
+    "asset": "fighters/25.png"
+  },
+  {
+    "fighter": "Ganondorf",
+    "file": "GanondorfHeadSSBUWebsite.png",
+    "asset": "fighters/26.png"
+  },
+  {
+    "fighter": "Mewtwo",
+    "file": "MewtwoHeadSSBUWebsite.png",
+    "asset": "fighters/27.png"
+  },
+  {
+    "fighter": "Roy",
+    "file": "RoyHeadSSBUWebsite.png",
+    "asset": "fighters/28.png"
+  },
+  {
+    "fighter": "Chrom",
+    "file": "ChromHeadSSBUWebsite.png",
+    "asset": "fighters/29.png"
+  },
+  {
+    "fighter": "Mr. Game & Watch",
+    "file": "MrGame&WatchHeadSSBUWebsite.png",
+    "asset": "fighters/30.png"
+  },
+  {
+    "fighter": "Meta Knight",
+    "file": "MetaKnightHeadSSBUWebsite.png",
+    "asset": "fighters/31.png"
+  },
+  {
+    "fighter": "Pit",
+    "file": "PitHeadSSBUWebsite.png",
+    "asset": "fighters/32.png"
+  },
+  {
+    "fighter": "Dark Pit",
+    "file": "DarkPitHeadSSBUWebsite.png",
+    "asset": "fighters/33.png"
+  },
+  {
+    "fighter": "Zero Suit Samus",
+    "file": "ZeroSuitSamusHeadSSBUWebsite.png",
+    "asset": "fighters/34.png"
+  },
+  {
+    "fighter": "Wario",
+    "file": "WarioHeadSSBUWebsite.png",
+    "asset": "fighters/35.png"
+  },
+  {
+    "fighter": "Snake",
+    "file": "SnakeHeadSSBUWebsite.png",
+    "asset": "fighters/36.png"
+  },
+  {
+    "fighter": "Ike",
+    "file": "IkeHeadSSBUWebsite.png",
+    "asset": "fighters/37.png"
+  },
+  {
+    "fighter": "Pokémon Trainer",
+    "file": "PokémonTrainerHeadSSBUWebsite.png",
+    "asset": "fighters/90.png"
+  },
+  {
+    "fighter": "Diddy Kong",
+    "file": "DiddyKongHeadSSBUWebsite.png",
+    "asset": "fighters/41.png"
+  },
+  {
+    "fighter": "Lucas",
+    "file": "LucasHeadSSBUWebsite.png",
+    "asset": "fighters/42.png"
+  },
+  {
+    "fighter": "Sonic",
+    "file": "SonicHeadSSBUWebsite.png",
+    "asset": "fighters/43.png"
+  },
+  {
+    "fighter": "King Dedede",
+    "file": "KingDededeHeadSSBUWebsite.png",
+    "asset": "fighters/44.png"
+  },
+  {
+    "fighter": "Olimar",
+    "file": "OlimarHeadSSBUWebsite.png",
+    "asset": "fighters/45.png"
+  },
+  {
+    "fighter": "Lucario",
+    "file": "LucarioHeadSSBUWebsite.png",
+    "asset": "fighters/46.png"
+  },
+  {
+    "fighter": "R.O.B.",
+    "file": "ROBHeadSSBUWebsite.png",
+    "asset": "fighters/47.png"
+  },
+  {
+    "fighter": "Toon Link",
+    "file": "ToonLinkHeadSSBUWebsite.png",
+    "asset": "fighters/48.png"
+  },
+  {
+    "fighter": "Wolf",
+    "file": "WolfHeadSSBUWebsite.png",
+    "asset": "fighters/49.png"
+  },
+  {
+    "fighter": "Villager",
+    "file": "VillagerHeadSSBUWebsite.png",
+    "asset": "fighters/50.png"
+  },
+  {
+    "fighter": "Mega Man",
+    "file": "MegaManHeadSSBUWebsite.png",
+    "asset": "fighters/51.png"
+  },
+  {
+    "fighter": "Wii Fit Trainer",
+    "file": "WiiFitTrainerHeadSSBUWebsite.png",
+    "asset": "fighters/52.png"
+  },
+  {
+    "fighter": "Rosalina & Luma",
+    "file": "RosalinaHeadSSBUWebsite.png",
+    "asset": "fighters/53.png"
+  },
+  {
+    "fighter": "Little Mac",
+    "file": "LittleMacHeadSSBUWebsite.png",
+    "asset": "fighters/54.png"
+  },
+  {
+    "fighter": "Greninja",
+    "file": "GreninjaHeadSSBUWebsite.png",
+    "asset": "fighters/55.png"
+  },
+  {
+    "fighter": "Mii Brawler",
+    "file": "chara_2_miifighter_00.png",
+    "asset": "fighters/56.png"
+  },
+  {
+    "fighter": "Mii Swordfighter",
+    "file": "chara_2_miiswordsman_00.png",
+    "asset": "fighters/57.png"
+  },
+  {
+    "fighter": "Mii Gunner",
+    "file": "chara_2_miigunner_00.png",
+    "asset": "fighters/58.png"
+  },
+  {
+    "fighter": "Palutena",
+    "file": "PalutenaHeadSSBUWebsite.png",
+    "asset": "fighters/59.png"
+  },
+  {
+    "fighter": "Pac-Man",
+    "file": "Pac-ManHeadSSBUWebsite.png",
+    "asset": "fighters/60.png"
+  },
+  {
+    "fighter": "Robin",
+    "file": "RobinHeadSSBUWebsite.png",
+    "asset": "fighters/61.png"
+  },
+  {
+    "fighter": "Shulk",
+    "file": "ShulkHeadSSBUWebsite.png",
+    "asset": "fighters/62.png"
+  },
+  {
+    "fighter": "Bowser Jr.",
+    "file": "BowserJrHeadSSBUWebsite.png",
+    "asset": "fighters/63.png"
+  },
+  {
+    "fighter": "Duck Hunt",
+    "file": "DuckHuntHeadSSBUWebsite.png",
+    "asset": "fighters/64.png"
+  },
+  {
+    "fighter": "Ryu",
+    "file": "RyuHeadSSBUWebsite.png",
+    "asset": "fighters/65.png"
+  },
+  {
+    "fighter": "Ken",
+    "file": "KenHeadSSBUWebsite.png",
+    "asset": "fighters/66.png"
+  },
+  {
+    "fighter": "Cloud",
+    "file": "CloudHeadSSBUWebsite.png",
+    "asset": "fighters/67.png"
+  },
+  {
+    "fighter": "Corrin",
+    "file": "CorrinHeadSSBUWebsite.png",
+    "asset": "fighters/68.png"
+  },
+  {
+    "fighter": "Bayonetta",
+    "file": "BayonettaHeadSSBUWebsite.png",
+    "asset": "fighters/69.png"
+  },
+  {
+    "fighter": "Inkling",
+    "file": "InklingHeadSSBUWebsite.png",
+    "asset": "fighters/70.png"
+  },
+  {
+    "fighter": "Ridley",
+    "file": "RidleyHeadSSBUWebsite.png",
+    "asset": "fighters/71.png"
+  },
+  {
+    "fighter": "Simon",
+    "file": "SimonHeadSSBUWebsite.png",
+    "asset": "fighters/72.png"
+  },
+  {
+    "fighter": "Richter",
+    "file": "RichterHeadSSBUWebsite.png",
+    "asset": "fighters/73.png"
+  },
+  {
+    "fighter": "King K. Rool",
+    "file": "KingKRoolHeadSSBUWebsite.png",
+    "asset": "fighters/74.png"
+  },
+  {
+    "fighter": "Isabelle",
+    "file": "IsabelleHeadSSBUWebsite.png",
+    "asset": "fighters/75.png"
+  },
+  {
+    "fighter": "Incineroar",
+    "file": "IncineroarHeadSSBUWebsite.png",
+    "asset": "fighters/76.png"
+  },
+  {
+    "fighter": "Piranha Plant",
+    "file": "PiranhaPlantHeadSSBUWebsite.png",
+    "asset": "fighters/77.png"
+  },
+  {
+    "fighter": "Joker",
+    "file": "JokerHeadSSBUWebsite.png",
+    "asset": "fighters/78.png"
+  },
+  {
+    "fighter": "Hero",
+    "file": "HeroHeadSSBUWebsite.png",
+    "asset": "fighters/79.png"
+  },
+  {
+    "fighter": "Banjo & Kazooie",
+    "file": "Banjo&KazooieHeadSSBUWebsite.png",
+    "asset": "fighters/80.png"
+  },
+  {
+    "fighter": "Terry",
+    "file": "TerryHeadSSBUWebsite.png",
+    "asset": "fighters/81.png"
+  },
+  {
+    "fighter": "Byleth",
+    "file": "BylethHeadSSBUWebsite.png",
+    "asset": "fighters/82.png"
+  },
+  {
+    "fighter": "Min Min",
+    "file": "MinMinHeadSSBUWebsite.png",
+    "asset": "fighters/83.png"
+  },
+  {
+    "fighter": "Steve",
+    "file": "SteveHeadSSBUWebsite.png",
+    "asset": "fighters/84.png"
+  },
+  {
+    "fighter": "Sephiroth",
+    "file": "SephirothHeadSSBUWebsite.png",
+    "asset": "fighters/85.png"
+  },
+  {
+    "fighter": "Pyra/Mythra",
+    "file": "PyraMythraHeadSSBU 60 x 60.png",
+    "asset": "fighters/91.png"
+  },
+  {
+    "fighter": "Kazuya",
+    "file": "KazuyaHeadSSBUWebsite.png",
+    "asset": "fighters/88.png"
+  },
+  {
+    "fighter": "Sora",
+    "file": "SoraHeadSSBUWebsite.png",
+    "asset": "fighters/89.png"
+  }
+]

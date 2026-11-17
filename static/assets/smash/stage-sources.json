@@ -1,0 +1,52 @@
+[
+  {
+    "stage": "Battlefield",
+    "file": "1280px-SSBU-Battlefield.png",
+    "asset": "stages/battlefield.webp"
+  },
+  {
+    "stage": "Final Destination",
+    "file": "1280px-SSBU-Final_Destination.jpg",
+    "asset": "stages/final-destination.webp"
+  },
+  {
+    "stage": "Small Battlefield",
+    "file": "SSBU-Small-Battlefield.jpg",
+    "asset": "stages/small-battlefield.webp"
+  },
+  {
+    "stage": "Smashville",
+    "file": "1280px-SSBU-Smashville.png",
+    "asset": "stages/smashville.webp"
+  },
+  {
+    "stage": "Town and City",
+    "file": "SSBU-Town_and_City.png",
+    "asset": "stages/town-and-city.webp"
+  },
+  {
+    "stage": "Pokémon Stadium 2",
+    "file": "1280px-SSBU-Pokémon_Stadium_2.png",
+    "asset": "stages/pokemon-stadium-2.webp"
+  },
+  {
+    "stage": "Hollow Bastion",
+    "file": "1280px-SSBU-Hollow_Bastion.jpg",
+    "asset": "stages/hollow-bastion.webp"
+  },
+  {
+    "stage": "Lylat Cruise",
+    "file": "1280px-SSBU-Lylat_Cruise.jpg",
+    "asset": "stages/lylat-cruise.webp"
+  },
+  {
+    "stage": "Yoshi's Story",
+    "file": "1280px-SSBU-Yoshi's_Story.png",
+    "asset": "stages/yoshis-story.webp"
+  },
+  {
+    "stage": "Kalos Pokémon League",
+    "file": "1280px-SSBU-Kalos_Pokémon_League.png",
+    "asset": "stages/kalos.webp"
+  }
+]

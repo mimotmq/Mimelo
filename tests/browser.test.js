@@ -19,6 +19,21 @@ async function choosePlayer(page, selector, id) {
     .click();
   assert.equal(await page.locator(selector).inputValue(), String(id));
 }
+async function openNavigation(page) {
+  if (
+    (await page.locator(".app-body").getAttribute("data-nav-open")) === "true"
+  )
+    return;
+  const menu = page.locator(".navigation-menu");
+  if (await menu.isVisible()) await menu.click();
+  else {
+    await page.mouse.move(400, 200);
+    await page.mouse.move(2, 200);
+  }
+  await page.waitForFunction(
+    () => document.querySelector(".app-body").dataset.navOpen === "true",
+  );
+}
 
 test("template screens and live workflows at desktop and mobile widths", async (t) => {
   const app = await createApp({ database: ":memory:" });
@@ -131,18 +146,11 @@ test("template screens and live workflows at desktop and mobile widths", async (
         "record",
         "review",
       ]) {
-        if (
-          (await page
-            .locator(".navigation-toggle")
-            .getAttribute("aria-expanded")) === "false"
-        )
-          await page.locator(".navigation-toggle").click();
+        await openNavigation(page);
         await page.locator(`.sidebar [data-view="${view}"]`).click();
         assert.equal(
-          await page
-            .locator(".navigation-toggle")
-            .getAttribute("aria-expanded"),
-          String(width > 1024 && view !== "record"),
+          await page.locator(".app-body").getAttribute("data-nav-open"),
+          "false",
         );
         await noOverflow();
       }
@@ -381,19 +389,19 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     path: "artifacts/fc-record-mobile.png",
     fullPage: true,
   });
-  await page.locator(".navigation-toggle").click();
+  await openNavigation(page);
   assert.equal(
     await page.locator(".sidebar").getAttribute("aria-modal"),
     "true",
   );
   await page.keyboard.press("Escape");
   assert.equal(
-    await page.locator(".navigation-toggle").getAttribute("aria-expanded"),
+    await page.locator(".navigation-menu").getAttribute("aria-expanded"),
     "false",
   );
   await page.setViewportSize({ width: 1440, height: 1000 });
   assert.equal(
-    await page.locator(".navigation-toggle").getAttribute("aria-expanded"),
+    await page.locator(".navigation-menu").getAttribute("aria-expanded"),
     "false",
   );
   await page.screenshot({
@@ -461,9 +469,12 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   await page.locator("#field-bestOf").selectOption("1");
   await page.locator("#field-score0a").fill("6");
   await page.locator("#field-score0b").fill("4");
-  for (let i = 0; i < 4; i++)
-    await page.locator("#field-fighter0-" + i).selectOption({ index: i + 1 });
-  await page.locator("#field-stage0").selectOption({ index: 1 });
+  for (let i = 0; i < 4; i++) {
+    await page.locator(`[data-game="0"][data-pick="fighter${i}"]`).click();
+    await page.locator(".smash-roster-tile").nth(i).click();
+  }
+  await page.locator('[data-game="0"][data-pick="stage"]').click();
+  await page.getByRole("button", { name: "Battlefield", exact: true }).click();
   assert.equal(await page.locator("#jv0").count(), 0);
   await page.locator("#record-form button[type=submit]").click();
   await page.waitForURL(/match=/);
@@ -642,7 +653,7 @@ test("game banners adapt to the view and dark mode shares neutral surfaces", asy
           path: `artifacts/banner-${game}-${colorScheme}-${width}.png`,
           fullPage: true,
         });
-        if (width <= 1024) await page.locator(".navigation-toggle").click();
+        await openNavigation(page);
         await page.locator('.sidebar [data-view="matches"]').click();
         assert.equal(await banner.getAttribute("data-size"), "compact");
         await page.waitForFunction(

@@ -4,587 +4,730 @@
       "id": 1,
       "num": 1,
       "name": "Mario",
-      "code": "MAR"
+      "code": "MAR",
+      "image": "/assets/smash/fighters/1.png"
     },
     {
       "id": 2,
       "num": 2,
       "name": "Donkey Kong",
-      "code": "DK"
+      "code": "DK",
+      "image": "/assets/smash/fighters/2.png"
     },
     {
       "id": 3,
       "num": 3,
       "name": "Link",
-      "code": "LINK"
+      "code": "LINK",
+      "image": "/assets/smash/fighters/3.png"
     },
     {
       "id": 4,
       "num": 4,
       "name": "Samus",
-      "code": "SAM"
+      "code": "SAM",
+      "image": "/assets/smash/fighters/4.png"
     },
     {
       "id": 5,
-      "num": 5,
+      "num": 4,
       "name": "Dark Samus",
-      "code": "DSAM"
+      "code": "DSAM",
+      "echo": true,
+      "image": "/assets/smash/fighters/5.png"
     },
     {
       "id": 6,
-      "num": 6,
+      "num": 5,
       "name": "Yoshi",
-      "code": "YOS"
+      "code": "YOS",
+      "image": "/assets/smash/fighters/6.png"
     },
     {
       "id": 7,
-      "num": 7,
+      "num": 6,
       "name": "Kirby",
-      "code": "KIR"
+      "code": "KIR",
+      "image": "/assets/smash/fighters/7.png"
     },
     {
       "id": 8,
-      "num": 8,
+      "num": 7,
       "name": "Fox",
-      "code": "FOX"
+      "code": "FOX",
+      "image": "/assets/smash/fighters/8.png"
     },
     {
       "id": 9,
-      "num": 9,
+      "num": 8,
       "name": "Pikachu",
-      "code": "PIKA"
+      "code": "PIKA",
+      "image": "/assets/smash/fighters/9.png"
     },
     {
       "id": 10,
-      "num": 10,
+      "num": 9,
       "name": "Luigi",
-      "code": "LUI"
+      "code": "LUI",
+      "image": "/assets/smash/fighters/10.png"
     },
     {
       "id": 11,
-      "num": 11,
+      "num": 10,
       "name": "Ness",
-      "code": "NESS"
+      "code": "NESS",
+      "image": "/assets/smash/fighters/11.png"
     },
     {
       "id": 12,
-      "num": 12,
+      "num": 11,
       "name": "Captain Falcon",
-      "code": "CFAL"
+      "code": "CFAL",
+      "image": "/assets/smash/fighters/12.png"
     },
     {
       "id": 13,
-      "num": 13,
+      "num": 12,
       "name": "Jigglypuff",
-      "code": "JIG"
+      "code": "JIG",
+      "image": "/assets/smash/fighters/13.png"
     },
     {
       "id": 14,
-      "num": 14,
+      "num": 13,
       "name": "Peach",
-      "code": "PEACH"
+      "code": "PEACH",
+      "image": "/assets/smash/fighters/14.png"
     },
     {
       "id": 15,
-      "num": 15,
+      "num": 13,
       "name": "Daisy",
-      "code": "DAISY"
+      "code": "DAISY",
+      "echo": true,
+      "image": "/assets/smash/fighters/15.png"
     },
     {
       "id": 16,
-      "num": 16,
+      "num": 14,
       "name": "Bowser",
-      "code": "BOWS"
+      "code": "BOWS",
+      "image": "/assets/smash/fighters/16.png"
     },
     {
       "id": 17,
-      "num": 17,
+      "num": 15,
       "name": "Ice Climbers",
-      "code": "ICES"
+      "code": "ICES",
+      "image": "/assets/smash/fighters/17.png"
     },
     {
       "id": 18,
-      "num": 18,
+      "num": 16,
       "name": "Sheik",
-      "code": "SHEIK"
+      "code": "SHEIK",
+      "image": "/assets/smash/fighters/18.png"
     },
     {
       "id": 19,
-      "num": 19,
+      "num": 17,
       "name": "Zelda",
-      "code": "ZEL"
+      "code": "ZEL",
+      "image": "/assets/smash/fighters/19.png"
     },
     {
       "id": 20,
-      "num": 20,
+      "num": 18,
       "name": "Dr. Mario",
-      "code": "DRM"
+      "code": "DRM",
+      "image": "/assets/smash/fighters/20.png"
     },
     {
       "id": 21,
-      "num": 21,
+      "num": 19,
       "name": "Pichu",
-      "code": "PICHU"
+      "code": "PICHU",
+      "image": "/assets/smash/fighters/21.png"
     },
     {
       "id": 22,
-      "num": 22,
+      "num": 20,
       "name": "Falco",
-      "code": "FALC"
+      "code": "FALC",
+      "image": "/assets/smash/fighters/22.png"
     },
     {
       "id": 23,
-      "num": 23,
+      "num": 21,
       "name": "Marth",
-      "code": "MART"
+      "code": "MART",
+      "image": "/assets/smash/fighters/23.png"
     },
     {
       "id": 24,
-      "num": 24,
+      "num": 21,
       "name": "Lucina",
-      "code": "LUC"
+      "code": "LUC",
+      "echo": true,
+      "image": "/assets/smash/fighters/24.png"
     },
     {
       "id": 25,
-      "num": 25,
+      "num": 22,
       "name": "Young Link",
-      "code": "YLNK"
+      "code": "YLNK",
+      "image": "/assets/smash/fighters/25.png"
     },
     {
       "id": 26,
-      "num": 26,
+      "num": 23,
       "name": "Ganondorf",
-      "code": "GAN"
+      "code": "GAN",
+      "image": "/assets/smash/fighters/26.png"
     },
     {
       "id": 27,
-      "num": 27,
+      "num": 24,
       "name": "Mewtwo",
-      "code": "MEW"
+      "code": "MEW",
+      "image": "/assets/smash/fighters/27.png"
     },
     {
       "id": 28,
-      "num": 28,
+      "num": 25,
       "name": "Roy",
-      "code": "ROY"
+      "code": "ROY",
+      "image": "/assets/smash/fighters/28.png"
     },
     {
       "id": 29,
-      "num": 29,
+      "num": 25,
       "name": "Chrom",
-      "code": "CHRO"
+      "code": "CHRO",
+      "echo": true,
+      "image": "/assets/smash/fighters/29.png"
     },
     {
       "id": 30,
-      "num": 30,
+      "num": 26,
       "name": "Mr. Game & Watch",
-      "code": "GNW"
+      "code": "GNW",
+      "image": "/assets/smash/fighters/30.png"
     },
     {
       "id": 31,
-      "num": 31,
+      "num": 27,
       "name": "Meta Knight",
-      "code": "META"
+      "code": "META",
+      "image": "/assets/smash/fighters/31.png"
     },
     {
       "id": 32,
-      "num": 32,
+      "num": 28,
       "name": "Pit",
-      "code": "PIT"
+      "code": "PIT",
+      "image": "/assets/smash/fighters/32.png"
     },
     {
       "id": 33,
-      "num": 33,
+      "num": 28,
       "name": "Dark Pit",
-      "code": "DPIT"
+      "code": "DPIT",
+      "echo": true,
+      "image": "/assets/smash/fighters/33.png"
     },
     {
       "id": 34,
-      "num": 34,
+      "num": 29,
       "name": "Zero Suit Samus",
-      "code": "ZSS"
+      "code": "ZSS",
+      "image": "/assets/smash/fighters/34.png"
     },
     {
       "id": 35,
-      "num": 35,
+      "num": 30,
       "name": "Wario",
-      "code": "WARI"
+      "code": "WARI",
+      "image": "/assets/smash/fighters/35.png"
     },
     {
       "id": 36,
-      "num": 36,
+      "num": 31,
       "name": "Snake",
-      "code": "SNAK"
+      "code": "SNAK",
+      "image": "/assets/smash/fighters/36.png"
     },
     {
       "id": 37,
-      "num": 37,
+      "num": 32,
       "name": "Ike",
-      "code": "IKE"
+      "code": "IKE",
+      "image": "/assets/smash/fighters/37.png"
     },
     {
-      "id": 38,
-      "num": 38,
-      "name": "Squirtle",
-      "code": "SQRT"
-    },
-    {
-      "id": 39,
-      "num": 39,
-      "name": "Ivysaur",
-      "code": "IVY"
-    },
-    {
-      "id": 40,
-      "num": 40,
-      "name": "Charizard",
-      "code": "CHAR"
+      "id": 90,
+      "num": "33-35",
+      "name": "Pokémon Trainer",
+      "code": "PKMN",
+      "aliases": [
+        "Squirtle",
+        "Ivysaur",
+        "Charizard",
+        "Pokemon Trainer"
+      ],
+      "image": "/assets/smash/fighters/90.png"
     },
     {
       "id": 41,
-      "num": 41,
+      "num": 36,
       "name": "Diddy Kong",
-      "code": "DIDD"
+      "code": "DIDD",
+      "image": "/assets/smash/fighters/41.png"
     },
     {
       "id": 42,
-      "num": 42,
+      "num": 37,
       "name": "Lucas",
-      "code": "LUCA"
+      "code": "LUCA",
+      "image": "/assets/smash/fighters/42.png"
     },
     {
       "id": 43,
-      "num": 43,
+      "num": 38,
       "name": "Sonic",
-      "code": "SONI"
+      "code": "SONI",
+      "image": "/assets/smash/fighters/43.png"
     },
     {
       "id": 44,
-      "num": 44,
+      "num": 39,
       "name": "King Dedede",
-      "code": "DEDE"
+      "code": "DEDE",
+      "image": "/assets/smash/fighters/44.png"
     },
     {
       "id": 45,
-      "num": 45,
+      "num": 40,
       "name": "Olimar",
-      "code": "OLIM"
+      "code": "OLIM",
+      "image": "/assets/smash/fighters/45.png"
     },
     {
       "id": 46,
-      "num": 46,
+      "num": 41,
       "name": "Lucario",
-      "code": "LCR"
+      "code": "LCR",
+      "image": "/assets/smash/fighters/46.png"
     },
     {
       "id": 47,
-      "num": 47,
+      "num": 42,
       "name": "R.O.B.",
-      "code": "ROB"
+      "code": "ROB",
+      "image": "/assets/smash/fighters/47.png"
     },
     {
       "id": 48,
-      "num": 48,
+      "num": 43,
       "name": "Toon Link",
-      "code": "TLNK"
+      "code": "TLNK",
+      "image": "/assets/smash/fighters/48.png"
     },
     {
       "id": 49,
-      "num": 49,
+      "num": 44,
       "name": "Wolf",
-      "code": "WOLF"
+      "code": "WOLF",
+      "image": "/assets/smash/fighters/49.png"
     },
     {
       "id": 50,
-      "num": 50,
+      "num": 45,
       "name": "Villager",
-      "code": "VILL"
+      "code": "VILL",
+      "image": "/assets/smash/fighters/50.png"
     },
     {
       "id": 51,
-      "num": 51,
+      "num": 46,
       "name": "Mega Man",
-      "code": "MEGA"
+      "code": "MEGA",
+      "image": "/assets/smash/fighters/51.png"
     },
     {
       "id": 52,
-      "num": 52,
+      "num": 47,
       "name": "Wii Fit Trainer",
-      "code": "WFT"
+      "code": "WFT",
+      "image": "/assets/smash/fighters/52.png"
     },
     {
       "id": 53,
-      "num": 53,
+      "num": 48,
       "name": "Rosalina & Luma",
-      "code": "ROSA"
+      "code": "ROSA",
+      "image": "/assets/smash/fighters/53.png"
     },
     {
       "id": 54,
-      "num": 54,
+      "num": 49,
       "name": "Little Mac",
-      "code": "LMAC"
+      "code": "LMAC",
+      "image": "/assets/smash/fighters/54.png"
     },
     {
       "id": 55,
-      "num": 55,
+      "num": 50,
       "name": "Greninja",
-      "code": "GREN"
+      "code": "GREN",
+      "image": "/assets/smash/fighters/55.png"
     },
     {
       "id": 56,
-      "num": 56,
+      "num": 51,
       "name": "Mii Brawler",
-      "code": "MIIB"
+      "code": "MIIB",
+      "image": "/assets/smash/fighters/56.png"
     },
     {
       "id": 57,
-      "num": 57,
+      "num": 52,
       "name": "Mii Swordfighter",
-      "code": "MIIS"
+      "code": "MIIS",
+      "image": "/assets/smash/fighters/57.png"
     },
     {
       "id": 58,
-      "num": 58,
+      "num": 53,
       "name": "Mii Gunner",
-      "code": "MIIG"
+      "code": "MIIG",
+      "image": "/assets/smash/fighters/58.png"
     },
     {
       "id": 59,
-      "num": 59,
+      "num": 54,
       "name": "Palutena",
-      "code": "PALU"
+      "code": "PALU",
+      "image": "/assets/smash/fighters/59.png"
     },
     {
       "id": 60,
-      "num": 60,
+      "num": 55,
       "name": "Pac-Man",
-      "code": "PAC"
+      "code": "PAC",
+      "image": "/assets/smash/fighters/60.png"
     },
     {
       "id": 61,
-      "num": 61,
+      "num": 56,
       "name": "Robin",
-      "code": "RBIN"
+      "code": "RBIN",
+      "image": "/assets/smash/fighters/61.png"
     },
     {
       "id": 62,
-      "num": 62,
+      "num": 57,
       "name": "Shulk",
-      "code": "SHLK"
+      "code": "SHLK",
+      "image": "/assets/smash/fighters/62.png"
     },
     {
       "id": 63,
-      "num": 63,
+      "num": 58,
       "name": "Bowser Jr.",
-      "code": "BJR"
+      "code": "BJR",
+      "image": "/assets/smash/fighters/63.png"
     },
     {
       "id": 64,
-      "num": 64,
+      "num": 59,
       "name": "Duck Hunt",
-      "code": "DUCK"
+      "code": "DUCK",
+      "image": "/assets/smash/fighters/64.png"
     },
     {
       "id": 65,
-      "num": 65,
+      "num": 60,
       "name": "Ryu",
-      "code": "RYU"
+      "code": "RYU",
+      "image": "/assets/smash/fighters/65.png"
     },
     {
       "id": 66,
-      "num": 66,
+      "num": 60,
       "name": "Ken",
-      "code": "KEN"
+      "code": "KEN",
+      "echo": true,
+      "image": "/assets/smash/fighters/66.png"
     },
     {
       "id": 67,
-      "num": 67,
+      "num": 61,
       "name": "Cloud",
-      "code": "CLD"
+      "code": "CLD",
+      "image": "/assets/smash/fighters/67.png"
     },
     {
       "id": 68,
-      "num": 68,
+      "num": 62,
       "name": "Corrin",
-      "code": "CORR"
+      "code": "CORR",
+      "image": "/assets/smash/fighters/68.png"
     },
     {
       "id": 69,
-      "num": 69,
+      "num": 63,
       "name": "Bayonetta",
-      "code": "BAYO"
+      "code": "BAYO",
+      "image": "/assets/smash/fighters/69.png"
     },
     {
       "id": 70,
-      "num": 70,
+      "num": 64,
       "name": "Inkling",
-      "code": "INK"
+      "code": "INK",
+      "image": "/assets/smash/fighters/70.png"
     },
     {
       "id": 71,
-      "num": 71,
+      "num": 65,
       "name": "Ridley",
-      "code": "RIDL"
+      "code": "RIDL",
+      "image": "/assets/smash/fighters/71.png"
     },
     {
       "id": 72,
-      "num": 72,
+      "num": 66,
       "name": "Simon",
-      "code": "SIMN"
+      "code": "SIMN",
+      "image": "/assets/smash/fighters/72.png"
     },
     {
       "id": 73,
-      "num": 73,
+      "num": 66,
       "name": "Richter",
-      "code": "RICH"
+      "code": "RICH",
+      "echo": true,
+      "image": "/assets/smash/fighters/73.png"
     },
     {
       "id": 74,
-      "num": 74,
+      "num": 67,
       "name": "King K. Rool",
-      "code": "KR"
+      "code": "KR",
+      "image": "/assets/smash/fighters/74.png"
     },
     {
       "id": 75,
-      "num": 75,
+      "num": 68,
       "name": "Isabelle",
-      "code": "ISAB"
+      "code": "ISAB",
+      "image": "/assets/smash/fighters/75.png"
     },
     {
       "id": 76,
-      "num": 76,
+      "num": 69,
       "name": "Incineroar",
-      "code": "INC"
+      "code": "INC",
+      "image": "/assets/smash/fighters/76.png"
     },
     {
       "id": 77,
-      "num": 77,
+      "num": 70,
       "name": "Piranha Plant",
-      "code": "PLNT"
+      "code": "PLNT",
+      "image": "/assets/smash/fighters/77.png"
     },
     {
       "id": 78,
-      "num": 78,
+      "num": 71,
       "name": "Joker",
-      "code": "JOKR"
+      "code": "JOKR",
+      "image": "/assets/smash/fighters/78.png"
     },
     {
       "id": 79,
-      "num": 79,
+      "num": 72,
       "name": "Hero",
-      "code": "HERO"
+      "code": "HERO",
+      "image": "/assets/smash/fighters/79.png"
     },
     {
       "id": 80,
-      "num": 80,
+      "num": 73,
       "name": "Banjo & Kazooie",
-      "code": "BK"
+      "code": "BK",
+      "image": "/assets/smash/fighters/80.png"
     },
     {
       "id": 81,
-      "num": 81,
+      "num": 74,
       "name": "Terry",
-      "code": "TERR"
+      "code": "TERR",
+      "image": "/assets/smash/fighters/81.png"
     },
     {
       "id": 82,
-      "num": 82,
+      "num": 75,
       "name": "Byleth",
-      "code": "BYLE"
+      "code": "BYLE",
+      "image": "/assets/smash/fighters/82.png"
     },
     {
       "id": 83,
-      "num": 83,
+      "num": 76,
       "name": "Min Min",
-      "code": "MINM"
+      "code": "MINM",
+      "image": "/assets/smash/fighters/83.png"
     },
     {
       "id": 84,
-      "num": 84,
+      "num": 77,
       "name": "Steve",
-      "code": "STEV"
+      "code": "STEV",
+      "image": "/assets/smash/fighters/84.png"
     },
     {
       "id": 85,
-      "num": 85,
+      "num": 78,
       "name": "Sephiroth",
-      "code": "SEPH"
+      "code": "SEPH",
+      "image": "/assets/smash/fighters/85.png"
     },
     {
-      "id": 86,
-      "num": 86,
-      "name": "Pyra",
-      "code": "PYRA"
-    },
-    {
-      "id": 87,
-      "num": 87,
-      "name": "Mythra",
-      "code": "MYTH"
+      "id": 91,
+      "num": "79/80",
+      "name": "Pyra/Mythra",
+      "code": "PYMY",
+      "aliases": [
+        "Pyra",
+        "Mythra",
+        "Aegis"
+      ],
+      "image": "/assets/smash/fighters/91.png"
     },
     {
       "id": 88,
-      "num": 88,
+      "num": 81,
       "name": "Kazuya",
-      "code": "KAZ"
+      "code": "KAZ",
+      "image": "/assets/smash/fighters/88.png"
     },
     {
       "id": 89,
-      "num": 89,
+      "num": 82,
       "name": "Sora",
-      "code": "SORA"
+      "code": "SORA",
+      "image": "/assets/smash/fighters/89.png"
     }
   ],
   "stages": [
     {
       "id": "battlefield",
       "name": "Battlefield",
-      "code": "BF"
+      "code": "BF",
+      "image": "/assets/smash/stages/battlefield.webp",
+      "group": "Starters"
     },
     {
       "id": "final-destination",
       "name": "Final Destination",
-      "code": "FD"
+      "code": "FD",
+      "image": "/assets/smash/stages/final-destination.webp",
+      "group": "Starters"
     },
     {
       "id": "small-battlefield",
       "name": "Small Battlefield",
-      "code": "SBF"
+      "code": "SBF",
+      "image": "/assets/smash/stages/small-battlefield.webp",
+      "group": "Counterpicks"
     },
     {
       "id": "smashville",
       "name": "Smashville",
-      "code": "SV"
+      "code": "SV",
+      "image": "/assets/smash/stages/smashville.webp",
+      "group": "Starters"
     },
     {
       "id": "town-and-city",
       "name": "Town and City",
-      "code": "T&C"
+      "code": "T&C",
+      "image": "/assets/smash/stages/town-and-city.webp",
+      "group": "Counterpicks"
     },
     {
       "id": "pokemon-stadium-2",
       "name": "Pokémon Stadium 2",
-      "code": "PS2"
+      "code": "PS2",
+      "image": "/assets/smash/stages/pokemon-stadium-2.webp",
+      "group": "Counterpicks"
     },
     {
       "id": "hollow-bastion",
       "name": "Hollow Bastion",
-      "code": "HB"
+      "code": "HB",
+      "image": "/assets/smash/stages/hollow-bastion.webp",
+      "group": "Counterpicks"
     },
     {
       "id": "lylat-cruise",
       "name": "Lylat Cruise",
-      "code": "LC"
+      "code": "LC",
+      "image": "/assets/smash/stages/lylat-cruise.webp",
+      "group": "Counterpicks"
     },
     {
       "id": "yoshis-story",
       "name": "Yoshi's Story",
-      "code": "YS"
+      "code": "YS",
+      "image": "/assets/smash/stages/yoshis-story.webp",
+      "group": "Counterpicks"
     },
     {
       "id": "kalos",
       "name": "Kalos Pokémon League",
-      "code": "KPL"
+      "code": "KPL",
+      "image": "/assets/smash/stages/kalos.webp",
+      "group": "Counterpicks"
+    }
+  ],
+  "legacyFighters": [
+    {
+      "id": 38,
+      "num": 33,
+      "name": "Squirtle",
+      "code": "SQRT",
+      "image": "/assets/smash/fighters/pzenigame.png"
+    },
+    {
+      "id": 39,
+      "num": 34,
+      "name": "Ivysaur",
+      "code": "IVY",
+      "image": "/assets/smash/fighters/pfushigisou.png"
+    },
+    {
+      "id": 40,
+      "num": 35,
+      "name": "Charizard",
+      "code": "CHAR",
+      "image": "/assets/smash/fighters/plizardon.png"
+    },
+    {
+      "id": 86,
+      "num": 79,
+      "name": "Pyra",
+      "code": "PYRA",
+      "image": "/assets/smash/fighters/eflame.png"
+    },
+    {
+      "id": 87,
+      "num": 80,
+      "name": "Mythra",
+      "code": "MYTH",
+      "image": "/assets/smash/fighters/eflame.png"
     }
   ]
 }

@@ -1,0 +1,479 @@
+/* Small scores should occupy small fields in every recording form. */
+#record-form input[type="number"] {
+  width: 4.5rem;
+  min-height: 42px;
+  padding: 8px 4px;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+#record-form input[type="number"]::-webkit-inner-spin-button,
+#record-form input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+#record-form .form-grid:has(> .field > input[type="number"]) {
+  grid-template-columns: repeat(2, max-content);
+  gap: 12px 20px;
+}
+#record-form:not(.smash-form) .live-game-row {
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  justify-content: start;
+  gap: 8px 20px;
+  padding: 10px 0;
+}
+#record-form:not(.smash-form) .live-score-grid {
+  gap: 8px;
+}
+#record-form:not(.smash-form) .live-game-row h4 {
+  margin: 0;
+}
+.smash-form #record-config {
+  grid-template-columns: minmax(110px, 160px);
+}
+.smash-form > .form-section {
+  gap: 12px;
+}
+.smash-form #record-games {
+  gap: 0;
+}
+.smash-form .smash-carry-hint {
+  margin: 4px 0 8px;
+  font-size: 0.72rem;
+}
+.smash-form .smash-record-game {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 12px 0;
+}
+.smash-game-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.smash-game-heading h4 {
+  margin: 0;
+  font-size: 0.8rem;
+}
+.smash-game-heading .smash-jv {
+  margin: 0;
+  font-size: 0.7rem;
+  min-height: 24px;
+}
+.smash-game-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.smash-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.smash-side-fighters {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.smash-stock-label {
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.6rem;
+}
+#record-form .smash-stock-label .stock-score {
+  width: 44px;
+  height: 42px;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.smash-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.smash-pick:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.smash-pick:focus-visible,
+.smash-roster-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.smash-pick .catalog-stock-icon {
+  width: 30px;
+  height: 30px;
+}
+.smash-pick-copy {
+  flex: 1;
+  min-width: 0;
+}
+.smash-pick-copy > small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.6rem;
+}
+.smash-pick-copy > span {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.smash-pick-copy b {
+  min-width: 0;
+  font-size: 0.73rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fighter-number {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.55rem;
+  color: var(--muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+.fighter-number sup {
+  font-size: 0.75em;
+}
+.pick-chevron {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.smash-stage-row {
+  min-width: 0;
+}
+.smash-stage-row .smash-pick {
+  min-height: 36px;
+  padding: 3px 7px;
+}
+.smash-stage-row .catalog-stage-photo {
+  width: 60px;
+  height: 30px;
+  aspect-ratio: 2;
+  object-fit: cover;
+}
+.smash-stage-row .smash-pick-copy b {
+  font-size: 0.7rem;
+}
+.smash-sudden-death {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.smash-sudden-death legend {
+  padding: 0 4px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.smash-sudden-death label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 14px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.smash-sudden-death input {
+  accent-color: var(--accent);
+}
+.smash-sudden-death[hidden],
+.smash-jv[hidden] {
+  display: none;
+}
+
+/* SSBU-inspired compact roster: stock icon, small number, readable name. */
+dialog.smash-picker-dialog {
+  width: min(1480px, calc(100vw - 48px));
+  max-width: min(1480px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface);
+}
+dialog.smash-picker-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+dialog.smash-stage-dialog {
+  width: min(1040px, calc(100vw - 48px));
+  max-width: min(1040px, calc(100vw - 48px));
+}
+.smash-picker-dialog .dialog-head {
+  padding: 14px 18px;
+  flex: none;
+}
+.smash-picker-dialog .dialog-head h2 {
+  font-size: 1.1rem;
+}
+.smash-picker-dialog .dialog-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px;
+  overflow: hidden;
+  min-height: 0;
+}
+.smash-picker-dialog .picker-context {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+}
+.smash-picker-dialog .smash-picker-search {
+  width: 100%;
+  max-width: none;
+  flex: none;
+}
+.smash-picker-search .input {
+  width: 100%;
+  padding-left: 12px;
+}
+.smash-picker-dialog .picker-count {
+  margin: 6px 0;
+  font-size: 0.65rem;
+}
+.smash-picker-results {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 3px;
+  min-height: 0;
+}
+.smash-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 4px;
+}
+.smash-roster-tile {
+  display: grid;
+  grid-template-rows: 36px 18px;
+  align-items: center;
+  justify-items: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 76px;
+  padding: 8px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.smash-roster-tile:hover,
+.smash-roster-tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.smash-roster-tile[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.smash-roster-tile .catalog-stock-icon {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+}
+.roster-tile-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  width: 100%;
+  font-size: 0.7rem;
+  line-height: 1.15;
+}
+.roster-tile-copy b {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.12;
+  overflow-wrap: normal;
+}
+.roster-name {
+  min-width: 0;
+  max-width: 100%;
+}
+.roster-name b {
+  display: block;
+  width: max-content;
+  white-space: nowrap;
+  transform-origin: left center;
+}
+.smash-roster-tile .fighter-number {
+  position: absolute;
+  z-index: 0;
+  inset: 5px 3px auto;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-condensed);
+  font-size: clamp(1.2rem, 2.2vw, 2rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  opacity: 0.1;
+  pointer-events: none;
+}
+.smash-roster-tile .fighter-number[data-wide-number] {
+  font-size: clamp(0.85rem, 1.5vw, 1.35rem);
+}
+.smash-roster-tile .fighter-number sup {
+  position: relative;
+  top: -0.4em;
+  font-size: 0.5em;
+}
+.smash-stage-dialog .stage-picker-group + .stage-picker-group {
+  margin-top: 14px;
+}
+.stage-picker-group h3 {
+  margin: 0 0 7px;
+  font-size: 0.8rem;
+}
+.smash-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+.smash-stage-grid .smash-roster-tile {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  gap: 6px;
+}
+.smash-stage-grid .catalog-stage-photo {
+  width: 100%;
+  max-width: none;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.smash-stage-grid .roster-tile-copy {
+  padding: 2px 0 4px;
+}
+.smash-stage-grid .roster-tile-copy b {
+  font-size: 0.7rem;
+}
+@media (max-width: 900px) {
+  .smash-roster-grid {
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .smash-roster-tile {
+    grid-template-rows: 34px 18px;
+    gap: 3px;
+    padding: 5px 3px;
+  }
+  .smash-fighter-dialog .roster-tile-copy {
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .roster-name {
+    width: 100%;
+  }
+  .roster-name b {
+    margin-inline: auto;
+    transform-origin: left center;
+  }
+  .smash-roster-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .smash-stage-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .smash-form #record-players {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .smash-game-sides {
+    gap: 8px;
+  }
+  .smash-pick {
+    gap: 4px;
+    padding: 5px;
+  }
+  .smash-pick .catalog-stock-icon {
+    width: 25px;
+    height: 25px;
+  }
+  .smash-side {
+    grid-template-columns: minmax(0, 1fr) 36px;
+    gap: 4px;
+  }
+  #record-form .smash-stock-label .stock-score {
+    width: 36px;
+  }
+  .smash-pick-copy > span {
+    flex-wrap: wrap;
+    gap: 0 3px;
+  }
+  .smash-pick-copy b {
+    font-size: 0.66rem;
+    white-space: normal;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+  .smash-pick-copy .fighter-number {
+    display: none;
+  }
+  .smash-pick .pick-chevron {
+    display: none;
+  }
+  dialog.smash-picker-dialog {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - 16px);
+  }
+  .smash-picker-dialog .dialog-head {
+    padding: 12px;
+  }
+  .smash-picker-dialog .dialog-body {
+    padding: 0 8px 10px;
+  }
+  .smash-roster-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .smash-roster-tile {
+    min-height: 76px;
+  }
+  .smash-roster-tile .catalog-stock-icon {
+    width: 31px;
+    height: 31px;
+  }
+  .roster-tile-copy b {
+    font-size: 0.62rem;
+  }
+}

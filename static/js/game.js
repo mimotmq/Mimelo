@@ -343,6 +343,7 @@ APP.run(async () => {
     let fixed = null,
       editing = null,
       savedSides = null,
+      smashRecorder = null,
       recordFormat = "singles";
     if (APP.params.get("edit")) {
       editing = await APP.api("matches/" + APP.params.get("edit"));
@@ -419,6 +420,14 @@ APP.run(async () => {
         recordFormat,
       )}<div class="form-grid" id="record-players"></div><div class="form-grid" id="record-config"></div><div class="live-score-grid" id="record-games"></div></div><div class="field"><label for="r-note">Note (optional)</label><textarea class="textarea" id="r-note"></textarea></div><label class="check"><input type="checkbox" id="r-elo" checked><span>Counts for Elo</span></label><div class="form-actions"><button class="btn btn-primary" type="submit">${editing ? "Save correction" : "Submit result"}</button></div><p class="hint" id="record-error" role="alert"></p>`;
       if (fixed || editing) $("#field-record-format").disabled = true;
+      if (g.kind === "smash") {
+        const { createSmashRecorder } = await import("./smash-record.js");
+        smashRecorder = createSmashRecorder(form, {
+          catalog: APP.smashCatalog,
+          format: () => recordFormat,
+          initial: editing?.score.games || [],
+        });
+      }
       async function renderPlayers() {
         const count = recordFormat === "doubles" ? 2 : 1;
         $("#record-players").innerHTML = [0, 1]
@@ -486,52 +495,15 @@ APP.run(async () => {
       }
       function renderGames() {
         const s = config();
+        if (smashRecorder) {
+          smashRecorder.renderGames(s.bestOf);
+          return;
+        }
         $("#record-games").innerHTML = Array.from(
           { length: s.bestOf },
           (_, i) => {
             const prev = editing?.score.games?.[i] || {};
-            return `<section class="live-game-row" data-game-row="${i}"><h4>${g.kind === "tennis" ? "Set" : "Game"} ${i + 1}</h4>${field("Side 1 " + (g.kind === "smash" ? "stocks taken" : "score"), `score${i}a`, prev.a ?? "", "number", 'min="0" max="200"')}${field("Side 2 " + (g.kind === "smash" ? "stocks taken" : "score"), `score${i}b`, prev.b ?? "", "number", 'min="0" max="200"')}${g.kind === "tennis" ? field("Tiebreak points · side 1", `tb${i}a`, prev.tb?.[0] ?? "", "number", 'min="0"') + field("Tiebreak points · side 2", `tb${i}b`, prev.tb?.[1] ?? "", "number", 'min="0"') : ""}${
-              g.kind === "smash"
-                ? Array.from(
-                    { length: recordFormat === "doubles" ? 4 : 2 },
-                    (_, j) =>
-                      select(
-                        `Fighter · ${j < (recordFormat === "doubles" ? 2 : 1) ? "side 1" : "side 2"} player ${(j % (recordFormat === "doubles" ? 2 : 1)) + 1}`,
-                        `fighter${i}-${j}`,
-                        [
-                          ["", "Choose fighter…"],
-                          ...APP.smashCatalog.fighters.map((f) => [
-                            f.name,
-                            f.name,
-                          ]),
-                        ],
-                        prev.fighters?.[j],
-                      ),
-                  ).join("") +
-                  select(
-                    "Stage",
-                    `stage${i}`,
-                    [
-                      ["", "Choose stage…"],
-                      ...APP.smashCatalog.stages.map((s) => [s.name, s.name]),
-                    ],
-                    prev.stage,
-                  ) +
-                  `<label class="check"><input type="checkbox" id="sd${i}" ${prev.suddenDeath ? "checked" : ""}>Sudden death</label>` +
-                  select(
-                    "Sudden-death winner",
-                    `winner${i}`,
-                    [
-                      [0, "Side 1"],
-                      [1, "Side 2"],
-                    ],
-                    prev.winner || 0,
-                  ) +
-                  (recordFormat === "singles"
-                    ? `<label class="check"><input type="checkbox" id="jv${i}" ${prev.jv ? "checked" : ""}>Winner won by JV</label>`
-                    : "")
-                : ""
-            }</section>`;
+            return `<section class="live-game-row" data-game-row="${i}"><h4>${g.kind === "tennis" ? "Set" : "Game"} ${i + 1}</h4>${field("Side 1 score", `score${i}a`, prev.a ?? "", "number", 'min="0" max="200" inputmode="numeric"')}${field("Side 2 score", `score${i}b`, prev.b ?? "", "number", 'min="0" max="200" inputmode="numeric"')}${g.kind === "tennis" ? field("Tiebreak points · side 1", `tb${i}a`, prev.tb?.[0] ?? "", "number", 'min="0" inputmode="numeric"') + field("Tiebreak points · side 2", `tb${i}b`, prev.tb?.[1] ?? "", "number", 'min="0" inputmode="numeric"') : ""}</section>`;
           },
         ).join("");
         form.dispatchEvent(new Event("input"));
@@ -671,14 +643,7 @@ APP.run(async () => {
             }
           }
           if (g.kind === "smash") {
-            result.fighters = Array.from(
-              { length: recordFormat === "doubles" ? 4 : 2 },
-              (_, j) => $(`#field-fighter${i}-${j}`).value,
-            );
-            result.stage = $(`#field-stage${i}`).value;
-            result.suddenDeath = $("#sd" + i).checked;
-            result.winner = Number($("#field-winner" + i).value);
-            result.jv = !!$("#jv" + i)?.checked;
+            Object.assign(result, smashRecorder.read(i));
           }
           games.push(result);
         }
