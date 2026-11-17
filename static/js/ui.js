@@ -925,7 +925,7 @@
     $$("[data-close]").forEach(
       (b) => (b.onclick = () => b.closest("dialog")?.close()),
     );
-    $$(".sample-tag").forEach((e) => e.remove());
+    $$(".sample-tag,.demo-note").forEach((e) => e.remove());
     // Remove demo/season wording in text nodes without touching structure or accessibility attributes.
     const walker = document.createTreeWalker(
       document.body,
@@ -950,7 +950,12 @@
                 : "All time",
         )
         .replace(/\s*[·—]\s*sample\b/gi, "")
-        .replace(/Sample data only\.|Sample data\./g, "");
+        .replace(/Sample data only\.|Sample data\./g, "")
+        .replace(
+          "Passwords and active sessions for this sample account.",
+          "Manage your password and signed-in devices.",
+        )
+        .replace("Sample submission", "Result review");
     }
     if ($("#menu-btn"))
       $("#menu-btn").onclick = () => {
@@ -1008,7 +1013,7 @@
       );
       text(
         '.game-card[data-tone="tennis"] p',
-        "Singles, doubles, sets, and competitions.",
+        "Sets, tiebreaks, and tournament records.",
       );
       text(
         '.game-card[data-tone="tt"] p',

@@ -1,6 +1,8 @@
 APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     id = Number(APP.params.get("id"));
+  const { mountTiebreakEditor, tiebreakLabels } =
+    await import("./competition-settings.js");
   const { renderBracket, fixtureScoreText } =
     await import("./competition-bracket.js");
   const bracketStyles = document.createElement("link");
@@ -183,9 +185,13 @@ APP.run(async () => {
         ? "Win 3 · Draw 1 · Loss 0. "
         : "Standings are based on wins and losses. ") +
         "Tiebreak order: " +
-        c.settings.tieBreaks.join(" → ") +
+        (c.settings.tieBreaks
+          .map((key) => tiebreakLabels(APP.game.kind)[key])
+          .join(" → ") || "No extra rules") +
         ". Unresolved qualifiers: " +
-        c.settings.tieResolution +
+        (c.settings.tieResolution === "match"
+          ? "extra tiebreak match"
+          : "admin decision with explanation") +
         ".",
     );
     text(
@@ -280,8 +286,8 @@ APP.run(async () => {
         },
       );
     });
-    $("[data-action=seeds]", panel)?.addEventListener("click", () =>
-      UI.formDialog(
+    $("[data-action=seeds]", panel)?.addEventListener("click", () => {
+      const seedDialog = UI.formDialog(
         "Seed order",
         c.entries
           .map((e, i) =>
@@ -303,10 +309,15 @@ APP.run(async () => {
           });
           await load();
         },
-      ),
-    );
-    $("[data-action=rules]", panel)?.addEventListener("click", () =>
-      UI.formDialog(
+      );
+      seedDialog.classList.add(
+        "competition-settings-dialog",
+        "competition-seed-dialog",
+      );
+    });
+    $("[data-action=rules]", panel)?.addEventListener("click", () => {
+      let tieEditor;
+      const ruleDialog = UI.formDialog(
         "Competition rules",
         field("Name", "name", c.name) +
           select(
@@ -426,7 +437,7 @@ APP.run(async () => {
           (APP.game.kind === "tennis"
             ? `<label class="check"><input type="checkbox" name="matchTiebreak" ${c.settings.matchTiebreak ? "checked" : ""}>Doubles: final match tiebreak</label>`
             : "") +
-          field("Tiebreak order", "ties", c.settings.tieBreaks.join(",")) +
+          "<div data-tiebreak-editor></div>" +
           select(
             "Tie resolution",
             "tieResolution",
@@ -459,10 +470,7 @@ APP.run(async () => {
                 groupCount: Number(f.get("groupCount")),
                 advance: Number(f.get("advance")),
                 playoffCount: Number(f.get("playoffCount")),
-                tieBreaks: f
-                  .get("ties")
-                  .split(",")
-                  .map((x) => x.trim()),
+                tieBreaks: tieEditor.read(),
                 tieResolution: f.get("tieResolution"),
               },
             },
@@ -470,8 +478,49 @@ APP.run(async () => {
           );
           await load();
         },
-      ),
-    );
+      );
+      ruleDialog.classList.add(
+        "competition-settings-dialog",
+        "competition-rules-dialog",
+      );
+      tieEditor = mountTiebreakEditor($("[data-tiebreak-editor]", ruleDialog), {
+        kind: APP.game.kind,
+        values: c.settings.tieBreaks,
+      });
+      function updateRuleFields() {
+        const kind = $("#field-kind", ruleDialog).value;
+        const playoffs = $('[name="playoffs"]', ruleDialog);
+        for (const key of ["groupCount", "advance"])
+          $("#field-" + key, ruleDialog).closest(".field").hidden =
+            kind !== "groups";
+        playoffs.closest("label").hidden = kind !== "league";
+        $("#field-playoffCount", ruleDialog).closest(".field").hidden =
+          kind !== "league" || !playoffs.checked;
+        $("#field-elimination", ruleDialog).closest(".field").hidden =
+          kind === "league" && !playoffs.checked;
+        $("#field-legs", ruleDialog).closest(".field").hidden =
+          kind === "knockout";
+        $("[data-tiebreak-editor]", ruleDialog).hidden = kind === "knockout";
+        $("#field-tieResolution", ruleDialog).closest(".field").hidden =
+          kind === "knockout";
+        $("#field-format", ruleDialog).closest(".field").hidden = ![
+          "tennis",
+          "smash",
+        ].includes(APP.game.kind);
+        $("#field-bestOf", ruleDialog).closest(".field").hidden =
+          APP.game.kind === "fc";
+        const matchTiebreak = $('[name="matchTiebreak"]', ruleDialog);
+        if (matchTiebreak)
+          matchTiebreak.closest("label").hidden =
+            $("#field-format", ruleDialog).value !== "doubles";
+        const deadline = $("#field-deadline", ruleDialog);
+        if (deadline)
+          deadline.closest(".field").hidden =
+            $("#field-enrollment", ruleDialog).value === "selected";
+      }
+      ruleDialog.addEventListener("change", updateRuleFields);
+      updateRuleFields();
+    });
     $("#delete-comp").hidden = !(c.canAdmin || (c.canManage && mutable));
     $("#delete-comp").onclick = () => {
       const d = UI.formDialog(

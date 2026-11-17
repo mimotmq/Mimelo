@@ -93,6 +93,17 @@ test("template screens and live workflows at desktop and mobile widths", async (
   mkdirSync("artifacts", { recursive: true });
   async function ready() {
     await page.waitForFunction(() => document.body.dataset.ready === "true");
+    assert.equal(
+      await page.locator(".demo-note,.sample-tag").count(),
+      0,
+      "Template notices never remain in the live UI.",
+    );
+    assert(
+      !/demo only|static mockup|sample account|sample data/i.test(
+        await page.locator("body").innerText(),
+      ),
+      "Live screens do not claim to be a demo.",
+    );
   }
   async function visit(path) {
     await page.goto(base + path);

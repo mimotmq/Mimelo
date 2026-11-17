@@ -2,6 +2,7 @@ APP.run(async () => {
   const { $, $$, esc, text, select, field } = UI,
     d = $("#comp-dialog");
   if (!d) return;
+  const { mountTiebreakEditor } = await import("./competition-settings.js");
   let selected = new Map(),
     order = [],
     seeds = new Map(),
@@ -58,12 +59,6 @@ APP.run(async () => {
     (APP.game.kind === "tennis"
       ? '<label class="check"><input id="competition-match-tb" type="checkbox">Doubles: deciding match tiebreak</label>'
       : "") +
-    field(
-      "Tiebreak order (comma-separated)",
-      "tie-order",
-      "head_to_head,difference,for",
-    ) +
-    '<p class="hint">Available: head_to_head, difference, for, sets_difference, points_difference. Order is frozen when play starts.</p>' +
     select(
       "Unresolved qualification tie",
       "tie-resolution",
@@ -78,12 +73,101 @@ APP.run(async () => {
     "beforeend",
     '<option value="random">Random</option>',
   );
-  $("#comp-elo").closest("label").remove();
+  $("#comp-elo").closest(".field").remove();
   text("#comp-preview-elo", "On by default");
   text(
     "#comp-players-hint",
     "Select entrants now or accept signups after creating the competition. Doubles pairs can be assigned before drawing.",
   );
+  d.classList.add("competition-settings-dialog");
+  const stage = $("#comp-stage-1");
+  const grid = document.createElement("div");
+  grid.className = "comp-setup-grid";
+  stage.append(grid);
+  function section(title, className = "") {
+    const section = document.createElement("section");
+    section.className = "comp-setup-section " + className;
+    section.innerHTML = `<h3>${esc(title)}</h3><div class="comp-setup-fields"></div>`;
+    grid.append(section);
+    return $(".comp-setup-fields", section);
+  }
+  const basics = section("Competition", "comp-setup-basics"),
+    schedule = section("Schedule"),
+    scoring = section("Match rules"),
+    signup = section("Registration"),
+    standings = section("Standings", "comp-setup-standings");
+  const moveField = (selector, target) =>
+    target.append($(selector).closest(".field"));
+  moveField("#comp-name", basics);
+  $("#comp-name-hint").textContent = "";
+  $("#comp-name").maxLength = 120;
+  moveField("#comp-format-label", basics);
+  $("#comp-format-label").textContent = "Tournament type";
+  $$(".format-option .monogram,.format-option-copy > span", basics).forEach(
+    (el) => el.remove(),
+  );
+  moveField("#field-competition-format", basics);
+  $("#field-competition-format").closest(".field").hidden = ![
+    "tennis",
+    "smash",
+  ].includes(APP.game.kind);
+  schedule.append(
+    $("#comp-group-options"),
+    $("#comp-league-options"),
+    $("#comp-knockout-options"),
+  );
+  $("#comp-group-options").innerHTML =
+    field("Groups", "group-count", 2, "number", 'min="1" max="64" step="1"') +
+    field(
+      "Advance per group",
+      "advance-count",
+      2,
+      "number",
+      'min="1" max="128" step="1"',
+    );
+  $("#field-group-count").id = "comp-group-count";
+  $('label[for="field-group-count"]').htmlFor = "comp-group-count";
+  $("#field-advance-count").id = "comp-advance";
+  $('label[for="field-advance-count"]').htmlFor = "comp-advance";
+  $("#comp-group-options").className = "comp-number-row";
+  const legs = $("#comp-legs").closest("label");
+  $(".check-copy", legs).textContent = "Home and away";
+  legs.id = "comp-round-robin";
+  legs.title = "Play every opponent twice.";
+  schedule.prepend(legs);
+  $("#comp-league-options > .field-label").remove();
+  $("#comp-league-options label.check span").textContent = "League playoffs";
+  $("#comp-knockout-options .hint").textContent =
+    "Two losses to go out in double elimination.";
+  moveField("#field-competition-best", scoring);
+  $("#field-competition-best").closest(".field").hidden =
+    APP.game.kind === "fc";
+  if ($("#field-competition-target"))
+    moveField("#field-competition-target", scoring);
+  if ($("#competition-match-tb"))
+    scoring.append($("#competition-match-tb").closest("label"));
+  scoring.insertAdjacentHTML(
+    "beforeend",
+    '<p class="hint">Results count after acceptance. Elo needs a separate admin checkoff.</p>',
+  );
+  moveField("#field-enrollment", signup);
+  moveField("#field-deadline", signup);
+  const tieRoot = document.createElement("div");
+  standings.append(tieRoot);
+  const tieEditor = mountTiebreakEditor(tieRoot, { kind: APP.game.kind });
+  moveField("#field-tie-resolution", standings);
+  const error = $("#comp-step1-error");
+  stage.replaceChildren(grid, error);
+  extra.remove();
+  $("#comp-stage-2").classList.add("comp-entrants-step");
+  $("#comp-stage-2 > .form-section").classList.add("comp-entrants-grid");
+  $("#comp-stage-2 .field:has(#comp-players)").classList.add(
+    "comp-entrants-players",
+  );
+  $("#comp-stage-2 .field:has(#comp-seeding)").classList.add(
+    "comp-entrants-seeding",
+  );
+  $$(".demo-note", d).forEach((el) => el.remove());
   const search = document.createElement("input");
   search.className = "input";
   search.type = "search";
@@ -203,7 +287,23 @@ APP.run(async () => {
     $("#comp-league-options").hidden = kind() !== "league";
     $("#comp-knockout-options").hidden =
       kind() === "league" && !$("#comp-playoffs").checked;
-    $("#comp-playoff-options").hidden = !$("#comp-playoffs").checked;
+    $("#comp-playoff-options").hidden =
+      kind() !== "league" || !$("#comp-playoffs").checked;
+    $("#comp-round-robin").hidden = kind() === "knockout";
+    standings.closest("section").hidden = kind() === "knockout";
+    $("#field-deadline").closest(".field").hidden =
+      $("#field-enrollment").value === "selected";
+    if ($("#competition-match-tb"))
+      $("#competition-match-tb").closest("label").hidden =
+        $("#field-competition-format").value !== "doubles";
+    text(
+      "#comp-format-hint",
+      {
+        league: "Every entrant plays every other entrant.",
+        groups: "Group standings decide who reaches the bracket.",
+        knockout: "Winners advance through the bracket.",
+      }[kind()],
+    );
   }
   function setStep(n) {
     step = n;
@@ -227,16 +327,29 @@ APP.run(async () => {
     seeds = new Map();
     $("#comp-name").value = "";
     $("#comp-name-error").textContent = "";
+    $("#comp-step1-error").textContent = "";
     $("#comp-players-error").textContent = "";
     setStep(1);
     await loadPlayers();
     d.showModal();
   };
+  $("#comp-name").addEventListener("input", () => text("#comp-name-error", ""));
   $("#comp-next").onclick = () => {
     if (!$("#comp-name").value.trim()) {
       text("#comp-name-error", "Enter a competition name.");
       return;
     }
+    text("#comp-name-error", "");
+    const deadline = new Date($("#field-deadline").value).getTime();
+    if (
+      $("#field-enrollment").value !== "selected" &&
+      !(deadline > Date.now())
+    ) {
+      text("#comp-step1-error", "Open signup needs a future deadline.");
+      $("#field-deadline").focus();
+      return;
+    }
+    text("#comp-step1-error", "");
     setStep(2);
   };
   $("#comp-back").onclick = () => setStep(1);
@@ -246,11 +359,16 @@ APP.run(async () => {
   ).forEach((e) => (e.onchange = preview));
   $("#field-competition-format").onchange = () => {
     const doubles = $("#field-competition-format").value === "doubles";
-    if (APP.game.kind === "tennis")
-      $("#field-competition-best").innerHTML = (doubles ? [1, 3] : [1, 3, 5])
-        .map((n) => `<option>${n}</option>`)
-        .join("");
+    if (APP.game.kind === "tennis") {
+      const best = $("#field-competition-best");
+      const previous = Number(best.value),
+        lengths = doubles ? [1, 3] : [1, 3, 5];
+      best.innerHTML = lengths.map((n) => `<option>${n}</option>`).join("");
+      best.value = lengths.includes(previous) ? previous : 3;
+    }
+    preview();
   };
+  $("#field-enrollment").onchange = preview;
   $("#comp-select-all").onclick = () => {
     $$("input[type=checkbox]", $("#comp-players")).forEach((x) => {
       if (!x.checked) {
@@ -293,20 +411,19 @@ APP.run(async () => {
         entries: ids.map((id) => [id]),
         seeds: ids.map((id, i) => seeds.get(id) || i + 1),
         settings: {
-          legs: $("#comp-legs").checked ? 2 : 1,
+          legs: kind() !== "knockout" && $("#comp-legs").checked ? 2 : 1,
           elimination: $("#comp-elimination").value,
           groupCount: Number($("#comp-group-count").value),
           advance: Number($("#comp-advance").value),
-          playoffs: $("#comp-playoffs").checked,
+          playoffs: kind() === "league" && $("#comp-playoffs").checked,
           playoffCount: Number($("#comp-playoff-count").value),
           seeding: $("#comp-seeding").value,
           bestOf: Number($("#field-competition-best").value),
           target: Number($("#field-competition-target")?.value || 11),
-          matchTiebreak: !!$("#competition-match-tb")?.checked,
-          tieBreaks: $("#field-tie-order")
-            .value.split(",")
-            .map((x) => x.trim())
-            .filter(Boolean),
+          matchTiebreak:
+            $("#field-competition-format").value === "doubles" &&
+            !!$("#competition-match-tb")?.checked,
+          tieBreaks: tieEditor.read(),
           tieResolution: $("#field-tie-resolution").value,
         },
       });

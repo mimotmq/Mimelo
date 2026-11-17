@@ -1,0 +1,357 @@
+/* Tournament setup shares the compact sizing used for match recording. */
+dialog.dialog.competition-settings-dialog {
+  width: min(1180px, calc(100vw - 32px));
+  max-width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+}
+.competition-settings-dialog .dialog-head,
+.competition-settings-dialog .dialog-body,
+.competition-settings-dialog .dialog-foot {
+  padding: 16px 20px;
+}
+.competition-settings-dialog .comp-steps {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.competition-settings-dialog .comp-step {
+  border: 0;
+  padding: 0;
+}
+.comp-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 28px;
+}
+.comp-setup-section {
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.comp-setup-section h3 {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+}
+.comp-setup-fields {
+  display: flex;
+  align-items: flex-start;
+  align-content: start;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+.comp-setup-fields > .field {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.comp-setup-basics {
+  grid-column: 1 / -1;
+  border-top: 0;
+  padding-top: 0;
+}
+.comp-setup-basics .comp-setup-fields {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) minmax(350px, 1.5fr) max-content;
+  align-items: start;
+}
+.comp-setup-standings .comp-setup-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.comp-setup-fields > .hint {
+  flex-basis: 100%;
+}
+.competition-settings-dialog .field {
+  gap: 5px;
+  align-content: start;
+}
+.competition-settings-dialog .field > label,
+.competition-settings-dialog .field-label {
+  font-size: 0.74rem;
+}
+.competition-settings-dialog .input,
+.competition-settings-dialog .select {
+  min-height: 36px;
+  padding: 7px 9px;
+  font-size: 0.8rem;
+}
+.competition-settings-dialog input[type="number"],
+.competition-settings-dialog [data-seed] {
+  width: 4.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.competition-settings-dialog .field:has(> input[type="number"]),
+.competition-settings-dialog .field:has(> #field-competition-best),
+.competition-settings-dialog .field:has(> #field-competition-target) {
+  flex: 0 0 auto;
+}
+.competition-settings-dialog #field-competition-best,
+.competition-settings-dialog #field-competition-target {
+  width: 4.5rem;
+}
+.competition-settings-dialog .hint {
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+.competition-settings-dialog .hint:empty {
+  display: none;
+}
+.competition-settings-dialog .check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 2px 0;
+  font-size: 0.76rem;
+}
+.competition-settings-dialog .check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.competition-settings-dialog .format-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.competition-settings-dialog .format-option input {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+.competition-settings-dialog .format-option-body {
+  padding: 8px 10px;
+}
+.competition-settings-dialog .format-option-copy b {
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+.comp-number-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+#comp-league-options {
+  width: 100%;
+}
+#comp-playoff-options {
+  display: grid;
+  grid-template-columns: max-content 4.5rem;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+}
+#comp-playoff-options .hint {
+  grid-column: 1 / -1;
+}
+.comp-entrants-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px 28px;
+}
+.comp-entrants-players {
+  grid-row: span 2;
+}
+.competition-settings-dialog .view-head {
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.competition-settings-dialog .player-select {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.competition-settings-dialog .player-option {
+  padding: 7px 8px;
+  min-height: 42px;
+  gap: 7px;
+}
+.competition-settings-dialog .player-option input {
+  position: static;
+  opacity: 1;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  flex: none;
+}
+.competition-settings-dialog .player-option .avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 0.6rem;
+  flex: none;
+}
+.competition-settings-dialog .player-option-copy b {
+  font-size: 0.74rem;
+}
+.competition-settings-dialog .player-option-copy > span {
+  font-size: 0.6rem;
+}
+.competition-settings-dialog .comp-seed-row {
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 0.78rem;
+}
+.competition-settings-dialog .comp-seed-row > span {
+  min-width: 0;
+}
+.competition-settings-dialog .comp-seed-row .btn {
+  min-height: 30px;
+  padding: 0 8px;
+}
+.competition-settings-dialog .comp-preview {
+  padding: 12px;
+}
+.competition-settings-dialog .comp-preview-grid b {
+  font-size: 0.82rem;
+}
+.competition-tiebreaks {
+  min-width: 0;
+}
+.competition-tiebreaks h4 {
+  font-size: 0.76rem;
+  margin: 0 0 4px;
+}
+.competition-tiebreaks .hint {
+  margin: 0 0 8px;
+}
+.tiebreak-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tiebreak-rule {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 6px;
+}
+.tiebreak-position {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+.tiebreak-actions {
+  display: flex;
+  gap: 3px;
+}
+.tiebreak-actions button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.tiebreak-actions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.tiebreak-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.competition-tiebreaks > .btn {
+  margin-top: 6px;
+  min-height: 30px;
+}
+.competition-rules-dialog .settings-form {
+  max-width: none;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 20px;
+  align-items: start;
+}
+.competition-rules-dialog .field:has(#field-name) {
+  grid-column: span 2;
+}
+.competition-rules-dialog [data-tiebreak-editor] {
+  grid-column: span 2;
+}
+.competition-rules-dialog .settings-form > .hint,
+.competition-rules-dialog .settings-form > .form-actions {
+  grid-column: 1 / -1;
+}
+.competition-seed-dialog .settings-form {
+  max-width: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 20px;
+}
+.competition-seed-dialog .settings-form > .hint,
+.competition-seed-dialog .settings-form > .form-actions {
+  grid-column: 1 / -1;
+}
+@media (max-width: 1000px) {
+  .comp-setup-basics .comp-setup-fields {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+  .comp-setup-basics .field:has(#comp-name) {
+    grid-column: 1 / -1;
+  }
+  .competition-settings-dialog .player-select {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .competition-rules-dialog .settings-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  dialog.dialog.competition-settings-dialog {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+  .competition-settings-dialog .dialog-head,
+  .competition-settings-dialog .dialog-body,
+  .competition-settings-dialog .dialog-foot {
+    padding: 14px;
+  }
+  .comp-setup-grid,
+  .comp-entrants-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .comp-setup-basics .comp-setup-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .comp-entrants-players {
+    grid-row: auto;
+  }
+  .competition-settings-dialog .comp-steps {
+    gap: 12px;
+  }
+  .competition-settings-dialog .player-select {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .competition-settings-dialog .view-head {
+    flex-wrap: wrap;
+  }
+  .comp-setup-fields:has(#field-deadline) {
+    flex-direction: column;
+  }
+  .comp-setup-fields:has(#field-deadline) > .field {
+    flex: none;
+    width: 100%;
+  }
+  .competition-rules-dialog [data-tiebreak-editor] {
+    grid-column: 1 / -1;
+  }
+  .competition-settings-dialog .dialog-foot .btn {
+    min-height: 38px;
+    font-size: 0.78rem;
+    padding: 0 12px;
+  }
+}

@@ -1,6 +1,7 @@
 @import url("./record.css");
 @import url("./navigation.css");
 @import url("./home-results.css");
+@import url("./competition-settings.css");
 /* Live appearance refinements; the original design-reference styles stay intact. */
 /* Tiny universal transition durations can delay inherited visibility on load. */
 @media (prefers-reduced-motion: reduce) {

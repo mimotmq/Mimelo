@@ -190,6 +190,10 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
     await panel.screenshot({
       path: `artifacts/home-results-panel-${width}.png`,
     });
+    // Screenshots may scroll this full-width strip beneath the current pointer.
+    // Keep the pointer in its heading so hover does not pause the score viewport.
+    await panel.scrollIntoViewIfNeeded();
+    await page.locator(".recent-results-heading h2").hover();
     const track = page.locator(".recent-results-track");
     const position = () =>
       track.evaluate(
@@ -208,6 +212,25 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
     );
     const originals = page.locator(".recent-results-list:not([aria-hidden])");
     assert.equal(
+      await panel.evaluate((el) => getComputedStyle(el).borderRadius),
+      "0px",
+      "The outer strip has square corners.",
+    );
+    assert.equal(
+      await originals
+        .locator(".recent-result")
+        .first()
+        .evaluate((el) => getComputedStyle(el).borderRadius),
+      "0px",
+      "Score segments are rectangular.",
+    );
+    assert(
+      await viewport.evaluate(
+        (el) => Math.abs(el.clientWidth - innerWidth) <= 1,
+      ),
+      "The broadcast strip uses the page width.",
+    );
+    assert.equal(
       await page.locator(".recent-result-logo").count(),
       0,
       "No standalone game logo beside scores.",
@@ -223,11 +246,16 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
         .evaluate(
           (el) =>
             el.alt === "" &&
+            el.parentElement.classList.contains("recent-result-score") &&
             getComputedStyle(el).position === "absolute" &&
-            Number(getComputedStyle(el).opacity) < 0.15,
+            getComputedStyle(el).zIndex === "-1" &&
+            Number(getComputedStyle(el).opacity) < 0.15 &&
+            Number(getComputedStyle(el).opacity) >= 0.1,
         ),
     );
-    assert(!/\b(Singles|Doubles)\b/.test(await originals.innerText()));
+    assert(
+      !/\b(Singles|Doubles)\b/.test(await page.locator("body").innerText()),
+    );
     const football = originals.locator('[data-game="eafc26"]');
     assert.equal(
       await football.locator(".fc-scoreline .catalog-stock-icon").count(),
