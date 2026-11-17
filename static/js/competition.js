@@ -1,7 +1,20 @@
 APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     id = Number(APP.params.get("id"));
-  let c;
+  const { renderBracket, fixtureScoreText } =
+    await import("./competition-bracket.js");
+  const bracketStyles = document.createElement("link");
+  bracketStyles.rel = "stylesheet";
+  bracketStyles.href = "css/competition-bracket.css";
+  await new Promise((resolve, reject) => {
+    bracketStyles.onload = resolve;
+    bracketStyles.onerror = () =>
+      reject(new Error("Could not load the bracket styles."));
+    document.head.append(bracketStyles);
+  });
+  let c,
+    clearBracket,
+    initialView = true;
   const name = (e) =>
     c.entries
       .find((x) => x.id === e)
@@ -24,12 +37,28 @@ APP.run(async () => {
     }
     document.title = c.name + " · " + APP.game.name + " · mimELo";
     text("[data-comp-name]", c.name);
-    text("[data-comp-kind]", c.kind);
+    text(
+      "[data-comp-kind]",
+      { knockout: "Knockout", league: "League", groups: "Groups & knockout" }[
+        c.kind
+      ] || c.kind,
+    );
     text(
       "[data-comp-format]",
-      c.format + " · " + c.settings.elimination + " elimination",
+      (c.format === "doubles" ? "Doubles" : "Singles") +
+        (c.kind === "knockout"
+          ? " · " + c.settings.elimination + " elimination"
+          : ""),
     );
-    text("[data-comp-status]", c.state);
+    text(
+      "[data-comp-status]",
+      {
+        registration: "Registration",
+        closed: "Registration closed",
+        active: "In progress",
+        completed: "Complete",
+      }[c.state] || c.state,
+    );
     text(
       "[data-comp-blurb]",
       c.enrollment === "selected"
@@ -40,23 +69,36 @@ APP.run(async () => {
     text("[data-comp-played]", done);
     text(
       ".player-elo .label",
-      `of ${UI.count(c.fixtures.filter((f) => f.status !== "cancelled").length, "fixture")} accepted`,
+      `of ${UI.count(c.fixtures.filter((f) => !["cancelled", "bye"].includes(f.status)).length, "match", "matches")} completed`,
     );
     text("[data-comp-leader]", c.champion ? name(c.champion) : "Undecided");
     text("[data-comp-players]", c.players);
-    text("[data-comp-fixtures]", c.fixtures.length);
+    text(
+      "[data-comp-fixtures]",
+      c.fixtures.filter((f) => !["cancelled", "bye"].includes(f.status)).length,
+    );
     text("[data-comp-played-stat]", done);
     text(
       "[data-comp-matchdays]",
       Math.max(0, ...c.fixtures.map((f) => f.round)),
     );
     text("[data-comp-rounds]", c.settings.legs);
+    if (c.kind === "knockout") {
+      text("[data-comp-fixtures] + span", "Matches");
+      text("[data-comp-matchdays] + span", "Rounds");
+      $("[data-comp-rounds]").closest(".player-stat").hidden = true;
+    }
     text("#crumb-game", APP.game.name);
     text("#table-heading", c.name + " standings");
     text("#table-sub", "Accepted results · organizer-selected tiebreak rules");
     text("#table-chip", c.format);
     text("#fixtures-sub", "Scheduled fixtures and accepted results");
-    text("#bracket-sub", "Winners, losers, and advancement");
+    text(
+      "#bracket-sub",
+      c.settings.elimination === "double"
+        ? "Upper bracket, lower bracket, and grand finals"
+        : "Follow each match through to the final",
+    );
     $("#record-link").href = APP.url("game", { view: "record" });
     $("#record-link").hidden = true;
     $("#comp-table-wrap").innerHTML =
@@ -76,7 +118,7 @@ APP.run(async () => {
       c.fixtures
         .map(
           (f) =>
-            `<tr><td>${UI.date(f.scheduled)}${c.canManage && ["ready", "waiting"].includes(f.status) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}</td><td>${esc(f.pool + " " + f.label)}</td><td>${esc(name(f.a))}</td><td>${f.match_id ? button(f.forfeit ? "Forfeit" : `${f.a_score}–${f.b_score}`, "result", `data-match="${f.match_id}"`) : f.status === "ready" ? `<a class="btn btn-outline btn-sm" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">Record</a>` : "—"}</td><td>${esc(name(f.b))}</td><td>${esc(f.status)}${c.canManage && f.status === "ready" && !f.match_id ? button("Forfeit", "forfeit", `data-fixture="${f.id}"`) : ""}</td></tr>`,
+            `<tr><td>${UI.date(f.scheduled)}${c.canManage && ["ready", "waiting"].includes(f.status) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}</td><td>${esc(f.pool + " " + f.label)}</td><td>${esc(name(f.a))}</td><td>${f.match_id ? button(fixtureScoreText(f), "result", `data-match="${f.match_id}"`) : f.status === "ready" ? `<a class="btn btn-outline btn-sm" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">Record</a>` : "—"}</td><td>${esc(name(f.b))}</td><td>${esc(f.status)}${c.canManage && f.status === "ready" && !f.match_id ? button("Forfeit", "forfeit", `data-fixture="${f.id}"`) : ""}</td></tr>`,
         )
         .join("") ||
       '<tr><td colspan="6">Registration precedes the draw.</td></tr>';
@@ -120,40 +162,16 @@ APP.run(async () => {
             },
           );
       };
-    const knockout = c.fixtures.filter((f) =>
-      ["knockout", "semifinal", "final"].includes(f.stage),
-    );
-    const node = (f) =>
-      `<div class="bracket-node ${f.stage === "final" && f.winner ? "champion" : ""}"><p><span class="${f.winner === f.a ? "winner" : ""}">${esc(name(f.a))}</span><span class="score">${f.status === "bye" ? "BYE" : f.status === "cancelled" ? "—" : f.match_id ? (f.forfeit ? "W/O" : `${f.a_score}–${f.b_score}`) : esc(f.status)}</span></p><p><span class="${f.winner === f.b ? "winner" : ""}">${esc(name(f.b))}</span></p>${f.match_id ? button("View result", "result", `data-match="${f.match_id}"`) : ""}${f.conditional ? '<span class="reset-tag">Reset if needed</span>' : ""}</div>`;
-    function rounds(fs) {
-      return [...new Set(fs.map((f) => f.round))]
-        .map(
-          (r) =>
-            `<div class="bracket-round"><div class="bracket-round-title">Round ${r}</div>${fs
-              .filter((f) => f.round === r)
-              .map(node)
-              .join("")}</div>`,
-        )
-        .join("");
+    clearBracket?.();
+    clearBracket = renderBracket($("#bracket-wrap"), c, { UI, APP });
+    if (initialView) {
+      const view = APP.params.get("view");
+      if (view === "bracket" || (!view && c.kind === "knockout"))
+        $("#ct-bracket").click();
+      else if (["fixtures", "table", "rules"].includes(view))
+        $("#ct-" + view).click();
+      initialView = false;
     }
-    $("#bracket-wrap").innerHTML = knockout.length
-      ? c.settings.elimination === "double"
-        ? `<div class="bracket-scroll"><div class="de-bracket">${[
-            ["W", "Winners bracket"],
-            ["L", "Losers bracket"],
-            ["G", "Grand finals"],
-          ]
-            .map(
-              ([p, l]) =>
-                `<div class="de-col"><div class="de-col-title">${l}</div>${rounds(knockout.filter((f) => f.pool === p))}</div>`,
-            )
-            .join("")}</div></div>`
-        : `<div class="bracket-scroll"><div class="bracket">${rounds(knockout)}</div></div>`
-      : UI.empty(
-          c.kind === "league" && !c.settings.playoffs
-            ? "This league has no knockout stage."
-            : "The bracket appears after registration or qualification is complete.",
-        );
     bindMatches();
     text(
       "#rules-points-title",
@@ -196,6 +214,15 @@ APP.run(async () => {
         c.deadline > Date.now() &&
         c.enrollment !== "selected";
     panel.innerHTML = `<div class="panel-head"><h2>${mutable ? "Entrants & registration" : "Competition entrants"}</h2><span class="chip">${UI.count(c.entries.length, "entry", "entries")}</span></div><div class="panel-body"><div class="form-actions">${open && !userEntry() ? button("Register", "register") : ""}${c.canManage && mutable ? button("Add entrants", "add-entry") + button("Edit rules", "rules") + button("Set seeds", "seeds") + (c.state === "registration" ? button("Close registration", "close") : "") + button("Generate draw", "draw") : ""}</div><div class="table-wrap"><table><thead><tr><th>Seed</th><th>Entrant</th><th>Action</th></tr></thead><tbody>${c.entries.map((e) => `<tr><td>${e.seed || "—"}</td><td>${esc(name(e.id))}${c.format === "doubles" && e.players.length === 1 ? " · awaiting partner" : ""}</td><td>${mutable && (c.canManage || e.players.some((p) => p.id === APP.me?.player_id)) ? button("Withdraw", "withdraw", `data-entry="${e.id}"`) : ""}</td></tr>`).join("") || '<tr><td colspan="3">No entries yet.</td></tr>'}</tbody></table></div>${c.canManage && mutable && c.format === "doubles" ? button("Pair individual entries", "pair") : ""}</div>`;
+    panel.classList.toggle("competition-entrants-compact", !mutable);
+    if (!mutable) {
+      const table = $(".table-wrap", panel);
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      summary.textContent = `Competition entrants · ${UI.count(c.entries.length, "entry", "entries")}`;
+      details.append(summary, table);
+      panel.replaceChildren(details);
+    }
     $("[data-action=register]", panel)?.addEventListener("click", () => {
       if (!APP.me) return APP.login();
       entryDialog(false);

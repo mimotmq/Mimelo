@@ -59,6 +59,8 @@ Edits require the current revision, discard previous confirmations/checkoff, and
 
 All games support round robin, leagues with playoffs, groups followed by knockout, and single/double elimination. Registration can be selected, open with a deadline, or both. The organizer closes registration before drawing; an expired deadline also permits the draw. Rules, entrants, and doubles partners freeze at draw generation. Schedules remain editable. Withdrawals during play are handled as forfeits. Seeding supports Elo, random, manual order, or numbered seeds; highest seeds receive first-round byes. Double elimination includes a conditional final reset.
 
+Knockout competitions open on the bracket. Wide screens show a single-elimination draw from both sides toward a central final; mobile keeps all matches in a round together and scrolls horizontally between rounds. Round buttons also navigate, and later rounds come into view vertically after a swipe in large draws. Cards show player photos (or initials), the recorded club crests, separate scores, penalty scores and `a.e.t.` when applicable. Future matches do not inherit a team's choice from an earlier round. Completed/pending result cards open the existing result dialog; ready matches link to recording. Byes, source-match placeholders, doubles, and the double-elimination lanes/reset remain visible. Entrants collapse into an expandable list after the draw. Explicit `?view=table`, `fixtures`, `bracket`, or `rules` links select that competition view.
+
 Organizers choose ordered standings tiebreaks. A tied qualifying boundary waits for an admin selection with a reason or an additional round among the tied entrants. A multi-way tie uses a small round robin; a remaining tie can receive another round or an admin decision. Additional games do not rewrite the original league/group standings. A tied league championship also waits for resolution.
 
 Ratings start at 1000. Each player’s K starts at 124 and tapers logarithmically to 24 on rated match 45, staying at 24 thereafter: `K(n) = 24 + 100 × (1 − ln(1 + min(n, 44)) / ln(45))`, where `n` is prior matches with Elo checked off in that game and format. A match uses the arithmetic mean of all participants’ K values (both players in singles, all four in doubles), preserving equal-and-opposite changes between sides. The recording estimate uses the same rule. On the first start after this upgrade, existing checked-off matches replay atomically with this policy; stored approvals, original submission ordering, and team-overall snapshots are preserved.
@@ -103,6 +105,25 @@ Open **Admin → Games → Administer → Manage images** for EA FC 26, EA FC 27
 Uploads accept PNG, JPEG, or WebP up to 5 MB. Transparent icons retain transparency and fit inside a square; stage photos retain their aspect ratio. For Smash images, use **Replace image** or **Remove image** to change an association. Uploaded images have no added background fill, so transparent PNG areas show the page underneath. Names/codes remain visible when no image has been uploaded. Badges appear beside EA FC match sides, and stock icons appear per game and player in Smash scorecards.
 
 The app stores the files in `.runtime/uploads/catalog/` and reusable EA FC badges in SQLite's `team_badges` table, their code/gender associations in `team_badge_links`, and Smash character/stage associations in `catalog_images`. Existing edition-specific uploads migrate into the library automatically. If matching code/gender entries had different badges, the most recently uploaded badge becomes the shared default; the alternatives remain in the library. Upload through the admin screen rather than copying files into the folder: copying alone does not create an association. The shared Smash IDs and names are in `static/catalogs/smash.json`. Back up the database and the entire `.runtime/uploads/` directory together. Replaced/removed files are retained for existing cached pages and backups; removal clears the active association.
+
+### Bulk club crests
+
+In **Admin → Games → Administer → Manage images → Bulk import crests**, download the edition's team mapping CSV and the browser helper ZIP. Unzip the helper, open `chrome://extensions` or `edge://extensions`, enable Developer mode, choose **Load unpacked**, and select the helper folder. Open the extension and load the CSV. Enter confirmed SoFIFA numeric image IDs or direct PNG URLs. These image IDs are separate from Mimelo team codes and may differ from SoFIFA page IDs. The helper can suggest exact normalized name matches from open SoFIFA pages; each suggestion requires confirmation. It does not guess women's club associations.
+
+Developers can also run `npm run crest-helper` to build `artifacts/mimelo-crest-helper.zip` without starting a server.
+
+Download a crest ZIP from the helper, then upload it in Mimelo, preview the matches, and apply the ready rows. Downloads run on your computer through the extension; this does not guarantee SoFIFA will accept them. On HTTP 403/429, further network downloads stop. You can add manually downloaded PNG/JPEG/WebP files to the helper instead. Save the mapping CSV to keep your progress; closing the helper tab clears its in-memory state.
+
+Manual ZIPs are also accepted. Put `mapping.csv` at the root with these columns and the referenced image files:
+
+```csv
+code,name,gender,sofifa_id,url,file,badge_id
+MUN,Manchester United,men,14,https://cdn.sofifa.net/meta/team/14/240.png,sofifa-14.png,
+```
+
+`code` and `gender` must match the current edition's catalog. Names are labels, not matching keys. URL/SoFIFA ID columns are download instructions for the helper; the server only imports files inside the ZIP and never fetches URLs. To share a new crest across confirmed teams, use the same `file` on their rows. To reuse an existing library badge (including for a women's team), copy its `badge_id` from the exported mapping onto that team's row. Saved badge IDs take priority over image files. The importer always preserves existing associations, including manually uploaded crests, and shared code/gender associations apply across editions. Individual image management remains available for replacing a crest.
+
+Preview does not save images or change associations. Apply imports only ready rows and reports skipped rows. Missing codes/files, invalid images, gender mismatches and duplicate target codes are reported. If the catalog changes after preview, a new preview is required. One source file creates one reusable library badge; repeated imports preserve existing associations. Limits: 25 MB ZIP, 5 MB per image, 100 MB expanded image data, 2,500 archive entries and 10,000 mapping rows. Split larger imports.
 
 ## Backups and verification
 

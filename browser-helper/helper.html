@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mimelo crest helper</title>
+    <link rel="stylesheet" href="helper.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Mimelo crest helper</h1>
+      <p>
+        Load the team mapping from Mimelo Admin, confirm each club's crest, then
+        download a ZIP to preview and import there. Files and mappings stay in
+        this tab until you download them.
+      </p>
+      <ol>
+        <li>
+          <label
+            >Load Mimelo mapping CSV
+            <input id="mapping" type="file" accept=".csv"
+          /></label>
+        </li>
+        <li>
+          Enter a numeric SoFIFA image ID or a direct team PNG URL. To suggest
+          matches, open the relevant SoFIFA team listings in other tabs, then
+          <button id="collect" disabled>Read open SoFIFA pages</button>. Each
+          suggestion needs confirmation.
+        </li>
+        <li>
+          For teams sharing a crest, use the same image ID or filename. To reuse
+          a crest already in Mimelo, copy its saved badge ID into the other
+          team's row.
+        </li>
+        <li>
+          Optionally
+          <label
+            >add PNG, JPEG, or WebP files already downloaded
+            <input
+              id="local"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+          /></label>
+          and enter their filenames below.
+        </li>
+      </ol>
+      <p>
+        Downloads use your computer's browser connection. If SoFIFA blocks a
+        request, the helper stops; it does not solve or bypass Cloudflare
+        challenges. You can still package local files and saved badge links.
+      </p>
+      <div class="actions">
+        <button id="download" disabled>Download crest ZIP</button
+        ><button id="save" disabled>Save mapping CSV</button
+        ><button id="cancel" disabled>Stop downloads</button
+        ><label>Find a team <input id="search" type="search" /></label>
+      </div>
+      <p id="message" role="status" aria-live="polite">
+        Load a mapping CSV to begin.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>SoFIFA image ID or PNG URL</th>
+              <th>ZIP filename</th>
+              <th>Saved badge ID</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="teams"></tbody>
+        </table>
+      </div>
+    </main>
+    <script src="jszip.min.js"></script>
+    <script type="module" src="helper.js"></script>
+  </body>
+</html>

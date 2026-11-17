@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Mimelo crest helper",
+  "version": "1.0.0",
+  "description": "Map club crests and package downloaded images for Mimelo's badge importer.",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://sofifa.com/*", "https://cdn.sofifa.net/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Open Mimelo crest helper" }
+}

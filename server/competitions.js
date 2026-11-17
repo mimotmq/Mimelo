@@ -1,5 +1,6 @@
 import { assert, integer, json, organizer, audit, notify } from "./db.js";
 import { randomInt } from "node:crypto";
+import { catalogImage } from "./catalog-images.js";
 export function getCompetition(db, id) {
   const c = db.prepare("SELECT * FROM competitions WHERE id=?").get(Number(id));
   assert(c, "Competition not found.", 404);
@@ -13,17 +14,36 @@ export function entries(db, id) {
       ...e,
       players: db
         .prepare(
-          "SELECT p.id,p.name FROM entrant_players ep JOIN players p ON p.id=ep.player_id WHERE ep.entry_id=? ORDER BY p.id",
+          "SELECT p.id,p.name,p.photo FROM entrant_players ep JOIN players p ON p.id=ep.player_id WHERE ep.entry_id=? ORDER BY p.id",
         )
         .all(e.id),
     }));
 }
 export function fixtureList(db, id) {
+  const game = db
+    .prepare("SELECT game FROM competitions WHERE id=?")
+    .get(id)?.game;
   return db
     .prepare(
       "SELECT f.*,m.id AS match_id,m.a_score,m.b_score,m.score,m.forfeit,m.status AS result_status FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided' WHERE f.competition_id=? ORDER BY f.id",
     )
-    .all(id);
+    .all(id)
+    .map((f) => {
+      const score = f.score ? json(f.score) : null;
+      return {
+        ...f,
+        score,
+        teams: [score?.teamA, score?.teamB].map((id) => {
+          if (!id) return null;
+          const team = db
+            .prepare("SELECT id,name,code FROM teams WHERE id=?")
+            .get(id);
+          return team
+            ? { ...team, image: catalogImage(db, game, "team", team.code) }
+            : null;
+        }),
+      };
+    });
 }
 export function settings(body, kind, format) {
   const s = {

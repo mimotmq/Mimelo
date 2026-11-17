@@ -12,7 +12,8 @@
     "test": "node --test tests/*.test.js",
     "verify:templates": "node scripts/verify-templates.js",
     "admin": "node scripts/admin.js",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "crest-helper": "node scripts/crest-helper.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
@@ -23,6 +24,7 @@
     "csv-parse": "^7.0.3",
     "exceljs": "^4.4.0",
     "fastify": "^5.12.8",
+    "jszip": "^3.10.2",
     "sharp": "^0.35.5"
   },
   "devDependencies": {

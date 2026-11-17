@@ -10,6 +10,7 @@ import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import { ratedRating, ratingProgress } from "./ratings.js";
 import { registerCatalogImages } from "./catalog-images.js";
+import { registerBadgeImport } from "./badge-import.js";
 import {
   openDb,
   json,
@@ -191,6 +192,7 @@ export async function createApp(options = {}) {
     return { ...r, weights: json(r.weights) };
   };
   registerCatalogImages(app, { db, uploads, game, gameAdmin });
+  registerBadgeImport(app, { db, uploads, game, gameAdmin });
   function login(reply, u, req, remember = true) {
     const raw = token(),
       csrf = token(),

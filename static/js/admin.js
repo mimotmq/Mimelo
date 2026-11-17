@@ -286,7 +286,7 @@ APP.run(async () => {
   async function manageImages(g) {
     const d = UI.dialog(
       g.name + " match images",
-      `<p>Choose an entry and upload a PNG, JPEG, or WebP image (up to 5 MB). Transparent PNGs work well for badges and stock icons.</p>${g.kind === "fc" ? "<p>Use an existing badge for teams that share a crest. Uploading or unlinking changes all EA FC editions with this team code and gender; other linked teams keep their badge.</p>" : ""}${select(
+      `<p>Choose an entry and upload a PNG, JPEG, or WebP image (up to 5 MB). Transparent PNGs work well for badges and stock icons.</p>${g.kind === "fc" ? "<p>Use an existing badge for teams that share a crest. Uploading or unlinking changes all EA FC editions with this team code and gender; other linked teams keep their badge.</p>" + button("Bulk import crests", "bulk-badges") : ""}${select(
         "Image type",
         "image-kind",
         g.kind === "fc"
@@ -299,6 +299,9 @@ APP.run(async () => {
     );
     let request = 0,
       searchTimer;
+    $("[data-action=bulk-badges]", d)?.addEventListener("click", () =>
+      bulkBadges(g, () => load()),
+    );
     async function load(offset = 0) {
       const current = ++request,
         kind = $("#field-image-kind", d).value;
@@ -385,6 +388,87 @@ APP.run(async () => {
       searchTimer = setTimeout(() => load(), 200);
     };
     await load();
+  }
+  function bulkBadges(g, saved) {
+    const base = `games/${g.slug}/badge-import`,
+      d = UI.dialog(
+        g.name + " bulk crest import",
+        `<p>Import crests for this edition. Matching codes and genders share their badges across EA FC editions. Existing badges are always kept.</p>
+        <ol><li><a class="btn btn-outline btn-sm" href="/api/${base}/template" download>Download team mapping CSV</a></li>
+        <li><a class="btn btn-outline btn-sm" href="/api/${base}/helper" download>Download browser helper</a> Unzip it, open <code>chrome://extensions</code> or <code>edge://extensions</code>, enable Developer mode, then choose <b>Load unpacked</b> and select the helper folder.</li>
+        <li>Open the helper from your browser's extension menu. Load the mapping, enter SoFIFA image IDs or URLs, and download a crest ZIP. Name suggestions from open SoFIFA pages need confirmation. You can also add images already downloaded. Browser access is required; downloads may still be blocked by SoFIFA.</li>
+        <li>To reuse an uploaded crest for a women's team, copy its <code>badge_id</code> into that team's mapping row. To share a new crest, use the same URL or image filename for both rows.</li></ol>
+        <p>A manual ZIP can contain <code>mapping.csv</code> and the named PNG, JPEG, or WebP files. Match by exact team code and gender. Limits: 25 MB ZIP, 5 MB per image.</p>
+        <div class="field"><label for="badge-zip">Crest ZIP</label><input id="badge-zip" type="file" accept=".zip,application/zip"></div>
+        <div class="form-actions">${button("Preview ZIP", "preview-badges", "disabled")}${button("Apply ready crests", "apply-badges", "disabled")}</div>
+        <p id="bulk-message" class="hint" role="status" aria-live="polite"></p><div id="bulk-preview"></div>`,
+      );
+    const input = $("#badge-zip", d),
+      previewButton = $("[data-action=preview-badges]", d),
+      applyButton = $("[data-action=apply-badges]", d),
+      message = $("#bulk-message", d);
+    d.style.overflowWrap = "anywhere";
+    input.style.width = "100%";
+    $(".form-actions", d).style.flexWrap = "wrap";
+    $$("ol .btn", d).forEach((link) => {
+      link.style.whiteSpace = "normal";
+    });
+    let file, preview;
+    input.onchange = () => {
+      file = input.files[0];
+      preview = null;
+      previewButton.disabled = !file;
+      applyButton.disabled = true;
+      $("#bulk-preview", d).replaceChildren();
+      message.textContent = "";
+    };
+    previewButton.onclick = async () => {
+      input.disabled = previewButton.disabled = applyButton.disabled = true;
+      preview = null;
+      try {
+        if (file.size > 25 * 1024 * 1024)
+          throw new Error("Choose a ZIP under 25 MB.");
+        message.textContent = "Checking team matches and crest images…";
+        const body = new FormData();
+        body.append("file", file);
+        preview = await APP.api(base + "/preview", body);
+        message.textContent = `${preview.ready} ready · ${preview.existing} existing badges kept · ${preview.issues} rows need attention. Applying imports only ready rows. Preview has not changed any badges.`;
+        $("#bulk-preview", d).innerHTML = preview.rows
+          .map(
+            (r) =>
+              `<article class="catalog-image-row">${r.image ? UI.catalogVisual(r) : ""}<div class="catalog-image-copy"><b>${esc(r.name || r.code)}</b><p>${esc(r.code)} · ${esc(r.gender)}</p><p>${esc(r.message)}</p></div></article>`,
+          )
+          .join("");
+        applyButton.textContent = `Apply ${preview.ready} ready crests`;
+      } catch (e) {
+        message.textContent = e.message;
+      } finally {
+        input.disabled = previewButton.disabled = false;
+        applyButton.disabled = !preview?.ready;
+      }
+    };
+    applyButton.onclick = async () => {
+      input.disabled = previewButton.disabled = applyButton.disabled = true;
+      try {
+        message.textContent = "Saving crests…";
+        const body = new FormData();
+        body.append("file", file);
+        const result = await APP.api(
+          base + "/apply?preview=" + encodeURIComponent(preview.preview),
+          body,
+        );
+        preview = null;
+        $("#bulk-preview", d).replaceChildren();
+        message.textContent = `${result.imported} crests applied · ${result.existing} existing badges kept · ${result.issues} rows skipped. Shared EA FC editions now use these badges.`;
+        await saved();
+      } catch (e) {
+        preview = null;
+        message.textContent =
+          e.message + " Preview the ZIP again before applying.";
+      } finally {
+        input.disabled = previewButton.disabled = false;
+      }
+    };
   }
   async function chooseBadge(g, team, saved) {
     const d = UI.dialog(

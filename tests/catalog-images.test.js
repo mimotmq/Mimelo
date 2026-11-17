@@ -1,12 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  readdirSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import sharp from "sharp";
+import JSZip from "jszip";
 import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
+import { parseMapping } from "../browser-helper/mapping.js";
 const require = createRequire(import.meta.url);
 const { chromium } = require(
   process.env.MIMELO_PLAYWRIGHT_MODULE || "@playwright/test",
@@ -127,6 +136,7 @@ async function setup(t) {
     users,
     headers,
     png,
+    uploads: options.uploads,
     call,
     upload,
     fc,
@@ -137,6 +147,359 @@ async function setup(t) {
     },
   };
 }
+
+async function badgeZip(mapping, files = {}) {
+  const zip = new JSZip();
+  zip.file("mapping.csv", mapping);
+  for (const [name, data] of Object.entries(files)) zip.file(name, data);
+  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
+test("bulk crests preview without writes, preserve uploads, reuse women's crests, and share across editions", async (t) => {
+  const h = await setup(t);
+  const manual = await h.upload("/api/games/eafc27/images/team/AAA");
+  for (const slug of ["eafc26", "eafc27"])
+    for (const [code, gender] of [
+      ["AAAW", "women"],
+      ["BBBW", "women"],
+    ])
+      await h.call("POST", "/api/teams/" + slug, { code, name: code, gender });
+  const original = h.app.db
+    .prepare("SELECT COUNT(*) n FROM team_badges")
+    .get().n;
+  const zip = await badgeZip(
+    `code,name,gender,file,badge_id
+AAA,Club A,men,manual.png,
+AAAW,Club A Women,women,manual.png,
+BBB,Club B,men,new.png,
+BBBW,Club B Women,women,new.png,
+UNKNOWN,Unknown,men,new.png,
+`,
+    { "new.png": h.png },
+  );
+  const base = "/api/games/eafc27/badge-import/";
+  await h.upload(base + "preview", zip, 403, 1);
+  const p = await h.upload(base + "preview", zip);
+  assert.deepEqual([p.ready, p.existing, p.issues], [3, 1, 1]);
+  assert.equal(p.rows[1].use_badge, 1);
+  assert.equal(
+    h.app.db.prepare("SELECT COUNT(*) n FROM team_badges").get().n,
+    original,
+  );
+  assert.equal(readdirSync(join(h.uploads, "catalog")).length, 1);
+  await h.upload(base + "apply", zip, 409);
+  const result = await h.upload(base + "apply?preview=" + p.preview, zip);
+  assert.equal(result.imported, 3);
+  assert.equal(
+    h.app.db.prepare("SELECT COUNT(*) n FROM team_badges").get().n,
+    original + 1,
+  );
+  const links = h.app.db
+    .prepare("SELECT * FROM team_badge_links ORDER BY code")
+    .all();
+  assert.equal(links[0].badge_id, links[1].badge_id);
+  assert.equal(links[2].badge_id, links[3].badge_id);
+  assert.notEqual(links[0].badge_id, links[2].badge_id);
+  for (const slug of ["eafc26", "eafc27"]) {
+    const catalog = await h.call("GET", `/api/games/${slug}/images?kind=team`);
+    assert.equal(
+      catalog.rows.find((r) => r.code === "AAA").image,
+      manual.image,
+    );
+    assert.equal(
+      catalog.rows.find((r) => r.code === "AAAW").image,
+      manual.image,
+    );
+    assert.equal(
+      catalog.rows.find((r) => r.code === "BBB").image,
+      catalog.rows.find((r) => r.code === "BBBW").image,
+    );
+  }
+  const repeat = await h.upload(base + "preview", zip);
+  assert.deepEqual([repeat.ready, repeat.existing, repeat.issues], [0, 4, 1]);
+  assert.equal(
+    (await h.upload(base + "apply?preview=" + repeat.preview, zip)).imported,
+    0,
+  );
+  await h.restart();
+  assert.equal(
+    (await h.call("GET", "/api/games/eafc26/images?kind=team&q=AAAW")).rows[0]
+      .image,
+    manual.image,
+  );
+});
+
+test("bulk badge import validates archives and stale previews, and supports explicit saved badge links", async (t) => {
+  const h = await setup(t),
+    base = "/api/games/eafc27/badge-import/";
+  await h.upload(base + "preview", Buffer.from("not a zip"), 400);
+  const noManifest = await new JSZip().generateAsync({ type: "nodebuffer" });
+  await h.upload(base + "preview", noManifest, 400);
+  const traversal = new JSZip()
+    .file("mapping.csv", "code,file\nAAA,a.png\n")
+    .file("../a.png", h.png);
+  await h.upload(
+    base + "preview",
+    await traversal.generateAsync({ type: "nodebuffer" }),
+    400,
+  );
+  await h.upload(base + "preview", await badgeZip("name\nAAA\n"), 400);
+  await h.upload(
+    base + "preview",
+    await badgeZip("code,file\nAAA,big.png\n", {
+      "big.png": Buffer.alloc(5 * 1024 * 1024 + 1),
+    }),
+    413,
+  );
+  await h.upload(
+    base + "preview",
+    await badgeZip("code,file\n" + "x".repeat(1024 * 1024)),
+    413,
+  );
+  const issues = await h.upload(
+    base + "preview",
+    await badgeZip(
+      "code,gender,file\nAAA,men,a.png\nAAA,men,b.png\nBBB,women,b.png\n",
+      { "a.png": h.png },
+    ),
+  );
+  assert.deepEqual([issues.ready, issues.issues], [0, 3]);
+  assert.match(issues.rows[0].message, /Duplicate/);
+  assert.match(issues.rows[2].message, /Gender/);
+  const invalid = await h.upload(
+    base + "preview",
+    await badgeZip("code,file\nAAA,bad.png\nBBB,missing.png\n", {
+      "bad.png": "not png",
+    }),
+  );
+  assert.equal(invalid.issues, 2);
+  const zip = await badgeZip("code,file\nAAA,a.png\n", { "a.png": h.png });
+  const preview = await h.upload(base + "preview", zip);
+  await h.upload("/api/games/eafc26/images/team/AAA");
+  await h.upload(base + "apply?preview=" + preview.preview, zip, 409);
+  const badge = (await h.call("GET", "/api/team-badges")).rows[0];
+  const reuseZip = await badgeZip(
+    `code,gender,badge_id\nBBB,men,${badge.id}\n`,
+  );
+  const reuse = await h.upload(base + "preview", reuseZip);
+  assert.equal(reuse.ready, 1);
+  await h.upload(base + "apply?preview=" + reuse.preview, reuseZip);
+  assert.equal(
+    h.app.db.prepare("SELECT COUNT(*) n FROM team_badges").get().n,
+    1,
+  );
+  const template = await h.app.inject({
+    url: base + "template",
+    headers: h.headers[0],
+  });
+  assert.equal(template.statusCode, 200);
+  assert.match(
+    template.body,
+    /"code","name","gender","sofifa_id","url","file","badge_id"/,
+  );
+  const helper = await h.app.inject({
+    url: base + "helper",
+    headers: h.headers[0],
+  });
+  assert.equal(helper.statusCode, 200);
+  const helperZip = await JSZip.loadAsync(helper.rawPayload);
+  assert(helperZip.file("jszip.min.js"));
+  const manifest = JSON.parse(
+    await helperZip.file("manifest.json").async("string"),
+  );
+  assert.deepEqual(manifest.host_permissions, [
+    "https://sofifa.com/*",
+    "https://cdn.sofifa.net/*",
+  ]);
+  assert.equal(
+    (await h.app.inject({ url: base + "template", headers: h.headers[1] }))
+      .statusCode,
+    403,
+  );
+});
+
+test("admins preview and apply a bulk crest ZIP on mobile", async (t) => {
+  const h = await setup(t);
+  await h.app.listen({ host: "127.0.0.1", port: 0 });
+  const base = "http://127.0.0.1:" + h.app.server.address().port;
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
+  await context.addCookies([
+    { name: "sid", value: h.headers[0].cookie.slice(4), url: base },
+  ]);
+  const page = await context.newPage(),
+    errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(base + "/admin.html");
+  await page.waitForFunction(() => document.body.dataset.ready === "true");
+  await page.locator('[data-action="game-admin"][data-game="eafc27"]').click();
+  await page
+    .getByRole("button", { name: "Manage images", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Bulk import crests", exact: true })
+    .click();
+  const zip = await badgeZip("code,name,gender,file\nBBB,Club B,men,b.png\n", {
+    "b.png": h.png,
+  });
+  await page.locator("#badge-zip").setInputFiles({
+    name: "crests.zip",
+    mimeType: "application/zip",
+    buffer: zip,
+  });
+  await page.getByRole("button", { name: "Preview ZIP", exact: true }).click();
+  await page.waitForFunction(() =>
+    document.querySelector("#bulk-message")?.textContent.includes("1 ready"),
+  );
+  assert.equal(
+    h.app.db.prepare("SELECT COUNT(*) n FROM team_badges").get().n,
+    0,
+  );
+  await page.locator("#bulk-preview img").scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => {
+    const img = document.querySelector("#bulk-preview img");
+    return img?.complete && img.naturalWidth > 0;
+  });
+  assert.equal(
+    await page
+      .locator("#bulk-preview img")
+      .evaluate((img) => img.complete && img.naturalWidth > 0),
+    true,
+  );
+  mkdirSync("artifacts", { recursive: true });
+  await page.screenshot({ path: "artifacts/bulk-crests-mobile.png" });
+  assert.equal(
+    await page
+      .locator("dialog")
+      .last()
+      .evaluate((d) => d.scrollWidth <= d.clientWidth + 1),
+    true,
+    await page
+      .locator("dialog")
+      .last()
+      .evaluate((d) =>
+        JSON.stringify({
+          width: d.clientWidth,
+          scroll: d.scrollWidth,
+          overflow: [...d.querySelectorAll("*")]
+            .filter(
+              (e) =>
+                e.getBoundingClientRect().right >
+                d.getBoundingClientRect().right,
+            )
+            .map((e) => ({
+              tag: e.tagName,
+              text: e.textContent.slice(0, 80),
+              width: e.getBoundingClientRect().width,
+            })),
+        }),
+      ),
+  );
+  await page
+    .getByRole("button", { name: "Apply 1 ready crests", exact: true })
+    .click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#bulk-message")
+      ?.textContent.includes("1 crests applied"),
+  );
+  assert.equal(
+    h.app.db.prepare("SELECT COUNT(*) n FROM team_badges").get().n,
+    1,
+  );
+  assert.deepEqual(errors, []);
+});
+
+test("browser helper confirms suggestions, packages shared and local crests, and stops after a block", async (t) => {
+  const h = await setup(t);
+  const response = await h.app.inject({
+    url: "/api/games/eafc27/badge-import/helper",
+    headers: h.headers[0],
+  });
+  const archive = await JSZip.loadAsync(response.rawPayload),
+    folder = mkdtempSync(join(tmpdir(), "mimelo-extension-"));
+  t.after(() => rmSync(folder, { recursive: true, force: true }));
+  const extension = join(folder, "extension");
+  mkdirSync(extension);
+  for (const entry of Object.values(archive.files))
+    writeFileSync(join(extension, entry.name), await entry.async("nodebuffer"));
+  const context = await chromium.launchPersistentContext(
+    join(folder, "profile"),
+    {
+      channel: "chromium",
+      args: [
+        "--disable-extensions-except=" + extension,
+        "--load-extension=" + extension,
+      ],
+      viewport: { width: 1200, height: 900 },
+    },
+  );
+  t.after(() => context.close());
+  const worker =
+    context.serviceWorkers()[0] ||
+    (await context.waitForEvent("serviceworker"));
+  const extensionId = new URL(worker.url()).host;
+  const requests = [];
+  await context.route("https://cdn.sofifa.net/**", (route) => {
+    requests.push(route.request().url());
+    return route.fulfill(
+      route.request().url().includes("/15/")
+        ? { status: 403, contentType: "text/html", body: "Blocked" }
+        : { contentType: "image/png", body: h.png },
+    );
+  });
+  await context.route("https://sofifa.com/teams", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: '<table><tr><td><a href="/team/1">Club E</a><img alt="Club E" src="https://cdn.sofifa.net/meta/team/14/240.png"></td></tr></table>',
+    }),
+  );
+  const sourcePage = await context.newPage();
+  await sourcePage.goto("https://sofifa.com/teams");
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/helper.html`);
+  const mapping =
+    "code,name,gender,sofifa_id,url,file,badge_id\nAAA,Club É,men,,,,\nBBB,Club Women,women,14,,,\nCCC,Blocked,men,15,,,\nDDD,Later,men,16,,,\nEEE,Local,men,,,local.png,\nFFF,Saved,men,,,,42\n";
+  await page.locator("#mapping").setInputFiles({
+    name: "mapping.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(mapping),
+  });
+  await page.waitForFunction(
+    () => document.querySelector("#teams")?.children.length === 6,
+  );
+  await page
+    .getByRole("button", { name: "Read open SoFIFA pages", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Confirm suggested crest", exact: true })
+    .click();
+  await page
+    .locator("#local")
+    .setInputFiles({ name: "local.png", mimeType: "image/png", buffer: h.png });
+  requests.length = 0;
+  const pending = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Download crest ZIP", exact: true })
+    .click();
+  const download = await pending;
+  const zip = await JSZip.loadAsync(readFileSync(await download.path()));
+  const rows = parseMapping(await zip.file("mapping.csv").async("string"));
+  assert.equal(rows[0].file, rows[1].file);
+  assert(zip.file(rows[0].file));
+  assert(zip.file("local.png"));
+  assert.equal(rows[2].file, "");
+  assert.equal(rows[3].file, "");
+  assert.equal(rows[5].badge_id, "42");
+  assert.equal(requests.length, 2);
+  assert.equal(
+    requests.some((url) => url.includes("/16/")),
+    false,
+  );
+});
 
 test("catalog uploads validate permissions, persist associations, and enrich historical matches", async (t) => {
   const h = await setup(t);
