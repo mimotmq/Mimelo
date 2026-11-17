@@ -25,13 +25,36 @@ async function openNavigation(page) {
   )
     return;
   const menu = page.locator(".navigation-menu");
-  if (await menu.isVisible()) await menu.click();
   // These flows test the destination screens. Keep setup stable under CI load;
-  // actual hover/open/leave behavior is exercised by navigation.test.js.
-  else await page.locator(".navigation-edge").focus();
-  await page.waitForFunction(
-    () => document.querySelector(".app-body").dataset.navOpen === "true",
-  );
+  // actual pointer/touch behavior is exercised by navigation.test.js.
+  if (await menu.isVisible()) {
+    await menu.focus();
+    await page.keyboard.press("Enter");
+  } else await page.locator(".navigation-edge").focus();
+  try {
+    await page.waitForFunction(
+      () => document.querySelector(".app-body").dataset.navOpen === "true",
+    );
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      url: location.href,
+      viewport: [innerWidth, innerHeight],
+      reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+      touchNavigation: matchMedia("(max-width: 1024px), (hover: none)").matches,
+      navigation: { ...document.querySelector(".app-body").dataset },
+      menuVisible: !!document.querySelector(".navigation-menu").getClientRects()
+        .length,
+      menuExpanded: document
+        .querySelector(".navigation-menu")
+        .getAttribute("aria-expanded"),
+      sidebarHidden: document
+        .querySelector(".sidebar")
+        .getAttribute("aria-hidden"),
+      activeElement: document.activeElement.className,
+    }));
+    error.message += "\nNavigation state: " + JSON.stringify(state);
+    throw error;
+  }
 }
 
 test("template screens and live workflows at desktop and mobile widths", async (t) => {

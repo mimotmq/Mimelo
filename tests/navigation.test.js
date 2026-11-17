@@ -114,10 +114,33 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
   await visit("/player.html?game=smash&player=" + user.player_id);
   assert.equal(await shell.getAttribute("data-nav-mode"), "drawer");
   for (const width of [390, 820]) {
+    await page.emulateMedia({
+      reducedMotion: width === 390 ? "reduce" : "no-preference",
+    });
     await page.setViewportSize({ width, height: 1000 });
     await visit("/game.html?game=smash");
     assert.equal(await sidebar.getAttribute("aria-hidden"), "true");
-    assert.equal(await menu.isVisible(), true);
+    assert.equal(
+      await menu.isVisible(),
+      true,
+      JSON.stringify(
+        await page.evaluate(() => ({
+          width: innerWidth,
+          viewport: document.documentElement.clientWidth,
+          rootVisibility: document.documentElement.style.visibility,
+          menuStyle: getComputedStyle(
+            document.querySelector(".navigation-menu"),
+          ).display,
+          menuVisibility: getComputedStyle(
+            document.querySelector(".navigation-menu"),
+          ).visibility,
+          headerStyle: getComputedStyle(document.querySelector(".site-header"))
+            .display,
+          mobile: matchMedia("(max-width:1024px)").matches,
+          styles: [...document.styleSheets].map((s) => s.href),
+        })),
+      ),
+    );
     assert(await menu.evaluate((el) => !!el.closest(".site-header")));
     await menu.click();
     assert.equal(await sidebar.getAttribute("aria-modal"), "true");
