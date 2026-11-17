@@ -26,10 +26,9 @@ async function openNavigation(page) {
     return;
   const menu = page.locator(".navigation-menu");
   if (await menu.isVisible()) await menu.click();
-  else {
-    await page.mouse.move(400, 200);
-    await page.mouse.move(2, 200);
-  }
+  // These flows test the destination screens. Keep setup stable under CI load;
+  // actual hover/open/leave behavior is exercised by navigation.test.js.
+  else await page.locator(".navigation-edge").focus();
   await page.waitForFunction(
     () => document.querySelector(".app-body").dataset.navOpen === "true",
   );
