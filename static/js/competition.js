@@ -472,15 +472,38 @@ APP.run(async () => {
         },
       ),
     );
-    $("#delete-comp").hidden = !c.canManage || !mutable;
-    $("#delete-comp").onclick = async () => {
-      if (!confirm("Delete this competition and its registrations?")) return;
-      try {
-        await APP.api("competitions/" + id, {}, "DELETE");
-        location.href = APP.url("game", { view: "competitions" });
-      } catch (e) {
-        UI.toast(e.message);
-      }
+    $("#delete-comp").hidden = !(c.canAdmin || (c.canManage && mutable));
+    $("#delete-comp").onclick = () => {
+      const d = UI.formDialog(
+        "Delete competition permanently",
+        `<p>This permanently deletes <strong>${esc(c.name)}</strong>, its registrations, fixtures, results, score history and related notifications. Affected Elo ratings will be recalculated. This cannot be undone.</p>` +
+          field(
+            "Type the competition name to confirm",
+            "confirmName",
+            "",
+            "text",
+            'required autocomplete="off"',
+          ) +
+          `<p>Enter: <strong>${esc(c.name)}</strong></p>`,
+        async (data) => {
+          const confirmName = data.get("confirmName");
+          if (confirmName !== c.name)
+            throw new Error(
+              "Type the competition name exactly to confirm deletion.",
+            );
+          await APP.api("competitions/" + id, { confirmName }, "DELETE");
+          location.href = APP.url("game", { view: "competitions" });
+        },
+      );
+      const submit = $(".btn-primary", d);
+      submit.textContent = "Delete permanently";
+      submit.classList.replace("btn-primary", "btn-danger");
+      submit.type = "submit";
+      $(".form-actions", d).insertAdjacentHTML(
+        "afterbegin",
+        button("Cancel", "cancel-delete"),
+      );
+      $("[data-action=cancel-delete]", d).onclick = () => d.close();
     };
     for (const [pool, rows] of Object.entries(c.standings)) {
       const count =

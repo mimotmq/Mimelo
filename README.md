@@ -2,7 +2,9 @@
 
 A public record book for one shared group, with independent EA FC 26, EA FC 27, tennis, table tennis, and Smash records. This is a fresh implementation. It does not read or migrate the previous application's database, accounts, settings, or themes.
 
-The homepage's Recently accepted panel shows the latest five accepted results across every game, ordered by acceptance time. Its vertical news ticker pauses on hover or keyboard focus, offers a pause/resume control, and stays still for reduced-motion preferences. Each result links to its game and match details.
+The homepage's Recently accepted panel shows the latest five accepted results across every game, ordered by acceptance time. Its horizontal broadcast ticker continuously loops through results, pauses on hover or keyboard focus, offers a pause/resume control, and stays still for reduced-motion preferences. Game logos use their transparent PNGs without white tiles. Each result links to its game and match details.
+
+On a competition page, site admins and admins for that game can use Delete at any stage, including completed tournaments. The confirmation dialog requires the exact competition name. Deletion permanently removes registrations, fixtures, dependencies, qualification decisions, matches (including voided results and forfeits), score revisions, confirmations, rating ledger entries and related notifications. Affected game/format ratings and peaks are rebuilt from remaining results in the same transaction; player accounts, other competitions and unrelated games/formats remain intact. Audit history records the deletion. Organizers retain permission to delete their own competitions before the draw.
 
 The eight HTML files, stylesheet, fonts, and images in `static/` are byte-identical to the supplied OpenDesign Cloud mockup. JavaScript connects them to a new Fastify/SQLite backend. `design-reference/` preserves the complete source and its hashes; see [REBUILD.md](REBUILD.md) for the integration map.
 

@@ -84,6 +84,7 @@ Status: interview in progress. This file distinguishes user decisions from imple
 - Doubles partners cannot switch once the competition begins.
 - User delegated structural changes after play starts. Communicated policy: freeze entrants, pairs, format, scoring rules, and draw once play begins; schedules remain editable and withdrawals become forfeits.
 - Organizer and relevant admins may declare forfeits. Forfeits advance without a further admin approval requirement and never affect Elo.
+- Site admins and relevant game admins can permanently delete tournaments at any stage, including their associated records and rating effects. Require a typed tournament-name confirmation, preserve unrelated records, and recalculate affected Elo transactionally. Organizers retain deletion before the draw.
 - Support Elo, random, manual-order, and explicitly numbered seeding. Doubles Elo seeding uses the partners' average doubles rating. First-round byes go to the highest seeds.
 
 ## Sport scoring decisions

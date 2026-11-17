@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
 
-test("homepage shows the five latest acceptances across games and pauses its news ticker", async (t) => {
+test("homepage continuously loops recent results horizontally with transparent logos and accessible pauses", async (t) => {
   const app = await createApp({ database: ":memory:" });
   t.after(() => app.close());
   const pw = await passwordHash("HomeResultsPassword!");
@@ -131,17 +131,22 @@ test("homepage shows the five latest acceptances across games and pauses its new
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(base);
     await page.waitForFunction(() => document.body.dataset.ready === "true");
-    assert.equal(await page.locator(".recent-result").count(), 5);
+    assert.equal(
+      await page
+        .locator(".recent-results-list:not([aria-hidden]) > .recent-result")
+        .count(),
+      5,
+    );
     assert.deepEqual(
       await page
-        .locator(".recent-result")
+        .locator(".recent-results-list:not([aria-hidden]) > .recent-result")
         .evaluateAll((rows) => rows.map((row) => Number(row.dataset.match))),
       expected,
     );
     assert.equal(
       new Set(
         await page
-          .locator(".recent-result")
+          .locator(".recent-results-list:not([aria-hidden]) > .recent-result")
           .evaluateAll((rows) => rows.map((row) => row.dataset.game)),
       ).size,
       5,
@@ -162,59 +167,166 @@ test("homepage shows the five latest acceptances across games and pauses its new
     await panel.screenshot({
       path: `artifacts/home-results-panel-${width}.png`,
     });
-    if (width === 1440) {
-      await page.waitForFunction(
-        () => document.querySelector(".recent-results-viewport").scrollTop > 10,
-        undefined,
-        { timeout: 10000 },
+    const track = page.locator(".recent-results-track");
+    const position = () =>
+      track.evaluate(
+        (el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m41,
       );
-      await panel.hover();
-      // Cancel any in-progress smooth scroll before checking future advances.
-      await viewport.evaluate((el) =>
-        el.scrollTo({ top: el.scrollTop, behavior: "instant" }),
-      );
-      const paused = await viewport.evaluate((el) => el.scrollTop);
-      await page.waitForTimeout(4800);
-      assert.equal(
-        await viewport.evaluate((el) => el.scrollTop),
-        paused,
-        "Hover pauses automatic scrolling.",
-      );
-      await page.mouse.move(1, 1);
-      await viewport.focus();
-      const focused = await viewport.evaluate((el) => el.scrollTop);
-      await page.waitForTimeout(4800);
-      assert.equal(
-        await viewport.evaluate((el) => el.scrollTop),
-        focused,
-        "Keyboard focus pauses automatic scrolling.",
-      );
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".recent-results-panel")
+        .classList.contains("is-scrolling-results"),
+    );
+    const moving = await position();
+    await page.waitForTimeout(500);
+    assert(
+      (await position()) < moving - 8,
+      "Results move continuously from right to left on desktop and mobile.",
+    );
+    assert.equal(
       await page
-        .getByRole("button", { name: "Pause automatic scrolling" })
-        .click();
-      assert.equal(
-        await page
-          .getByRole("button", { name: "Resume automatic scrolling" })
-          .count(),
-        1,
-      );
-    }
-    const firstLink = page.locator(".recent-result a").first();
+        .locator(".recent-result-logo")
+        .first()
+        .evaluate((el) => getComputedStyle(el).backgroundColor),
+      "rgba(0, 0, 0, 0)",
+    );
+    assert.equal(
+      await page
+        .locator(".recent-result-logo")
+        .first()
+        .evaluate((el) => getComputedStyle(el).padding),
+      "0px",
+    );
+    assert(
+      await page
+        .locator(".recent-results-copy")
+        .first()
+        .evaluate(
+          (el) =>
+            el.getAttribute("aria-hidden") === "true" &&
+            [...el.querySelectorAll("a")].every((a) => a.tabIndex === -1),
+        ),
+    );
+    await viewport.hover();
+    const hovered = await position();
+    await page.waitForTimeout(400);
+    assert.equal(await position(), hovered, "Hover pauses the crawl in place.");
+    await page
+      .getByRole("button", { name: "Pause automatic scrolling" })
+      .click();
+    await page.mouse.move(1, 1);
+    const paused = await position();
+    await page.waitForTimeout(400);
+    assert.equal(
+      await position(),
+      paused,
+      "Explicit pause stays paused after the pointer leaves.",
+    );
+    await page
+      .getByRole("button", { name: "Resume automatic scrolling" })
+      .click();
+    const resumed = await position();
+    await page.waitForTimeout(500);
+    assert(
+      (await position()) < resumed - 8,
+      "Resume works while the control still has focus.",
+    );
+    // Seek across the loop seam; the repeated copy takes exactly the place
+    // of the original without a blank strip or backwards sweep.
+    const seam = await track.evaluate((el) => {
+      const animation = el.getAnimations()[0];
+      animation.pause();
+      const duration = animation.effect.getTiming().duration;
+      animation.currentTime = duration - 1;
+      const before = el.children[1].getBoundingClientRect().left;
+      animation.currentTime = duration + 1;
+      const after = el.children[0].getBoundingClientRect().left;
+      animation.play();
+      return Math.abs(before - after);
+    });
+    assert(seam < 1, "Loop is seamless.");
+    await viewport.focus();
+    assert.equal(
+      await track.evaluate((el) => getComputedStyle(el).animationName),
+      "none",
+    );
+    await page
+      .locator(".recent-results-list:not([aria-hidden]) a")
+      .last()
+      .focus();
+    assert(
+      await viewport.evaluate((el) => el.scrollLeft > 0),
+      "Keyboard users can reach results beyond the viewport.",
+    );
+    await page
+      .getByRole("button", { name: "Pause automatic scrolling" })
+      .focus();
+    await page.waitForFunction(
+      () =>
+        !document
+          .querySelector(".recent-results-panel")
+          .classList.contains("is-browsing-results"),
+    );
+    assert.equal(
+      await viewport.evaluate((el) => el.scrollLeft),
+      0,
+      "Leaving keyboard browsing resets the manual scroll before the crawl resumes.",
+    );
+    const firstLink = page
+      .locator(".recent-results-list:not([aria-hidden]) a")
+      .first();
+    await viewport.hover();
     await firstLink.click();
     await page.waitForURL(/game=eafc26.*match=/);
   }
+  // Two results must still fill a wide strip all the way through the loop.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.route("**/api/recent-results", (route) =>
+    route.fulfill({ json: { rows: feed.slice(0, 2) } }),
+  );
+  await page.goto(base);
+  await page.waitForFunction(() => document.body.dataset.ready === "true");
+  await page.locator(".recent-results-panel").scrollIntoViewIfNeeded();
+  await page.mouse.move(1, 1);
+  assert.equal(
+    await page
+      .locator(".recent-results-list:not([aria-hidden]) > .recent-result")
+      .count(),
+    2,
+  );
+  assert(
+    await page.locator(".recent-results-track").evaluate((el) => {
+      const animation = el.getAnimations()[0];
+      animation.pause();
+      animation.currentTime = animation.effect.getTiming().duration - 50;
+      return (
+        el.lastElementChild.getBoundingClientRect().right >=
+        el.parentElement.getBoundingClientRect().right
+      );
+    }),
+    "Repeated results cover the viewport even just before wrapping.",
+  );
+  await page.locator(".recent-results-copy a").first().click();
+  await page.waitForURL(/game=eafc26.*match=/);
+  await page.unroute("**/api/recent-results");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(base);
   await page.waitForFunction(() => document.body.dataset.ready === "true");
   await page.locator(".recent-results-panel").scrollIntoViewIfNeeded();
   assert.equal(await page.locator(".recent-results-pause").isVisible(), false);
   await page.mouse.move(1, 1);
-  await page.waitForTimeout(4800);
+  await page.waitForTimeout(400);
   assert.equal(
     await page
       .locator(".recent-results-viewport")
-      .evaluate((el) => el.scrollTop),
+      .evaluate((el) => el.scrollLeft),
     0,
+  );
+  assert.equal(
+    await page
+      .locator(".recent-results-track")
+      .evaluate((el) => getComputedStyle(el).animationName),
+    "none",
   );
   assert.deepEqual(errors, []);
 });

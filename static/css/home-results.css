@@ -37,9 +37,9 @@
   background: rgb(255 255 255 / 0.08);
 }
 .recent-results-viewport {
-  max-height: 192px;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: thin;
   scrollbar-color: rgb(255 255 255 / 0.25) transparent;
   scroll-padding-top: 0;
@@ -50,14 +50,53 @@
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
+.recent-results-track {
+  display: flex;
+  width: max-content;
+  animation: recent-results-crawl var(--ticker-duration, 55s) linear infinite;
+  animation-play-state: paused;
+}
+.is-scrolling-results .recent-results-track {
+  animation-play-state: running;
+}
 .recent-results-list {
-  position: relative;
+  display: flex;
+  gap: 16px;
+  flex: none;
+  width: max-content;
   margin: 0;
-  padding: 0;
+  padding: 0 16px 0 0;
   list-style: none;
 }
-.recent-result + .recent-result {
-  border-top: 1px solid rgb(255 255 255 / 0.12);
+.recent-result {
+  flex: 0 0 350px;
+  width: 350px;
+  border-left: 1px solid rgb(255 255 255 / 0.12);
+}
+.is-browsing-results .recent-results-viewport {
+  overflow-x: auto;
+}
+.is-browsing-results .recent-results-track {
+  animation: none;
+}
+.is-browsing-results .recent-results-copy {
+  display: none;
+}
+@keyframes recent-results-crawl {
+  to {
+    transform: translateX(var(--ticker-distance));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recent-results-viewport {
+    overflow-x: auto;
+  }
+  .recent-results-track {
+    animation: none;
+  }
+  .recent-results-copy {
+    display: none;
+  }
 }
 .recent-result a {
   display: grid;
@@ -76,9 +115,6 @@
   width: 40px;
   height: 40px;
   object-fit: contain;
-  background: #fff;
-  border-radius: 8px;
-  padding: 4px;
 }
 .recent-result-copy {
   min-width: 0;
@@ -138,8 +174,9 @@
   .recent-results-heading {
     gap: 8px;
   }
-  .recent-results-viewport {
-    max-height: 218px;
+  .recent-result {
+    flex-basis: 290px;
+    width: 290px;
   }
   .recent-result a {
     grid-template-columns: 30px minmax(0, 1fr);
@@ -149,7 +186,6 @@
   .recent-result-logo {
     width: 30px;
     height: 30px;
-    padding: 3px;
   }
   .recent-result-arrow {
     display: none;

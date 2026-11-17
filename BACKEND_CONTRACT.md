@@ -38,6 +38,7 @@ Each result has a revision number. Participant confirmations, acceptance, and El
 - A permitted accepted-result correction invalidates its prior rating checkoff; admin acceptance/checkoff of the corrected revision must be explicit. Rebuild affected standings and checked-off rating history consistently.
 - Downstream fixture creation alone does not create the submission lock.
 - Forfeits can be declared by organizer or relevant admin and progress immediately without a separate admin acceptance. They never enter the Elo ledger.
+- Whole-competition deletion is a separate admin action: site admins and admins for that game may permanently remove any competition, including completed draws and locked results, after confirming its exact name. Remove its entrants, fixtures/dependencies, qualifications, results, revisions, confirmations, ledger entries and related notifications, then replay affected rating pools in the same transaction. Preserve player accounts, unrelated records and audit history. Organizers may still delete their own competitions before the draw.
 
 ## Core records
 
@@ -50,7 +51,7 @@ Each result has a revision number. Participant confirmations, acceptance, and El
 - Entrants: individual player or fixed doubles pair, registration status, seed and withdrawal state.
 - Fixtures: stage/round, scheduled time, side references and explicit dependency edges for qualification/bracket progression.
 - Matches: fixture optional, participants, scores, game-specific detail, submission timestamp, revision and independent approval metadata.
-- Match revisions, confirmations and audit events: append-only records of meaningful changes and actors.
+- Match revisions and confirmations: retain history through ordinary result changes; remove them with an explicit whole-competition deletion. Audit events remain append-only records of meaningful changes and actors.
 - Rating ledger: game and format pool, player, match revision, input rating, delta, output rating, formula/rules version and team-overall snapshots.
 - In-app notifications: recipient, event, relevant game/match/competition, read state. No outgoing email in the first release.
 - Claim/reset tokens and merge requests: single-use token records, expiry/revocation, issuer, target identity/account; merge conflicts reviewed before references are reassigned.

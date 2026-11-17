@@ -1,6 +1,6 @@
 export function renderHomeResults(band, matches) {
   if (!band) return;
-  const { $, $$, esc, icon } = UI;
+  const { $, esc, icon } = UI;
   band.setAttribute("aria-label", "Recently accepted results across all games");
   const panel = $(".hero-result", band);
   panel.classList.add("recent-results-panel");
@@ -10,7 +10,7 @@ export function renderHomeResults(band, matches) {
     hour: "numeric",
     minute: "2-digit",
   });
-  panel.innerHTML = `<div class="recent-results-heading"><div><h2>Recently accepted</h2><p>Across all games · Latest ${matches.length}</p></div><button class="recent-results-pause" type="button" aria-label="Pause automatic scrolling"><span>Pause</span></button></div><div class="recent-results-viewport" tabindex="0" role="region" aria-label="Latest accepted results"><ol class="recent-results-list">${matches
+  panel.innerHTML = `<div class="recent-results-heading"><div><h2>Recently accepted</h2><p>Across all games · Latest ${matches.length}</p></div><button class="recent-results-pause" type="button" aria-label="Pause automatic scrolling"><span>Pause</span></button></div><div class="recent-results-viewport" tabindex="0" role="region" aria-label="Latest accepted results"><div class="recent-results-track"><ol class="recent-results-list">${matches
     .map((match) => {
       const game = APP.games.find((game) => game.slug === match.game);
       const side = (n) =>
@@ -31,77 +31,93 @@ export function renderHomeResults(band, matches) {
     })
     .join(
       "",
-    )}</ol>${matches.length ? "" : '<p class="recent-results-empty">No accepted results yet. Start the record book.</p>'}</div>`;
+    )}</ol></div>${matches.length ? "" : '<p class="recent-results-empty">No accepted results yet. Start the record book.</p>'}</div>`;
   const viewport = $(".recent-results-viewport", panel),
+    track = $(".recent-results-track", panel),
     list = $(".recent-results-list", panel),
     pause = $(".recent-results-pause", panel),
     reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-  let timer,
-    manualPause = false,
+  let manualPause = false,
     hovered = false,
     focused = false,
     onScreen = false;
-  function advance() {
-    const maximum = viewport.scrollHeight - viewport.clientHeight;
-    const next = $$(".recent-result", list)
-      .map((row) => row.offsetTop)
-      .find((top) => top > viewport.scrollTop + 2 && top <= maximum);
-    const top = next ?? (viewport.scrollTop < maximum - 2 ? maximum : 0);
-    viewport.scrollTo({ top, behavior: "smooth" });
+  function measure() {
+    const distance = list.getBoundingClientRect().width;
+    // Fill even wide viewports when only two recent results are available.
+    const copies =
+      matches.length > 1 ? Math.ceil(viewport.clientWidth / distance) : 0;
+    if (track.children.length !== copies + 1) {
+      track
+        .querySelectorAll(".recent-results-copy")
+        .forEach((copy) => copy.remove());
+      for (let i = 0; i < copies; i++) {
+        const copy = list.cloneNode(true);
+        copy.classList.add("recent-results-copy");
+        copy.setAttribute("aria-hidden", "true");
+        copy.querySelectorAll("a").forEach((link) => (link.tabIndex = -1));
+        track.append(copy);
+      }
+    }
+    track.style.setProperty("--ticker-distance", `${-distance}px`);
+    track.style.setProperty("--ticker-duration", `${distance / 32}s`);
   }
   function sync() {
-    clearInterval(timer);
-    pause.hidden = matches.length < 3 || reducedMotion.matches;
+    pause.hidden = matches.length < 2 || reducedMotion.matches;
     $("span", pause).textContent = manualPause ? "Resume" : "Pause";
     pause.setAttribute(
       "aria-label",
       (manualPause ? "Resume" : "Pause") + " automatic scrolling",
     );
-    if (
-      matches.length > 2 &&
-      !manualPause &&
-      !hovered &&
-      !focused &&
-      onScreen &&
-      !document.hidden &&
-      !reducedMotion.matches
-    )
-      timer = setInterval(advance, 4500);
+    panel.classList.toggle("is-browsing-results", focused);
+    panel.classList.toggle(
+      "is-scrolling-results",
+      matches.length > 1 &&
+        !manualPause &&
+        !hovered &&
+        !focused &&
+        onScreen &&
+        !document.hidden &&
+        !reducedMotion.matches,
+    );
   }
   pause.onclick = () => {
     manualPause = !manualPause;
     sync();
   };
-  panel.addEventListener("pointerenter", () => {
+  viewport.addEventListener("pointerenter", (event) => {
+    if (event.pointerType !== "mouse") return;
     hovered = true;
     sync();
   });
-  panel.addEventListener("pointerleave", () => {
+  viewport.addEventListener("pointerleave", () => {
     hovered = false;
     sync();
   });
-  panel.addEventListener("focusin", () => {
+  // Clicking a moving link must not reset the strip into keyboard browsing
+  // mode between pointerdown and click. Keyboard focus still pauses it.
+  viewport.addEventListener("pointerdown", (event) => {
+    if (event.target.closest(".recent-result a")) event.preventDefault();
+  });
+  viewport.addEventListener("focusin", () => {
     focused = true;
     sync();
   });
-  panel.addEventListener("focusout", () =>
+  viewport.addEventListener("focusout", () =>
     requestAnimationFrame(() => {
-      focused = panel.contains(document.activeElement);
+      focused = viewport.contains(document.activeElement);
+      if (!focused) viewport.scrollLeft = 0;
       sync();
     }),
   );
-  viewport.addEventListener(
-    "touchstart",
-    () => {
-      manualPause = true;
-      sync();
-    },
-    { passive: true },
-  );
   reducedMotion.addEventListener("change", sync);
   document.addEventListener("visibilitychange", sync);
-  window.addEventListener("pagehide", () => clearInterval(timer));
+  window.addEventListener("pagehide", () =>
+    panel.classList.remove("is-scrolling-results"),
+  );
   window.addEventListener("pageshow", sync);
+  const resize = new ResizeObserver(measure);
+  resize.observe(list);
+  resize.observe(viewport);
   new IntersectionObserver(
     ([entry]) => {
       onScreen = entry.isIntersecting;
@@ -109,5 +125,6 @@ export function renderHomeResults(band, matches) {
     },
     { threshold: 0.2 },
   ).observe(viewport);
+  measure();
   sync();
 }

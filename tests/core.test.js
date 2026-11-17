@@ -770,3 +770,327 @@ test("preview and replay use the mean participant K, with isolation and an atomi
     expected,
   );
 });
+
+test("admins permanently delete active and completed competitions, including locked results, and replay only affected ratings", async (t) => {
+  const { call, users, db } = await harness(t);
+  const [siteAdmin, owner, opponent, gameAdmin] = users;
+  await call(siteAdmin, "POST", "/api/admin/roles", {
+    account: gameAdmin.id,
+    game: "tennis",
+    enabled: true,
+  });
+  // Isolated books must survive byte-for-byte.
+  for (const [game, body] of [
+    [
+      "tennis",
+      {
+        format: "doubles",
+        sides: [
+          [owner.player_id, opponent.player_id],
+          [users[4].player_id, users[5].player_id],
+        ],
+        score: { bestOf: 1, games: [{ a: 6, b: 2 }] },
+      },
+    ],
+    [
+      "tt",
+      {
+        format: "singles",
+        sides: [[owner.player_id], [opponent.player_id]],
+        score: { bestOf: 1, target: 11, games: [{ a: 11, b: 2 }] },
+      },
+    ],
+  ]) {
+    const m = await call(siteAdmin, "POST", `/api/games/${game}/matches`, body);
+    await call(siteAdmin, "POST", `/api/matches/${m.id}/accept`, {
+      revision: 1,
+    });
+    await call(siteAdmin, "POST", `/api/matches/${m.id}/elo`, { revision: 1 });
+  }
+  const isolated = () => ({
+    ratings: db
+      .prepare(
+        "SELECT * FROM ratings WHERE game<>'tennis' OR format<>'singles' ORDER BY game,format,player_id",
+      )
+      .all(),
+    ledger: db
+      .prepare(
+        "SELECT l.* FROM ledger l JOIN matches m ON m.id=l.match_id WHERE m.game<>'tennis' OR m.format<>'singles' ORDER BY l.match_id,l.player_id",
+      )
+      .all(),
+  });
+  const before = isolated();
+  for (const completed of [false, true]) {
+    const comp = await call(owner, "POST", "/api/competitions", {
+      game: "tennis",
+      name: completed ? "Completed Cup" : "Active Cup",
+      kind: "knockout",
+      entries: users.slice(1, 5).map((u) => [u.player_id]),
+      settings: { bestOf: 1 },
+    });
+    const drawn = await call(
+      owner,
+      "POST",
+      `/api/competitions/${comp.id}/draw`,
+      {},
+    );
+    const rounds = drawn.fixtures.filter((f) => f.status === "ready");
+    let m = await call(siteAdmin, "POST", "/api/games/tennis/matches", {
+      fixture: rounds[0].id,
+      score: { games: [{ a: 6, b: 2 }] },
+    });
+    await call(siteAdmin, "DELETE", `/api/matches/${m.id}`, { revision: 1 });
+    const voidedId = m.id;
+    m = await call(siteAdmin, "POST", "/api/games/tennis/matches", {
+      fixture: rounds[0].id,
+      score: { games: [{ a: 6, b: 2 }] },
+    });
+    await call(siteAdmin, "POST", `/api/matches/${m.id}/accept`, {
+      revision: 1,
+    });
+    await call(siteAdmin, "POST", `/api/matches/${m.id}/elo`, { revision: 1 });
+    await call(owner, "POST", `/api/fixtures/${rounds[1].id}/forfeit`, {
+      winner: rounds[1].a,
+    });
+    const ready = (
+      await call(null, "GET", `/api/competitions/${comp.id}`)
+    ).fixtures.find((f) => f.status === "ready");
+    const final = await call(siteAdmin, "POST", "/api/games/tennis/matches", {
+      fixture: ready.id,
+      score: { games: [{ a: 6, b: 2 }] },
+    });
+    if (completed) {
+      await call(siteAdmin, "POST", `/api/matches/${final.id}/accept`, {
+        revision: 1,
+      });
+      await call(siteAdmin, "POST", `/api/matches/${final.id}/elo`, {
+        revision: 1,
+      });
+    }
+    assert.equal(
+      (await call(null, "GET", `/api/competitions/${comp.id}`)).state,
+      completed ? "completed" : "active",
+    );
+    assert.equal(
+      (await call(null, "GET", `/api/matches/${m.id}`)).locked,
+      true,
+    );
+    // Include qualification decisions as well as every result status.
+    db.prepare(
+      "INSERT INTO qualifications(competition_id,pool,entries,reason,actor,created) VALUES(?,?,?,?,?,?)",
+    ).run(
+      comp.id,
+      "",
+      JSON.stringify([drawn.entries[0].id]),
+      "Chosen qualifier",
+      siteAdmin.id,
+      Date.now(),
+    );
+    const ids = db
+      .prepare("SELECT id FROM matches WHERE competition_id=?")
+      .all(comp.id)
+      .map((m) => m.id);
+    assert(ids.includes(voidedId));
+    const fixtures = drawn.fixtures.map((f) => f.id);
+    const adminUser = completed ? siteAdmin : gameAdmin;
+    const confirm = { confirmName: comp.name };
+    await call(null, "DELETE", `/api/competitions/${comp.id}`, confirm, 403);
+    await call(owner, "DELETE", `/api/competitions/${comp.id}`, confirm, 403);
+    await call(
+      opponent,
+      "DELETE",
+      `/api/competitions/${comp.id}`,
+      confirm,
+      403,
+    );
+    await call(adminUser, "DELETE", `/api/competitions/${comp.id}`, {}, 400);
+    await call(
+      adminUser,
+      "DELETE",
+      `/api/competitions/${comp.id}`,
+      { confirmName: "Wrong name" },
+      400,
+    );
+    assert(db.prepare("SELECT 1 FROM competitions WHERE id=?").get(comp.id));
+    // A later friendly must be re-rated as though the tournament never existed.
+    const friendly = await call(
+      owner,
+      "POST",
+      "/api/games/tennis/matches",
+      tennis(owner, opponent),
+    );
+    await call(siteAdmin, "POST", `/api/matches/${friendly.id}/accept`, {
+      revision: 1,
+    });
+    await call(siteAdmin, "POST", `/api/matches/${friendly.id}/elo`, {
+      revision: 1,
+    });
+    await call(adminUser, "DELETE", `/api/competitions/${comp.id}`, confirm);
+    await call(null, "GET", `/api/competitions/${comp.id}`, undefined, 404);
+    for (const table of [
+      "entrants",
+      "entrant_players",
+      "fixtures",
+      "qualifications",
+      "matches",
+    ])
+      assert.equal(
+        db
+          .prepare(`SELECT COUNT(*) n FROM ${table} WHERE competition_id=?`)
+          .get(comp.id).n,
+        0,
+        table,
+      );
+    for (const table of [
+      "match_players",
+      "confirmations",
+      "revisions",
+      "ledger",
+    ])
+      assert.equal(
+        db
+          .prepare(
+            `SELECT COUNT(*) n FROM ${table} WHERE match_id IN (SELECT value FROM json_each(?))`,
+          )
+          .get(JSON.stringify(ids)).n,
+        0,
+        table,
+      );
+    assert.equal(
+      db
+        .prepare(
+          "SELECT COUNT(*) n FROM dependencies WHERE parent IN (SELECT value FROM json_each(?)) OR child IN (SELECT value FROM json_each(?))",
+        )
+        .get(JSON.stringify(fixtures), JSON.stringify(fixtures)).n,
+      0,
+    );
+    assert.equal(
+      db
+        .prepare(
+          "SELECT COUNT(*) n FROM notifications WHERE href=? OR href IN (SELECT '/game.html?game=tennis&match=' || value FROM json_each(?))",
+        )
+        .get(`/competition.html?game=tennis&id=${comp.id}`, JSON.stringify(ids))
+        .n,
+      0,
+    );
+    assert(
+      db
+        .prepare("SELECT COUNT(*) n FROM notifications WHERE href=?")
+        .get(`/game.html?game=tennis&match=${friendly.id}`).n > 0,
+    );
+    assert.deepEqual(isolated(), before);
+    assert.deepEqual(db.pragma("foreign_key_check"), []);
+    const rated = await call(null, "GET", `/api/matches/${friendly.id}`);
+    assert(rated.ledger.every((l) => l.rated_matches === (completed ? 2 : 1)));
+    if (!completed) assert(rated.ledger.every((l) => l.before === 1000));
+    const replayed = db
+      .prepare("SELECT * FROM ledger ORDER BY match_id,player_id")
+      .all();
+    await call(siteAdmin, "POST", "/api/games/tennis/recalculate", {});
+    assert.deepEqual(
+      db.prepare("SELECT * FROM ledger ORDER BY match_id,player_id").all(),
+      replayed,
+    );
+    assert(
+      db
+        .prepare(
+          "SELECT 1 FROM audit WHERE action='competition.delete' AND subject=?",
+        )
+        .get(String(comp.id)),
+    );
+  }
+  assert.equal(
+    db.prepare("SELECT COUNT(*) n FROM players").get().n,
+    users.length,
+  );
+});
+
+test("tournament deletion enforces game scope, preserves organizer registration deletion, and rolls back on failure", async (t) => {
+  const { call, users, db } = await harness(t);
+  const [admin, owner, gameAdmin] = users;
+  await call(admin, "POST", "/api/admin/roles", {
+    account: gameAdmin.id,
+    game: "tt",
+    enabled: true,
+  });
+  const body = {
+    game: "tennis",
+    name: "Delete transaction",
+    kind: "knockout",
+    entries: users.slice(1, 3).map((u) => [u.player_id]),
+    settings: { bestOf: 1 },
+  };
+  const comp = await call(owner, "POST", "/api/competitions", body);
+  await call(
+    gameAdmin,
+    "DELETE",
+    `/api/competitions/${comp.id}`,
+    { confirmName: comp.name },
+    403,
+  );
+  const drawn = await call(
+    owner,
+    "POST",
+    `/api/competitions/${comp.id}/draw`,
+    {},
+  );
+  const m = await call(admin, "POST", "/api/games/tennis/matches", {
+    fixture: drawn.fixtures[0].id,
+    score: { games: [{ a: 6, b: 2 }] },
+  });
+  await call(admin, "POST", `/api/matches/${m.id}/accept`, { revision: 1 });
+  await call(admin, "POST", `/api/matches/${m.id}/elo`, { revision: 1 });
+  const snapshot = () =>
+    Object.fromEntries(
+      [
+        "competitions",
+        "entrants",
+        "entrant_players",
+        "fixtures",
+        "dependencies",
+        "qualifications",
+        "matches",
+        "match_players",
+        "revisions",
+        "confirmations",
+        "ledger",
+        "ratings",
+        "notifications",
+        "audit",
+      ].map((table) => [table, db.prepare(`SELECT * FROM ${table}`).all()]),
+    );
+  const before = snapshot();
+  db.exec(
+    "CREATE TRIGGER prevent_test_deletion BEFORE DELETE ON competitions BEGIN SELECT RAISE(ABORT, 'Test rollback'); END",
+  );
+  await call(
+    admin,
+    "DELETE",
+    `/api/competitions/${comp.id}`,
+    { confirmName: comp.name },
+    409,
+  );
+  assert.deepEqual(
+    snapshot(),
+    before,
+    "All deletions and ratings roll back together.",
+  );
+  db.exec("DROP TRIGGER prevent_test_deletion");
+  await call(admin, "DELETE", `/api/competitions/${comp.id}`, {
+    confirmName: comp.name,
+  });
+  assert.equal(
+    db.prepare("SELECT COUNT(*) n FROM ratings WHERE game='tennis'").get().n,
+    0,
+    "No ratings survive if all rated results are removed.",
+  );
+  const registration = await call(owner, "POST", "/api/competitions", body);
+  await call(owner, "DELETE", `/api/competitions/${registration.id}`, {});
+  await call(
+    null,
+    "GET",
+    `/api/competitions/${registration.id}`,
+    undefined,
+    404,
+  );
+});

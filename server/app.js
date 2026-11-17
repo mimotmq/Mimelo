@@ -11,6 +11,7 @@ import ExcelJS from "exceljs";
 import { ratedRating, ratingProgress } from "./ratings.js";
 import { registerCatalogImages } from "./catalog-images.js";
 import { registerBadgeImport } from "./badge-import.js";
+import { deleteCompetition } from "./competition-deletion.js";
 import {
   openDb,
   json,
@@ -1039,18 +1040,9 @@ export async function createApp(options = {}) {
   });
   app.delete("/api/competitions/:id", async (req) => {
     const u = signed(req);
-    return tx(() => {
-      const c = getCompetition(db, req.params.id);
-      assert(organizer(db, u, c), "Organizer access required.", 403);
-      assert(
-        ["registration", "closed"].includes(c.state),
-        "A started competition is retained as part of the record.",
-        409,
-      );
-      db.prepare("DELETE FROM competitions WHERE id=?").run(c.id);
-      audit(db, u, "competition.delete", c.id);
-      return { ok: true };
-    });
+    return tx(() =>
+      deleteCompetition(db, getCompetition(db, req.params.id), u, req.body),
+    );
   });
   app.post("/api/competitions/:id/qualify", async (req) => {
     const u = signed(req);
