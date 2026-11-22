@@ -1,6 +1,8 @@
 # mimELo
 
-A public record book for one shared group, with independent EA FC 26, EA FC 27, tennis, table tennis, and Smash records. This is a fresh implementation. It does not read or migrate the previous application's database, accounts, settings, or themes.
+A public record book for one shared group, with independent EA FC 26, EA FC 27, tennis, table tennis, Smash, and pickleball records. This is a fresh implementation. It does not read or migrate the previous application's database, accounts, settings, or themes.
+
+Game pages use compact mobile banners, direct view navigation, two-column statistics, wrapping player names, and rankings that fit phone screens. The homepage lists six games without “Live” badges. Pickleball supports singles and fixed doubles pairs, with separate ratings, competitions, and per-game score entry. Standard side-out scoring defaults to best of three games to 11; best of five to 11 and single games to 11, 15, or 21 are also available. Every game must end at the first score that reaches its target with a two-point lead, and no games may follow the match-winning game. These rules follow the [2026 USA Pickleball rulebook](https://usapickleball.org/docs/rules/USAP-Official-Rulebook.pdf?court=2026), sections 4 and 15.C.1; single games to 11 are available for recreational play. Rally scoring is not offered.
 
 The homepage's Recently accepted panel shows the latest five accepted results across every game, ordered by acceptance time. Its horizontal broadcast ticker continuously loops through results, pauses on hover or keyboard focus, offers a pause/resume control, and stays still for reduced-motion preferences. Each rectangular segment reuses the game overview scorecard: football club crests, Smash fighter icons and stocks for every game, and tennis/table-tennis set scores. The strip spans the page width with square corners and no gaps between results. Game names stay in the upper left, large faint game logos sit directly behind the scores, and subtle alternating hues distinguish consecutive results. Player counts convey singles/doubles without an extra label. Each result links to its game and match details.
 
@@ -19,7 +21,7 @@ npm ci
 npm start
 ```
 
-Open **http://localhost:8080**. Public viewing needs no account. The first launch creates only the five game definitions: no sample people, teams, competitions, results, or default administrator. Anyone may register a player account; email is optional.
+Open **http://localhost:8080**. Public viewing needs no account. The first launch creates only the six game definitions: no sample people, teams, competitions, results, or default administrator. Existing books gain the pickleball definition on restart. Anyone may register a player account; email is optional.
 
 Create the initial site administrator explicitly. The following Bash commands keep the password out of shell history:
 

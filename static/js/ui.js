@@ -96,8 +96,9 @@
   const rating = (v) =>
     Number(v ?? 1000).toLocaleString(undefined, { maximumFractionDigits: 2 });
   const elo = (state, value = state?.elo) =>
-    Number(value ?? 1000).toLocaleString(undefined, { maximumFractionDigits: 0 }) +
-    (state?.provisional === false ? "" : "?");
+    Number(value ?? 1000).toLocaleString(undefined, {
+      maximumFractionDigits: 0,
+    }) + (state?.provisional === false ? "" : "?");
   function icons(root = document) {
     $$("[data-icon]", root).forEach((el) => {
       el.innerHTML = icon(el.dataset.icon, Number(el.dataset.size) || 20);
@@ -858,10 +859,37 @@
         tennis: "tennis",
         tt: "table-tennis",
         smash: "smash",
+        pickleball: "pickleball",
       }[g.kind];
       if (g.slug === "eafc26") document.body.dataset.gameVariant = "eafc26";
     }
     text("[data-game-label]", g.name);
+    const switcherMenu = $(".switcher-menu");
+    const pickleball = APP.games.find((game) => game.slug === "pickleball");
+    if (switcherMenu && pickleball) {
+      const link = document.createElement("a");
+      link.href = "game.html?game=pickleball";
+      link.innerHTML = `<span class="monogram" data-tone="pickleball">PB</span><span><span class="sw-name">Pickleball</span><span class="sw-note">Singles, doubles, and game scores</span></span>`;
+      switcherMenu.insertBefore(link, $(".switcher-sep", switcherMenu));
+      $$('a[href*="game.html"]', switcherMenu).forEach((a) => {
+        a.setAttribute(
+          "aria-current",
+          (new URL(a.href).searchParams.get("game") || "eafc27") === APP.slug
+            ? "true"
+            : "false",
+        );
+      });
+    }
+    if (pickleball) {
+      $$(".footer-col")
+        .filter((column) => $('a[href*="game.html"]', column))
+        .forEach((column) => {
+          column.insertAdjacentHTML(
+            "beforeend",
+            '<a href="game.html?game=pickleball">Pickleball</a>',
+          );
+        });
+    }
     text("#ov-title", "The record book");
     $$('a[href*="game.html"]').forEach((a) => {
       const u = new URL(a.href);
@@ -996,6 +1024,17 @@
         location.pathname,
       )
     ) {
+      $$(".game-badge.live").forEach((badge) => badge.remove());
+      text(
+        ".gateway-note",
+        UI.count(APP.games.length, "game") + " in the book.",
+      );
+      if (pickleball) {
+        $(".games-grid").insertAdjacentHTML(
+          "beforeend",
+          `<a class="game-card small" data-tone="pickleball" href="game.html?game=pickleball"><div class="game-card-top"><span class="game-icon"><img src="assets/brand/${esc(pickleball.logo)}" alt="Pickleball"></span></div><div class="game-card-body"><h3>Pickleball</h3><p>Singles &amp; doubles. Game scores, ratings, and competitions.</p></div><div class="game-card-foot"><span class="game-card-cta">Open game</span></div></a>`,
+        );
+      }
       const p = await APP.api("players?limit=5");
       if ($(".home-players .avatar-stack"))
         $(".home-players .avatar-stack").innerHTML = p.rows

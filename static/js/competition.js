@@ -315,7 +315,9 @@ APP.run(async () => {
         "competition-seed-dialog",
       );
     });
-    $("[data-action=rules]", panel)?.addEventListener("click", () => {
+    $("[data-action=rules]", panel)?.addEventListener("click", async () => {
+      const pickleball =
+        APP.game.kind === "pickleball" ? await import("./pickleball.js") : null;
       let tieEditor;
       const ruleDialog = UI.formDialog(
         "Competition rules",
@@ -333,7 +335,7 @@ APP.run(async () => {
           select(
             "Match format",
             "format",
-            ["tennis", "smash"].includes(APP.game.kind)
+            ["tennis", "smash", "pickleball"].includes(APP.game.kind)
               ? [
                   ["singles", "Singles"],
                   ["doubles", "Doubles"],
@@ -395,13 +397,20 @@ APP.run(async () => {
             ],
             c.settings.seeding,
           ) +
-          field(
-            "Best of",
-            "bestOf",
-            c.settings.bestOf,
-            "number",
-            'min="1" max="7"',
-          ) +
+          (pickleball
+            ? select(
+                "Best of",
+                "bestOf",
+                [1, 3, 5].map((n) => [n, n]),
+                c.settings.bestOf,
+              )
+            : field(
+                "Best of",
+                "bestOf",
+                c.settings.bestOf,
+                "number",
+                'min="1" max="7"',
+              )) +
           field(
             "Group count",
             "groupCount",
@@ -423,20 +432,18 @@ APP.run(async () => {
             "number",
             'min="2"',
           ) +
-          (APP.game.kind === "tt"
+          (["tt", "pickleball"].includes(APP.game.kind)
             ? select(
                 "Points per game",
                 "target",
-                [
-                  [11, 11],
-                  [21, 21],
-                ],
+                [[11, 11], ...(pickleball ? [[15, 15]] : []), [21, 21]],
                 c.settings.target,
               )
             : "") +
           (APP.game.kind === "tennis"
             ? `<label class="check"><input type="checkbox" name="matchTiebreak" ${c.settings.matchTiebreak ? "checked" : ""}>Doubles: final match tiebreak</label>`
             : "") +
+          (pickleball ? pickleball.scoringHelp : "") +
           "<div data-tiebreak-editor></div>" +
           select(
             "Tie resolution",
@@ -506,6 +513,7 @@ APP.run(async () => {
         $("#field-format", ruleDialog).closest(".field").hidden = ![
           "tennis",
           "smash",
+          "pickleball",
         ].includes(APP.game.kind);
         $("#field-bestOf", ruleDialog).closest(".field").hidden =
           APP.game.kind === "fc";
@@ -519,6 +527,11 @@ APP.run(async () => {
             $("#field-enrollment", ruleDialog).value === "selected";
       }
       ruleDialog.addEventListener("change", updateRuleFields);
+      if (pickleball)
+        pickleball.bindScoring(
+          $("#field-bestOf", ruleDialog),
+          $("#field-target", ruleDialog),
+        );
       updateRuleFields();
     });
     $("#delete-comp").hidden = !(c.canAdmin || (c.canManage && mutable));

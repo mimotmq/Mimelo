@@ -85,7 +85,7 @@ test("fresh persistent book, atomic CSV/XLSX imports, restart and online backup"
     "ratings",
   ])
     assert.equal(app.db.prepare("SELECT COUNT(*) n FROM " + table).get().n, 0);
-  assert.equal(app.db.prepare("SELECT COUNT(*) n FROM games").get().n, 5);
+  assert.equal(app.db.prepare("SELECT COUNT(*) n FROM games").get().n, 6);
   register(
     app.db,
     { handle: "storageadmin", name: "Storage Admin" },

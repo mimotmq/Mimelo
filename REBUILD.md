@@ -25,7 +25,7 @@ Explicitly removed at runtime: sample records, season wording/controls, theme ed
 
 ## Backend and operating decisions
 
-- New Node/Fastify server and SQLite schema; five game definitions are the only initial data.
+- New Node/Fastify server and SQLite schema; six game definitions are the only initial data.
 - Result acceptance, Elo checkoff, participant confirmations, and score revisions are separate records/states.
 - Submission time is server-assigned and immutable. Eligible ratings replay in submission/ID order. Rated football matches retain their overall snapshots.
 - Structural rules freeze at draw generation, an explicit and visible start boundary; schedules remain editable.

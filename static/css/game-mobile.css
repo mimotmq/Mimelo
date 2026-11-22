@@ -1,0 +1,345 @@
+/* Live game pages; keep the supplied desktop templates intact. */
+.game-mobile-nav {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .game-page .app-head-inner {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    position: relative;
+  }
+  .game-page .game-switcher {
+    position: static;
+    justify-self: start;
+    max-width: 100%;
+  }
+  .game-page .game-switcher > summary {
+    display: flex;
+    min-height: 44px;
+    max-width: 100%;
+  }
+  .game-page .game-switcher [data-game-label] {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .game-page .switcher-caret {
+    flex: none;
+  }
+  .game-page .game-switcher .switcher-menu {
+    right: 0;
+  }
+  .game-page .app-main {
+    padding-top: 16px;
+  }
+  .game-page .app-main > .game-identity {
+    min-height: 100px;
+    padding: 16px 24px;
+    margin-bottom: 12px;
+    gap: 16px;
+  }
+  .game-page .app-main > .game-identity img {
+    width: min(100%, 280px);
+    height: 64px;
+  }
+  .game-page .app-main > .game-identity[data-kind="tennis"] img,
+  .game-page .app-main > .game-identity[data-kind="tt"] img {
+    width: 60px;
+    height: 60px;
+  }
+  .game-page .game-identity .game-identity-name {
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+  .game-page .app-main > .game-identity[data-size="compact"] {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+  }
+  .game-page .app-main > .game-identity[data-size="compact"] img {
+    width: 120px;
+    height: 36px;
+  }
+  .game-page
+    .app-main
+    > .game-identity[data-size="compact"][data-kind="tennis"]
+    img,
+  .game-page
+    .app-main
+    > .game-identity[data-size="compact"][data-kind="tt"]
+    img {
+    width: 36px;
+    height: 36px;
+  }
+  .game-page .game-identity[data-size="compact"] .game-identity-name {
+    font-size: 1.15rem;
+  }
+  .game-mobile-nav {
+    display: flex;
+    gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: thin;
+  }
+  .game-mobile-nav a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 0 auto;
+    min-height: 44px;
+    padding: 8px;
+    border-bottom: 3px solid transparent;
+    color: var(--muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .game-mobile-nav a[aria-current="page"] {
+    border-bottom-color: var(--accent);
+    color: var(--ink);
+  }
+  .game-page .page-head {
+    gap: 16px;
+    margin-bottom: 0;
+  }
+  .game-page .page-head > div:first-child {
+    min-width: 0;
+  }
+  .game-page .page-head h1 {
+    font-size: clamp(1.75rem, 7vw, 2rem);
+    overflow-wrap: anywhere;
+  }
+  .game-page .page-head .sub {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  .game-page .page-actions .btn {
+    min-height: 46px;
+    padding-inline: 12px;
+    font-size: 0.875rem;
+  }
+  .game-page .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 0;
+  }
+  .game-page .stat-card {
+    padding: 14px;
+    box-shadow: none;
+  }
+  .game-page .stat-card .label {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .game-page .stat-card .value {
+    overflow-wrap: anywhere;
+  }
+  .game-page .record-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .game-page .record-summary {
+    min-width: 0;
+  }
+  .game-page .summary-who,
+  .game-page .summary-meta b {
+    overflow-wrap: anywhere;
+  }
+  .game-page .elo-projection-row span {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .game-page .elo-projection-row b {
+    flex: none;
+  }
+  .game-page .stat-card .foot {
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+  .game-page #stat-leader {
+    font-family: var(--font-sans);
+    font-size: 1.125rem !important;
+    line-height: 1.3;
+  }
+  .game-page .panel-head .sub {
+    font-size: 0.8125rem;
+  }
+  .game-page #overview-table .player-cell,
+  .game-page .game-ranking-table .player-cell {
+    gap: 8px;
+  }
+  .game-page #overview-table .player-cell .avatar,
+  .game-page .game-ranking-table .player-cell .avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.75rem;
+    flex: none;
+  }
+  .game-page #overview-table .player-cell .name,
+  .game-page .game-ranking-table .player-cell .name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .game-page [data-view-panel="overview"] table {
+    min-width: 0;
+    table-layout: fixed;
+  }
+  .game-page [data-view-panel="overview"] th,
+  .game-page [data-view-panel="overview"] td {
+    padding: 12px 6px;
+  }
+  .game-page [data-view-panel="overview"] th:first-child {
+    width: 26px;
+  }
+  .game-page [data-view-panel="overview"] th:nth-child(3) {
+    width: 70px;
+  }
+  .game-page [data-view-panel="overview"] th:nth-child(n + 4) {
+    width: 28px;
+  }
+  .game-page .activity-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 4px 10px;
+  }
+  .game-page .activity-icon {
+    grid-row: span 2;
+  }
+  .game-page .activity-meta {
+    grid-column: 2;
+  }
+  .game-page .activity-copy,
+  .game-page .leader-name {
+    overflow-wrap: anywhere;
+  }
+  .game-page .filter-row {
+    gap: 10px;
+    margin-bottom: 0;
+  }
+  .game-page .filter-row .search-field {
+    min-width: 0;
+    max-width: none;
+    flex-basis: 100%;
+  }
+  .game-page .input,
+  .game-page .select,
+  .game-page .textarea {
+    font-size: 1rem;
+  }
+  .game-page #panel-elo > .filter-row {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .game-page #panel-elo > .filter-row .field {
+    width: 100%;
+  }
+  .game-page #match-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-radius: var(--radius-md);
+  }
+  .game-page #match-filters button {
+    min-height: 44px;
+    padding-inline: 8px;
+    font-size: 0.875rem;
+  }
+  .game-page :is(.match-result, .dialog) .tennis-score-row {
+    grid-template-columns: repeat(var(--tennis-set-count), minmax(0, 1fr)) 44px !important;
+    gap: 6px;
+    padding-block: 8px;
+  }
+  .game-page :is(.match-result, .dialog) .tennis-score-player {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+  .game-page
+    :is(.match-result, .dialog)
+    .tennis-score-player
+    > span:last-child {
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .game-page :is(.match-result, .dialog) .tennis-score-head > span:first-child {
+    display: none;
+  }
+  .game-page :is(.match-result, .dialog) .tennis-score-total-head {
+    white-space: nowrap;
+  }
+  .game-page .game-ranking-table {
+    display: block;
+    min-width: 0;
+  }
+  .game-page .game-ranking-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .game-page .game-ranking-table tbody {
+    display: block;
+  }
+  .game-page .game-ranking-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) repeat(3, auto);
+    align-items: center;
+    gap: 8px;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .game-page .game-ranking-row:last-child {
+    border-bottom: 0;
+  }
+  .game-page .game-ranking-row td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  .game-page .game-ranking-row td:first-child {
+    grid-row: span 2;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+  .game-page .game-ranking-row td:nth-child(2) {
+    grid-column: 2 / 5;
+  }
+  .game-page .game-ranking-row td:nth-child(3) {
+    text-align: right;
+    font-size: 1rem;
+  }
+  .game-page .game-ranking-row td:nth-child(4) {
+    grid-column: 2;
+  }
+  .game-page .game-ranking-row td:nth-child(n + 4) {
+    color: var(--muted);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+  .game-page .game-ranking-row td[data-label]::before {
+    content: attr(data-label) " ";
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .game-page .game-ranking-row td:first-child::before {
+    content: "";
+  }
+  .game-page .live-pagination {
+    gap: 8px;
+  }
+  .game-page .live-pagination .muted {
+    flex-basis: 100%;
+  }
+  .game-page .live-pagination .btn {
+    flex: 1;
+    min-height: 44px;
+  }
+}

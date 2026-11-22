@@ -783,7 +783,8 @@ export async function createApp(options = {}) {
       format = b.format || "singles";
     assert(
       ["singles", "doubles"].includes(format) &&
-        (format === "singles" || ["tennis", "smash"].includes(g.kind)),
+        (format === "singles" ||
+          ["tennis", "smash", "pickleball"].includes(g.kind)),
       "Unsupported match format.",
     );
     assert(
@@ -865,7 +866,7 @@ export async function createApp(options = {}) {
         );
         assert(
           format === "singles" ||
-            ["tennis", "smash"].includes(game(c.game).kind),
+            ["tennis", "smash", "pickleball"].includes(game(c.game).kind),
           "Doubles is not available for this game.",
         );
         assert(
@@ -1476,7 +1477,8 @@ export async function createApp(options = {}) {
     root: join(root, "static"),
     prefix: "/",
     index: ["index.html"],
-    cacheControl: false,
+    cacheControl: true,
+    maxAge: 0,
   });
   await app.register(staticPlugin, {
     root: uploads,

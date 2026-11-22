@@ -1,0 +1,146 @@
+body[data-game="pickleball"] {
+  --accent: #087e8b;
+  --accent-hover: #076874;
+  --accent-soft: #e0f2f3;
+  --on-accent: #fff;
+  --game-soft: #e0f2f3;
+}
+.game-card[data-tone="pickleball"] {
+  --tone-bg: #102e39;
+  --tone-ink: #f2fbfc;
+  --tone-accent: #f4c847;
+  --tone-muted: #b5d5da;
+}
+.monogram[data-tone="pickleball"] {
+  background: #e0f2f3;
+  color: #076874;
+}
+.directory-game-dot[data-game="pickleball"] {
+  background: #087e8b;
+}
+.game-identity[data-kind="pickleball"] {
+  justify-content: flex-start;
+  gap: 28px;
+}
+.game-identity[data-kind="pickleball"] img {
+  width: 140px;
+  height: 140px;
+}
+.game-identity[data-kind="pickleball"] .game-identity-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 700;
+}
+.game-identity[data-size="compact"][data-kind="pickleball"] img {
+  width: 46px;
+  height: 46px;
+}
+.game-identity[data-size="compact"][data-kind="pickleball"]
+  .game-identity-name {
+  font-size: 1.15rem;
+}
+.pickleball-scoring-help {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+#record-form #record-games.pickleball-scoreline {
+  display: flex;
+  gap: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 8px;
+}
+#record-form .pickleball-record-game.live-game-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-bottom: 0;
+  border-inline-end: 1px solid var(--line);
+}
+#record-form .pickleball-record-game:first-child {
+  padding-inline-start: 0;
+}
+#record-form .pickleball-record-game:last-child {
+  padding-inline-end: 0;
+  border-inline-end: 0;
+}
+#record-form .pickleball-record-game h4 {
+  margin: 0 4px 0 0;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+#record-form .pickleball-record-game input {
+  width: 3rem;
+}
+#record-form .pickleball-record-game .field > label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.pickleball-score-separator {
+  color: var(--muted);
+}
+.pickleball-score-key {
+  margin: 0;
+}
+@media (min-width: 1121px) {
+  .games-grid .game-card.small {
+    grid-column: span 3;
+  }
+}
+@media (min-width: 861px) and (max-width: 1120px) {
+  .games-grid .game-card.small {
+    grid-column: span 6;
+  }
+}
+@media (max-width: 700px) {
+  #record-form .pickleball-record-game.live-game-row {
+    display: grid;
+    grid-template-columns: 2.5rem 8px 2.5rem;
+    gap: 6px 3px;
+    padding-inline: 7px;
+  }
+  #record-form .pickleball-record-game:first-child {
+    padding-inline-start: 0;
+  }
+  #record-form .pickleball-record-game:last-child {
+    padding-inline-end: 0;
+  }
+  #record-form .pickleball-record-game h4 {
+    grid-column: 1 / -1;
+    margin: 0;
+    text-align: center;
+  }
+  #record-form .pickleball-record-game input {
+    width: 2.5rem;
+  }
+  .pickleball-score-separator {
+    text-align: center;
+  }
+  .game-page .app-main > .game-identity[data-kind="pickleball"] img {
+    width: 60px;
+    height: 60px;
+  }
+  .game-page
+    .app-main
+    > .game-identity[data-size="compact"][data-kind="pickleball"]
+    img {
+    width: 36px;
+    height: 36px;
+  }
+  .game-identity[data-kind="pickleball"] .game-identity-name {
+    font-size: 1.5rem;
+  }
+}

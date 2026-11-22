@@ -198,6 +198,5 @@ APP.run(async () => {
     (me.site_admin || me.admin_of.length
       ? '<a class="link-arrow" href="admin.html">Open admin</a>'
       : "");
-  notes[1].innerHTML =
-    "<h3>Five independent game books</h3><p>Your identity is shared. Every game keeps its own ratings and results, with separate singles and doubles records.</p>";
+  notes[1].innerHTML = `<h3>${APP.games.length} independent game books</h3><p>Your identity is shared. Every game keeps its own ratings and results, with separate singles and doubles records.</p>`;
 });

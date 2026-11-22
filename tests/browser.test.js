@@ -635,7 +635,14 @@ test("game banners adapt to the view and dark mode shares neutral surfaces", asy
     await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
-      for (const game of ["eafc27", "eafc26", "smash", "tennis", "tt"]) {
+      for (const game of [
+        "eafc27",
+        "eafc26",
+        "smash",
+        "tennis",
+        "tt",
+        "pickleball",
+      ]) {
         await page.goto(base + "/game.html?game=" + game);
         await page.waitForFunction(
           () => document.body.dataset.ready === "true",
@@ -648,7 +655,11 @@ test("game banners adapt to the view and dark mode shares neutral surfaces", asy
         const largeHeight = await banner.evaluate(
           (el) => el.getBoundingClientRect().height,
         );
-        assert(largeHeight >= 150);
+        assert(
+          width <= 700
+            ? largeHeight >= 100 && largeHeight < 150
+            : largeHeight >= 150,
+        );
         assert(
           await logo.evaluate(
             (img) =>

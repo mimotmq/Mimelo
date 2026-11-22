@@ -2,6 +2,8 @@ APP.run(async () => {
   const { $, $$, esc, text, select, field } = UI,
     d = $("#comp-dialog");
   if (!d) return;
+  const pickleball =
+    APP.game.kind === "pickleball" ? await import("./pickleball.js") : null;
   const { mountTiebreakEditor } = await import("./competition-settings.js");
   let selected = new Map(),
     order = [],
@@ -13,7 +15,7 @@ APP.run(async () => {
     select(
       "Match format",
       "competition-format",
-      ["tennis", "smash"].includes(APP.game.kind)
+      ["tennis", "smash", "pickleball"].includes(APP.game.kind)
         ? [
             ["singles", "Singles"],
             ["doubles", "Doubles"],
@@ -45,14 +47,11 @@ APP.run(async () => {
         : [1, 3, 5].map((n) => [n, n]),
       3,
     ) +
-    (APP.game.kind === "tt"
+    (["tt", "pickleball"].includes(APP.game.kind)
       ? select(
           "Points per game",
           "competition-target",
-          [
-            [11, 11],
-            [21, 21],
-          ],
+          [[11, 11], ...(pickleball ? [[15, 15]] : []), [21, 21]],
           11,
         )
       : "") +
@@ -92,7 +91,7 @@ APP.run(async () => {
     return $(".comp-setup-fields", section);
   }
   const basics = section("Competition", "comp-setup-basics"),
-    schedule = section("Schedule"),
+    schedule = section("Schedule", "comp-setup-schedule"),
     scoring = section("Match rules"),
     signup = section("Registration"),
     standings = section("Standings", "comp-setup-standings");
@@ -110,6 +109,7 @@ APP.run(async () => {
   $("#field-competition-format").closest(".field").hidden = ![
     "tennis",
     "smash",
+    "pickleball",
   ].includes(APP.game.kind);
   schedule.append(
     $("#comp-group-options"),
@@ -137,13 +137,19 @@ APP.run(async () => {
   schedule.prepend(legs);
   $("#comp-league-options > .field-label").remove();
   $("#comp-league-options label.check span").textContent = "League playoffs";
-  $("#comp-knockout-options .hint").textContent =
-    "Two losses to go out in double elimination.";
+  $("#comp-playoffs").setAttribute("aria-controls", "comp-playoff-options");
   moveField("#field-competition-best", scoring);
   $("#field-competition-best").closest(".field").hidden =
     APP.game.kind === "fc";
   if ($("#field-competition-target"))
     moveField("#field-competition-target", scoring);
+  if (pickleball) {
+    scoring.insertAdjacentHTML("beforeend", pickleball.scoringHelp);
+    pickleball.bindScoring(
+      $("#field-competition-best"),
+      $("#field-competition-target"),
+    );
+  }
   if ($("#competition-match-tb"))
     scoring.append($("#competition-match-tb").closest("label"));
   scoring.insertAdjacentHTML(
@@ -289,6 +295,20 @@ APP.run(async () => {
       kind() === "league" && !$("#comp-playoffs").checked;
     $("#comp-playoff-options").hidden =
       kind() !== "league" || !$("#comp-playoffs").checked;
+    $("#comp-playoffs").setAttribute(
+      "aria-expanded",
+      String(!$("#comp-playoff-options").hidden),
+    );
+    text(
+      "#comp-knockout-options .field-label",
+      kind() === "league" ? "Playoff format" : "Knockout format",
+    );
+    text(
+      "#comp-knockout-options .hint",
+      de
+        ? "Two losses to go out. The final resets if needed."
+        : "One loss to go out.",
+    );
     $("#comp-round-robin").hidden = kind() === "knockout";
     standings.closest("section").hidden = kind() === "knockout";
     $("#field-deadline").closest(".field").hidden =

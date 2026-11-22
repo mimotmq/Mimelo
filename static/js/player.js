@@ -38,7 +38,7 @@ APP.run(async () => {
       APP.games.map((g) => [g.slug, g.name]),
       APP.slug,
     ) +
-    (["tennis", "smash"].includes(APP.game.kind)
+    (["tennis", "smash", "pickleball"].includes(APP.game.kind)
       ? UI.select(
           "Rating format",
           "profile-format",

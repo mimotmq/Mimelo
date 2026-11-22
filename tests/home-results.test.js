@@ -254,7 +254,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
         ),
     );
     assert(
-      !/\b(Singles|Doubles)\b/.test(await page.locator("body").innerText()),
+      !/\b(Singles|Doubles)\b/.test(await panel.innerText()),
     );
     const football = originals.locator('[data-game="eafc26"]');
     assert.equal(

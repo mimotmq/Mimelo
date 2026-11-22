@@ -57,6 +57,10 @@ dialog.dialog.competition-settings-dialog {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
+.comp-setup-schedule .comp-setup-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
 .comp-setup-fields > .hint {
   flex-basis: 100%;
 }
@@ -136,11 +140,13 @@ dialog.dialog.competition-settings-dialog {
   gap: 12px 20px;
 }
 #comp-league-options {
+  flex: 0 0 100%;
+  min-width: 0;
   width: 100%;
 }
 #comp-playoff-options {
   display: grid;
-  grid-template-columns: max-content 4.5rem;
+  grid-template-columns: minmax(0, 1fr) 4.5rem;
   align-items: center;
   gap: 8px;
   margin-top: 5px;

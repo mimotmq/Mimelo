@@ -4,6 +4,22 @@ const race = (a, b, target) =>
   Math.max(a, b) >= target &&
   Math.abs(a - b) >= 2 &&
   (Math.max(a, b) === target || Math.abs(a - b) === 2);
+// USA Pickleball 2026, sections 4 and 15.C.1. A single game to 11
+// is also supported for recreational play. Longer standard matches use 11.
+export function validatePickleballFormat(bestOf, target) {
+  assert(
+    [1, 3, 5].includes(bestOf),
+    "Pickleball matches are best of 1, 3, or 5 games.",
+  );
+  assert(
+    [11, 15, 21].includes(target),
+    "Pickleball games must be to 11, 15, or 21.",
+  );
+  assert(
+    target === 11 || bestOf === 1,
+    "Standard pickleball uses a single game to 15 or 21; best-of-3 and best-of-5 games are to 11.",
+  );
+}
 export function validateScore(kind, format, input, knockout = false) {
   assert(input && typeof input === "object", "Enter a score.");
   const s = structuredClone(input);
@@ -36,6 +52,7 @@ export function validateScore(kind, format, input, knockout = false) {
     outcome = a === b ? 0.5 : a > b ? 1 : 0;
     margin = Math.min(1.6, 1 + Math.log2(1 + Math.abs(a - b)) * 0.15);
   } else {
+    if (kind === "pickleball") validatePickleballFormat(s.bestOf, s.target);
     const lengths =
       kind === "tt"
         ? [1, 3, 5, 7]
@@ -103,14 +120,14 @@ export function validateScore(kind, format, input, knockout = false) {
         w = g.a > g.b ? 0 : 1;
         diff += replacement ? (g.a - g.b) / 2 : g.a - g.b;
         total += replacement ? (g.a + g.b) / 2 : g.a + g.b;
-      } else if (kind === "tt") {
+      } else if (kind === "tt" || kind === "pickleball") {
         assert(
-          [11, 21].includes(s.target),
-          "Table tennis games must be to 11 or 21.",
+          (kind === "pickleball" ? [11, 15, 21] : [11, 21]).includes(s.target),
+          "Choose a supported points target.",
         );
         assert(
           race(g.a, g.b, s.target),
-          "Table tennis games must reach the target and be won by two.",
+          `${kind === "pickleball" ? "Pickleball" : "Table tennis"} games must reach the target and be won by two. Stop at the first winning score.`,
         );
         w = g.a > g.b ? 0 : 1;
         diff += g.a - g.b;

@@ -1,6 +1,22 @@
 APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     g = APP.game;
+  document.body.classList.add("game-page");
+  const mobileNav = document.createElement("nav");
+  mobileNav.className = "game-mobile-nav";
+  mobileNav.setAttribute("aria-label", "Game views");
+  mobileNav.innerHTML = [
+    ["overview", "Overview"],
+    ["matches", "Matches"],
+    ["rankings", "Rankings"],
+    ["competitions", "Competitions"],
+  ]
+    .map(
+      ([name, label]) =>
+        `<a href="${esc(APP.url("game", { view: name }))}" data-view="${name}">${label}</a>`,
+    )
+    .join("");
+  $(".game-identity").after(mobileNav);
   let view = APP.params.get("view") || "overview",
     format = "singles",
     matchStatus = "";
@@ -55,7 +71,7 @@ APP.run(async () => {
       a.href = "admin.html?game=" + APP.slug;
       a.hidden = !APP.admin();
     });
-  if (["tennis", "smash"].includes(g.kind)) {
+  if (["tennis", "smash", "pickleball"].includes(g.kind)) {
     const f = document.createElement("div");
     f.className = "filter-row";
     f.innerHTML = select(
@@ -178,13 +194,14 @@ APP.run(async () => {
       `games/${APP.slug}/rankings?format=${format}&offset=${offset}`,
     );
     const table = $("#elo-body").closest("table");
+    table.classList.add("game-ranking-table");
     $("thead", table).innerHTML =
       "<tr><th>#</th><th>Player</th><th>Elo</th><th>Peak</th><th>W</th><th>D</th><th>L</th></tr>";
     $("#elo-body").innerHTML =
       result.rows
         .map(
           (p) =>
-            `<tr><td>${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num">${UI.elo(p)}</td><td>${UI.elo(p, p.peak)}</td><td>${p.w || 0}</td><td>${p.d || 0}</td><td>${p.l || 0}</td></tr>`,
+            `<tr class="game-ranking-row"><td data-label="Rank">${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num" data-label="Elo">${UI.elo(p)}</td><td data-label="Peak">${UI.elo(p, p.peak)}</td><td data-label="W">${p.w || 0}</td><td data-label="D">${p.d || 0}</td><td data-label="L">${p.l || 0}</td></tr>`,
         )
         .join("") ||
       '<tr><td colspan="7">No rated results in this format yet.</td></tr>';
@@ -385,6 +402,8 @@ APP.run(async () => {
     }
     text("#record-title", editing ? "Correct result" : "Record a result");
     const setsGame = g.kind !== "fc";
+    const pickleball =
+      g.kind === "pickleball" ? await import("./pickleball.js") : null;
     if (!setsGame) {
       const summary = $(".summary-match");
       $$(".summary-club,.summary-score", summary).forEach((el) => el.remove());
@@ -405,7 +424,7 @@ APP.run(async () => {
       form.className =
         g.kind === "tennis"
           ? "tennis-form"
-          : g.kind === "tt"
+          : ["tt", "pickleball"].includes(g.kind)
             ? "tt-record-form"
             : "smash-form";
       form.innerHTML = `<div class="form-section"><div class="form-section-title">Match details</div>${select(
@@ -419,6 +438,11 @@ APP.run(async () => {
             ],
         recordFormat,
       )}<div class="form-grid" id="record-players"></div><div class="form-grid" id="record-config"></div><div class="live-score-grid" id="record-games"></div></div><div class="field"><label for="r-note">Note (optional)</label><textarea class="textarea" id="r-note"></textarea></div><label class="check"><input type="checkbox" id="r-elo" checked><span>Counts for Elo</span></label><div class="form-actions"><button class="btn btn-primary" type="submit">${editing ? "Save correction" : "Submit result"}</button></div><p class="hint" id="record-error" role="alert"></p>`;
+      if (pickleball)
+        $("#record-games").insertAdjacentHTML(
+          "beforebegin",
+          '<p class="hint pickleball-score-key">Scores · Side 1 – Side 2</p>',
+        );
       if (fixed || editing) $("#field-record-format").disabled = true;
       if (g.kind === "smash") {
         const { createSmashRecorder } = await import("./smash-record.js");
@@ -472,25 +496,29 @@ APP.run(async () => {
             ]),
             s.bestOf || 3,
           ) +
-          (g.kind === "tt"
+          (["tt", "pickleball"].includes(g.kind)
             ? select(
                 "Points per game",
                 "target",
-                [
-                  [11, 11],
-                  [21, 21],
-                ],
+                [[11, 11], ...(pickleball ? [[15, 15]] : []), [21, 21]],
                 s.target || 11,
               )
             : "") +
           (g.kind === "tennis" && recordFormat === "doubles"
             ? `<label class="check"><input id="field-matchTiebreak" type="checkbox" ${s.matchTiebreak ? "checked" : ""}>Deciding match tiebreak to 10</label>`
-            : "");
+            : "") +
+          (pickleball ? pickleball.scoringHelp : "");
         if (fixed)
           $$("input,select", $("#record-config")).forEach(
             (e) => (e.disabled = true),
           );
-        $("#field-bestOf").onchange = renderGames;
+        if (pickleball)
+          pickleball.bindScoring(
+            $("#field-bestOf"),
+            $("#field-target"),
+            renderGames,
+          );
+        else $("#field-bestOf").onchange = renderGames;
         renderGames();
       }
       function renderGames() {
@@ -499,10 +527,13 @@ APP.run(async () => {
           smashRecorder.renderGames(s.bestOf);
           return;
         }
+        $("#record-games").classList.toggle("pickleball-scoreline", !!pickleball);
         $("#record-games").innerHTML = Array.from(
           { length: s.bestOf },
           (_, i) => {
             const prev = editing?.score.games?.[i] || {};
+            if (pickleball)
+              return `<section class="live-game-row pickleball-record-game" data-game-row="${i}" aria-labelledby="pickleball-game-${i}"><h4 id="pickleball-game-${i}">Game ${i + 1}</h4>${field(`Game ${i + 1} · Side 1 score`, `score${i}a`, prev.a ?? "", "number", 'min="0" max="200" inputmode="numeric"')}<span class="pickleball-score-separator" aria-hidden="true">–</span>${field(`Game ${i + 1} · Side 2 score`, `score${i}b`, prev.b ?? "", "number", 'min="0" max="200" inputmode="numeric"')}</section>`;
             return `<section class="live-game-row" data-game-row="${i}"><h4>${g.kind === "tennis" ? "Set" : "Game"} ${i + 1}</h4>${field("Side 1 score", `score${i}a`, prev.a ?? "", "number", 'min="0" max="200" inputmode="numeric"')}${field("Side 2 score", `score${i}b`, prev.b ?? "", "number", 'min="0" max="200" inputmode="numeric"')}${g.kind === "tennis" ? field("Tiebreak points · side 1", `tb${i}a`, prev.tb?.[0] ?? "", "number", 'min="0" inputmode="numeric"') + field("Tiebreak points · side 2", `tb${i}b`, prev.tb?.[1] ?? "", "number", 'min="0" inputmode="numeric"') : ""}</section>`;
           },
         ).join("");
@@ -722,7 +753,7 @@ APP.run(async () => {
       text(
         "#sum-score",
         setsGame
-          ? recordFormat
+          ? "—"
           : Number($("#r-s1").value) + "–" + Number($("#r-s2").value),
       );
       if (!setsGame) {

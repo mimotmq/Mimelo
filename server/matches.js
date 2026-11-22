@@ -311,7 +311,8 @@ function prepare(db, game, body, user) {
     format = body.format || "singles";
   assert(
     ["singles", "doubles"].includes(format) &&
-      (!(format === "doubles") || ["tennis", "smash"].includes(g.kind)),
+      (!(format === "doubles") ||
+        ["tennis", "smash", "pickleball"].includes(g.kind)),
     "Unsupported match format.",
   );
   if (body.fixture) {

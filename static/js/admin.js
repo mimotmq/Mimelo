@@ -12,7 +12,7 @@ APP.run(async () => {
   );
   text(
     "#adp-games > .sub",
-    "Five independent game books. Adding a game or changing its appearance requires a code change.",
+    `${APP.games.length} independent game books. Adding a game or changing its appearance requires a code change.`,
   );
   text(
     ".settings-side .notice-card p",

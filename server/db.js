@@ -7,6 +7,7 @@ export const games = [
   ["tennis", "Tennis", "tennis", "tennis-logo.png"],
   ["tt", "Table tennis", "tt", "tt-logo.png"],
   ["smash", "Super Smash Bros.", "smash", "smash-logo.png"],
+  ["pickleball", "Pickleball", "pickleball", "pickleball.svg"],
 ];
 export const weights = {
   friendly: 0.8,

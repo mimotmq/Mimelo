@@ -2,6 +2,8 @@
 @import url("./navigation.css");
 @import url("./home-results.css");
 @import url("./competition-settings.css");
+@import url("./game-mobile.css");
+@import url("./pickleball.css");
 /* Live appearance refinements; the original design-reference styles stay intact. */
 /* Tiny universal transition durations can delay inherited visibility on load. */
 @media (prefers-reduced-motion: reduce) {
@@ -177,6 +179,10 @@
   :root body[data-game="smash"] {
     --accent: #e58da2;
     --accent-hover: #efa8b9;
+  }
+  :root body[data-game="pickleball"] {
+    --accent: #85cbd3;
+    --accent-hover: #a5dce1;
   }
   :root body[data-game="tennis"] {
     --accent: #b6a2dc;

@@ -1,6 +1,7 @@
 import { assert, integer, json, organizer, audit, notify } from "./db.js";
 import { randomInt } from "node:crypto";
 import { catalogImage } from "./catalog-images.js";
+import { validatePickleballFormat } from "./scoring.js";
 export function getCompetition(db, id) {
   const c = db.prepare("SELECT * FROM competitions WHERE id=?").get(Number(id));
   assert(c, "Competition not found.", 404);
@@ -97,7 +98,8 @@ export function settings(body, kind, format) {
         ? [1, 3]
         : [1, 3, 5];
   assert(lengths.includes(s.bestOf), "Unsupported best-of length.");
-  assert([11, 21].includes(s.target), "Choose games to 11 or 21.");
+  if (kind === "pickleball") validatePickleballFormat(s.bestOf, s.target);
+  else assert([11, 21].includes(s.target), "Choose games to 11 or 21.");
   return s;
 }
 export function addEntry(db, c, ids, seed) {
