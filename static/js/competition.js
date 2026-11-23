@@ -77,18 +77,42 @@ APP.run(async () => {
       ".player-elo .label",
       `of ${UI.count(c.fixtures.filter((f) => !["cancelled", "bye"].includes(f.status)).length, "match", "matches")} completed`,
     );
-    text("[data-comp-leader]", c.champion ? name(c.champion) : "Undecided");
+    const leaders = c.kind === "league" ? c.standings?.[""] || [] : [];
+    text(
+      "[data-comp-leader]",
+      c.champion
+        ? name(c.champion)
+        : leaders[0]?.played && leaders[1]?.tiedWithPrevious
+          ? "Tied"
+          : leaders[0]?.played
+            ? leaders[0].players.map((p) => p.name).join(" + ")
+            : "Undecided",
+    );
     text("[data-comp-players]", c.players);
     text(
       "[data-comp-fixtures]",
       c.fixtures.filter((f) => !["cancelled", "bye"].includes(f.status)).length,
     );
-    text("[data-comp-played-stat]", done);
+    text(
+      "[data-comp-played-stat]",
+      c.fixtures.filter(
+        (f) => f.status === "completed" && f.match_id && !f.forfeit,
+      ).length,
+    );
+    const datedDays = new Set(
+      c.fixtures
+        .map((f) => f.played_at || f.scheduled)
+        .filter(Boolean)
+        .map((time) => new Date(time).toLocaleDateString()),
+    );
     text(
       "[data-comp-matchdays]",
-      Math.max(0, ...c.fixtures.map((f) => f.round)),
+      datedDays.size || Math.max(0, ...c.fixtures.map((f) => f.round)),
     );
+    if (c.kind !== "knockout" && datedDays.size)
+      text("[data-comp-matchdays] + span", "Dated days");
     text("[data-comp-rounds]", c.settings.legs);
+    if (c.kind === "league") text("[data-comp-rounds] + span", "Meetings");
     if (c.kind === "knockout") {
       text("[data-comp-fixtures] + span", "Matches");
       text("[data-comp-matchdays] + span", "Rounds");
@@ -99,6 +123,8 @@ APP.run(async () => {
     text("#table-sub", "Accepted results · organizer-selected tiebreak rules");
     text("#table-chip", c.format);
     text("#fixtures-sub", "Scheduled fixtures and accepted results");
+    $("#ct-bracket").hidden = c.kind === "league" && !c.settings.playoffs;
+    text("#fixtures-order", "By day and round");
     text(
       "#bracket-sub",
       c.settings.elimination === "double"
@@ -120,14 +146,72 @@ APP.run(async () => {
           ? "This competition is decided by the bracket."
           : "Standings appear when the draw is generated.",
       );
-    $("#fixtures-body").innerHTML =
-      c.fixtures
+    let fixtureGroups = $("#fixture-groups");
+    if (!fixtureGroups) {
+      fixtureGroups = document.createElement("div");
+      fixtureGroups.id = "fixture-groups";
+      $("#fixtures-body").closest(".table-wrap").replaceWith(fixtureGroups);
+    }
+    const groups = new Map();
+    const orderedFixtures = [...c.fixtures].sort((a, b) => {
+      const first = a.played_at || a.scheduled;
+      const second = b.played_at || b.scheduled;
+      return first && second
+        ? first - second
+        : first
+          ? -1
+          : second
+            ? 1
+            : a.round - b.round || a.id - b.id;
+    });
+    for (const f of orderedFixtures) {
+      const date = f.played_at || f.scheduled;
+      const key = date
+        ? new Date(date).toLocaleDateString(undefined, {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : (f.pool ? `Group ${f.pool} · ` : "") + f.label;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(f);
+    }
+    fixtureGroups.innerHTML =
+      [...groups]
         .map(
-          (f) =>
-            `<tr><td>${UI.date(f.scheduled)}${c.canManage && ["ready", "waiting"].includes(f.status) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}</td><td>${esc(f.pool + " " + f.label)}</td><td>${esc(name(f.a))}</td><td>${f.match_id ? button(fixtureScoreText(f), "result", `data-match="${f.match_id}"`) : f.status === "ready" ? `<a class="btn btn-outline btn-sm" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">Record</a>` : "—"}</td><td>${esc(name(f.b))}</td><td>${esc(f.status)}${c.canManage && f.status === "ready" && !f.match_id ? button("Forfeit", "forfeit", `data-fixture="${f.id}"`) : ""}</td></tr>`,
+          ([label, fixtures]) => `
+      <details class="fixture-day">
+        <summary><strong>${esc(label)}</strong><span>${UI.count(fixtures.length, "match", "matches")}</span></summary>
+        <div class="fixture-day-matches">${fixtures
+          .map((f) => {
+            const time = f.played_at || f.scheduled;
+            const result = f.no_contest
+              ? "No contest"
+              : f.match_id
+                ? fixtureScoreText(f)
+                : f.status === "bye"
+                  ? "Bye"
+                  : "vs";
+            const games = ["tt", "tennis", "pickleball"].includes(APP.game.kind)
+              ? f.score?.games || []
+              : [];
+            const breakdown = games.length
+              ? `<span class="fixture-games">${games.map((game) => `${esc(game.a)}–${esc(game.b)}`).join(" · ")}</span>`
+              : "";
+            const content = `<span class="fixture-side">${esc(name(f.a))}</span><strong class="fixture-result">${esc(result)}</strong><span class="fixture-side fixture-away">${esc(name(f.b))}</span>${breakdown}`;
+            const resultControl = f.match_id
+              ? `<button type="button" class="fixture-match" data-match="${f.match_id}">${content}</button>`
+              : f.status === "ready"
+                ? `<a class="fixture-match" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">${content}</a>`
+                : `<div class="fixture-match">${content}</div>`;
+            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span><span>${time ? esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })) : "Time not set"}</span>${f.no_contest ? "<span>No contest</span>" : ""}${c.canManage && ["ready", "waiting"].includes(f.status) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
+          })
+          .join("")}</div>
+      </details>`,
         )
         .join("") ||
-      '<tr><td colspan="6">Registration precedes the draw.</td></tr>';
+      '<p class="panel-body">Registration precedes the draw.</p>';
     for (const b of $$("[data-fixture]"))
       b.onclick = () => {
         const f = c.fixtures.find((f) => f.id === Number(b.dataset.fixture));
@@ -148,7 +232,31 @@ APP.run(async () => {
               await load();
             },
           );
-        else
+        else if (b.dataset.action === "no-contest") {
+          const knockout = !["league", "group", "tiebreak"].includes(f.stage);
+          UI.formDialog(
+            "Declare no contest",
+            knockout
+              ? select(
+                  "Replacement entrant",
+                  "replacement",
+                  [
+                    ["", "No replacement · opponent receives a bye"],
+                    ...c.entries
+                      .filter((e) => e.id !== f.a && e.id !== f.b)
+                      .map((e) => [e.id, name(e.id)]),
+                  ],
+                  "",
+                )
+              : "<p>Neither side receives a win, loss, points, or Elo.</p>",
+            async (data) => {
+              await APP.api(`fixtures/${f.id}/no-contest`, {
+                replacement: data.get("replacement") || null,
+              });
+              await load();
+            },
+          );
+        } else
           UI.formDialog(
             "Declare forfeit",
             select(
@@ -172,13 +280,33 @@ APP.run(async () => {
     clearBracket = renderBracket($("#bracket-wrap"), c, { UI, APP });
     if (initialView) {
       const view = APP.params.get("view");
-      if (view === "bracket" || (!view && c.kind === "knockout"))
+      if (
+        (view === "bracket" && !$("#ct-bracket").hidden) ||
+        (!view && c.kind === "knockout")
+      )
         $("#ct-bracket").click();
       else if (["fixtures", "table", "rules"].includes(view))
         $("#ct-" + view).click();
       initialView = false;
     }
     bindMatches();
+    const showLeagueFixtures = () => {
+      if (
+        c.kind === "league" &&
+        $("#ct-table").getAttribute("aria-selected") === "true"
+      )
+        $("#cp-fixtures").hidden = false;
+    };
+    $$("[role=tab]", $("[role=tablist]")).forEach((tab) => {
+      if (!tab.dataset.leagueFixturesBound) {
+        tab.addEventListener("click", () => queueMicrotask(showLeagueFixtures));
+        tab.addEventListener("keydown", () =>
+          queueMicrotask(showLeagueFixtures),
+        );
+        tab.dataset.leagueFixturesBound = "1";
+      }
+    });
+    showLeagueFixtures();
     text(
       "#rules-points-title",
       APP.game.kind === "fc" ? "Points" : "Win / loss",
@@ -222,7 +350,7 @@ APP.run(async () => {
       panel = document.createElement("section");
       panel.id = "registration-panel";
       panel.className = "panel settings-card";
-      $(".player-hero").after(panel);
+      $("#competition-outlook").after(panel);
     }
     const mutable = ["registration", "closed"].includes(c.state),
       open =

@@ -189,6 +189,15 @@ export async function createApp(options = {}) {
     assert(u.site_admin, "Site admin access required.", 403);
     return u;
   };
+  const participant = (req) => {
+    const user = signed(req);
+    assert(
+      user.approved || user.site_admin,
+      "Your account is awaiting site admin approval. You can browse as a spectator until approved.",
+      403,
+    );
+    return user;
+  };
   const gameAdmin = (req, g) => {
     const u = signed(req);
     assert(admin(db, u, g), "Game admin access required.", 403);
@@ -240,7 +249,12 @@ export async function createApp(options = {}) {
           id = l.target;
           db.prepare("UPDATE links SET used=1 WHERE token=?").run(l.token);
         }
-        return register(db, b, hashed, id);
+        const user = register(db, b, hashed, id);
+        db.prepare("UPDATE accounts SET approved=0 WHERE id=?").run(user.id);
+        db.prepare(
+          "INSERT INTO requests(kind,account_id,payload,created) VALUES('participation',?,'{}',?)",
+        ).run(user.id, Date.now());
+        return db.prepare("SELECT * FROM accounts WHERE id=?").get(user.id);
       });
       return login(reply, u, req);
     },
@@ -810,7 +824,7 @@ export async function createApp(options = {}) {
     };
   });
   app.post("/api/competitions", async (req) => {
-    const u = signed(req),
+    const u = participant(req),
       b = req.body || {},
       g = game(b.game),
       format = b.format || "singles";
@@ -986,7 +1000,7 @@ export async function createApp(options = {}) {
     });
   });
   app.post("/api/competitions/:id/entries", async (req) => {
-    const u = signed(req);
+    const u = participant(req);
     return tx(() => {
       const c = getCompetition(db, req.params.id);
       const manager = organizer(db, u, c);
@@ -1009,7 +1023,7 @@ export async function createApp(options = {}) {
     });
   });
   app.delete("/api/competitions/:id/entries/:entry", async (req) => {
-    const u = signed(req);
+    const u = participant(req);
     return tx(() => {
       const c = getCompetition(db, req.params.id),
         e = entries(db, c.id).find((x) => x.id === Number(req.params.entry));
@@ -1250,6 +1264,62 @@ export async function createApp(options = {}) {
   app.post("/api/fixtures/:id/forfeit", async (req) =>
     tx(() => forfeit(db, req.params.id, req.body.winner, signed(req))),
   );
+  app.post("/api/fixtures/:id/no-contest", async (req) => {
+    const user = signed(req);
+    return tx(() => {
+      const fixture = db
+        .prepare("SELECT * FROM fixtures WHERE id=?")
+        .get(integer(req.params.id, 1));
+      assert(fixture && fixture.status === "ready", "Choose a ready fixture.");
+      const competition = getCompetition(db, fixture.competition_id);
+      assert(
+        organizer(db, user, competition),
+        "Only the organizer or an admin can declare a no contest.",
+        403,
+      );
+      assert(
+        !db
+          .prepare(
+            "SELECT 1 FROM matches WHERE fixture_id=? AND status<>'voided'",
+          )
+          .get(fixture.id),
+        "This fixture already has a result.",
+        409,
+      );
+      const knockout = !["league", "group", "tiebreak"].includes(fixture.stage);
+      const replacement = req.body?.replacement
+        ? integer(req.body.replacement, 1)
+        : null;
+      if (replacement) {
+        assert(
+          knockout && replacement !== fixture.a && replacement !== fixture.b,
+          "Choose another entrant.",
+        );
+        assert(
+          db
+            .prepare(
+              "SELECT 1 FROM entrants WHERE id=? AND competition_id=? AND withdrawn=0",
+            )
+            .get(replacement, competition.id),
+          "Choose an entrant in this competition.",
+        );
+        assert(
+          !db
+            .prepare(
+              "SELECT 1 FROM fixtures WHERE competition_id=? AND id<>? AND status IN ('ready','waiting') AND (a=? OR b=?)",
+            )
+            .get(competition.id, fixture.id, replacement, replacement),
+          "This entrant already has an upcoming fixture.",
+        );
+      }
+      db.prepare(
+        "UPDATE fixtures SET status='completed', no_contest=1, winner=?, loser=NULL WHERE id=?",
+      ).run(replacement, fixture.id);
+      audit(db, user, "fixture.no-contest", fixture.id, { replacement });
+      progress(db, competition);
+      return { ok: true };
+    });
+  });
   app.get("/api/recent-results", async (req) => ({
     rows: db
       .prepare(
@@ -1313,19 +1383,35 @@ export async function createApp(options = {}) {
     preview(db, req.params.game, req.body, signed(req)),
   );
   app.post("/api/games/:game/matches", async (req) =>
-    tx(() => submit(db, req.params.game, req.body, signed(req))),
+    tx(() => submit(db, req.params.game, req.body, participant(req))),
   );
   app.post("/api/matches/:id/accept", async (req) =>
-    tx(() => accept(db, req.params.id, signed(req), req.body.revision)),
+    tx(() => accept(db, req.params.id, participant(req), req.body.revision)),
   );
   app.post("/api/matches/:id/elo", async (req) =>
     tx(() => checkoff(db, req.params.id, signed(req), req.body.revision)),
   );
+  app.post("/api/games/:game/elo-checkoff", async (req) => {
+    const user = gameAdmin(req, req.params.game);
+    game(req.params.game);
+    return tx(() => {
+      const rows = db
+        .prepare(
+          "SELECT id,revision,format FROM matches WHERE game=? AND status='accepted' AND elo_enabled=1 AND elo_checked IS NULL AND forfeit=0 ORDER BY COALESCE(played_at,submitted),id",
+        )
+        .all(req.params.game);
+      for (const row of rows)
+        checkoff(db, row.id, user, row.revision, { deferRebuild: true });
+      for (const format of new Set(rows.map((row) => row.format)))
+        rebuild(db, req.params.game, format);
+      return { checked: rows.length };
+    });
+  });
   app.patch("/api/matches/:id/elo-enabled", async (req) =>
-    tx(() => setEloEnabled(db, req.params.id, req.body, signed(req))),
+    tx(() => setEloEnabled(db, req.params.id, req.body, participant(req))),
   );
   app.patch("/api/matches/:id", async (req) =>
-    tx(() => edit(db, req.params.id, req.body, signed(req))),
+    tx(() => edit(db, req.params.id, req.body, participant(req))),
   );
   app.delete("/api/matches/:id", async (req) =>
     tx(() => edit(db, req.params.id, req.body, signed(req), true)),
@@ -1452,6 +1538,41 @@ export async function createApp(options = {}) {
     );
     return { id, user };
   }
+  app.patch("/api/admin/players/:id/profile", async (req) => {
+    const user = site(req);
+    const id = integer(req.params.id, 1);
+    return tx(() => {
+      const player = db.prepare("SELECT * FROM players WHERE id=?").get(id);
+      assert(
+        player && !json(player.profile).merged_into,
+        "Player not found.",
+        404,
+      );
+      const body = req.body || {},
+        profile = json(player.profile);
+      if (body.name !== undefined)
+        db.prepare("UPDATE players SET name=? WHERE id=?").run(
+          textValue(body.name, 80),
+          id,
+        );
+      for (const key of ["favoriteTeam", "tag", "mains"]) {
+        if (key in body) profile[key] = String(body[key] || "").slice(0, 160);
+      }
+      if (body.nationalities !== undefined) {
+        profile.nationalities = nationalitiesValue(
+          body.nationalities,
+          profileNationalities(profile),
+        );
+        profile.nationality = profile.nationalities[0] || "";
+      }
+      db.prepare("UPDATE players SET profile=? WHERE id=?").run(
+        JSON.stringify(profile),
+        id,
+      );
+      audit(db, user, "player.profile", id, {});
+      return { ok: true };
+    });
+  });
   app.post("/api/admin/players/:id/photo", async (req) => {
     const { id, user } = administeredPlayer(req);
     const result = await savePlayerPhoto(req, id);
@@ -1516,6 +1637,10 @@ export async function createApp(options = {}) {
         if (r.kind === "handle")
           db.prepare("UPDATE accounts SET handle=? WHERE id=?").run(
             p.handle,
+            r.account_id,
+          );
+        else if (r.kind === "participation")
+          db.prepare("UPDATE accounts SET approved=1 WHERE id=?").run(
             r.account_id,
           );
         else mergePlayer(db, p.source, p.target, u);

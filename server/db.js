@@ -98,6 +98,20 @@ export function openDb(path) {
     );
     db.prepare("INSERT INTO migrations VALUES(5)").run();
   })();
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=6").get()) return;
+    db.exec(
+      "ALTER TABLE fixtures ADD COLUMN no_contest INTEGER NOT NULL DEFAULT 0",
+    );
+    db.prepare("INSERT INTO migrations VALUES(6)").run();
+  })();
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=7").get()) return;
+    db.exec(
+      "ALTER TABLE accounts ADD COLUMN approved INTEGER NOT NULL DEFAULT 1",
+    );
+    db.prepare("INSERT INTO migrations VALUES(7)").run();
+  })();
   return db;
 }
 export const json = (v, fallback = {}) => {

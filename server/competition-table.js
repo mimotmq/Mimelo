@@ -7,6 +7,7 @@ export function rankTable(rows, fixtures, criteria, football, random = null) {
     row.head_to_head = 0;
   }
   for (const f of fixtures) {
+    if (f.no_contest) continue;
     const a = by.get(f.a),
       b = by.get(f.b);
     if (!a || !b || a.points !== b.points) continue;

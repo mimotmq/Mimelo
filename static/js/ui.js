@@ -197,20 +197,22 @@
           if (panel) panel.hidden = !yes;
         });
       };
-      items.forEach((t, i) => {
+      items.forEach((t) => {
         t.onclick = () => activate(t);
         t.onkeydown = (e) => {
+          const available = items.filter((item) => !item.hidden);
+          const i = available.indexOf(t);
           let j = i;
           if (["ArrowRight", "ArrowDown"].includes(e.key))
-            j = (i + 1) % items.length;
+            j = (i + 1) % available.length;
           else if (["ArrowLeft", "ArrowUp"].includes(e.key))
-            j = (i + items.length - 1) % items.length;
+            j = (i + available.length - 1) % available.length;
           else if (e.key === "Home") j = 0;
-          else if (e.key === "End") j = items.length - 1;
+          else if (e.key === "End") j = available.length - 1;
           else return;
           e.preventDefault();
-          items[j].focus();
-          activate(items[j]);
+          available[j].focus();
+          activate(available[j]);
         };
       });
     });
@@ -789,16 +791,24 @@
     );
   }
   function standingsTable(c, rows) {
-    const fc = APP.games.find((g) => g.slug === c.game)?.kind === "fc";
-    const progress = (row) =>
-      c.projection?.rows.find((state) => state.entry === row.entry);
+    const kind = APP.games.find((g) => g.slug === c.game)?.kind;
+    const fc = kind === "fc";
+    const tableTennis = kind === "tt";
+    const progress = (row) => {
+      const state = c.projection?.rows.find((item) => item.entry === row.entry);
+      if (c.kind === "league" && !c.settings.playoffs) {
+        if (state?.status === "eliminated") return null;
+        if (state) return { ...state, group_winner: false };
+      }
+      return state;
+    };
     const badge = (row) => {
       const state = progress(row);
       return state
         ? `<span class="progression-badges">${state.status !== "contending" ? `<span class="progression-badge" data-status="${state.status}">${{ qualified: "Qualified", eliminated: "Eliminated", champion: "Champion" }[state.status]}</span>` : ""}${state.group_winner ? '<span class="progression-badge" data-status="winner">Group winner</span>' : ""}</span>`
         : "";
     };
-    return `<div class="table-wrap competition-standings-table"><table><thead><tr><th class="standings-rank">#</th><th class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th><th class="standings-played">P</th><th class="standings-wdl">W</th>${fc ? '<th class="standings-wdl">D</th>' : ""}<th class="standings-wdl">L</th><th class="standings-scores">${fc ? "Goals" : "Games / sets"}</th><th class="standings-difference" title="${fc ? "Goal difference" : "Game / set difference"}">${fc ? "GD" : "Diff"}</th>${fc ? '<th class="standings-points">Pts</th>' : ""}</tr></thead><tbody>${rows.map((row) => `<tr${progress(row) ? ` data-progress="${progress(row).status}" data-group-winner="${progress(row).group_winner && progress(row).status !== "eliminated"}"` : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}${row.players.map((p) => playerLink(p)).join(" + ")}${badge(row)}</td><td class="standings-played">${row.played}</td><td class="standings-wdl">${row.w}</td>${fc ? `<td class="standings-wdl">${row.d}</td>` : ""}<td class="standings-wdl">${row.l}</td><td class="standings-scores">${row.for}–${row.against}</td><td class="standings-difference">${row.difference > 0 ? "+" : ""}${row.difference}</td>${fc ? `<td class="standings-points">${row.points}</td>` : ""}</tr>`).join("")}</tbody></table></div>`;
+    return `${tableTennis ? '<p class="standings-scroll-hint">Swipe to see all statistics</p>' : ""}<div class="table-wrap competition-standings-table${tableTennis ? " table-tennis-standings" : ""}"><table><thead><tr><th class="standings-rank">#</th><th class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th><th class="standings-played">P</th>${tableTennis ? '<th class="standings-pct" title="Win percentage">Win %</th>' : ""}<th class="standings-wdl">W</th>${fc ? '<th class="standings-wdl">D</th>' : ""}<th class="standings-wdl">L</th>${tableTennis ? '<th class="standings-points-score" title="Points scored and conceded">Points</th>' : ""}<th class="standings-scores">${fc ? "Goals" : "Games / sets"}</th><th class="standings-difference" title="${fc ? "Goal difference" : "Game / set difference"}">${fc ? "GD" : "Diff"}</th>${fc ? '<th class="standings-points">Pts</th>' : ""}</tr></thead><tbody>${rows.map((row) => `<tr${progress(row) ? ` data-progress="${progress(row).status}" data-group-winner="${progress(row).group_winner && progress(row).status !== "eliminated"}"` : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}${row.players.map((p) => playerLink(p)).join(" + ")}${badge(row)}</td><td class="standings-played">${row.played}</td>${tableTennis ? `<td class="standings-pct">${row.played ? ((100 * row.w) / row.played).toFixed(1) + "%" : "—"}</td>` : ""}<td class="standings-wdl">${row.w}</td>${fc ? `<td class="standings-wdl">${row.d}</td>` : ""}<td class="standings-wdl">${row.l}</td>${tableTennis ? `<td class="standings-points-score">${row.points_for ?? 0}–${row.points_against ?? 0}</td>` : ""}<td class="standings-scores">${row.for}–${row.against}</td><td class="standings-difference">${row.difference > 0 ? "+" : ""}${row.difference}</td>${fc ? `<td class="standings-points">${row.points}</td>` : ""}</tr>`).join("")}</tbody></table></div>`;
   }
 
   window.UI = {

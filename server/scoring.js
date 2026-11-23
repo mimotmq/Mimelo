@@ -23,6 +23,23 @@ export function validatePickleballFormat(bestOf, target) {
 export function validateScore(kind, format, input, knockout = false) {
   assert(input && typeof input === "object", "Enter a score.");
   const s = structuredClone(input);
+  if (["tt", "tennis", "pickleball"].includes(kind)) {
+    assert(
+      s.umpire == null ||
+        (typeof s.umpire === "string" && s.umpire.length <= 100),
+      "Umpire name must be at most 100 characters.",
+    );
+    s.umpire = (s.umpire || "").trim();
+    if (s.scoreAdjustment) {
+      assert(
+        typeof s.scoreAdjustment === "string" &&
+          s.scoreAdjustment.trim().length <= 200 &&
+          s.scoreAdjustment.trim().length > 0,
+        "Explain the score adjustment.",
+      );
+      s.scoreAdjustment = s.scoreAdjustment.trim();
+    }
+  }
   let a = 0,
     b = 0,
     winner = null,
@@ -126,7 +143,7 @@ export function validateScore(kind, format, input, knockout = false) {
           "Choose a supported points target.",
         );
         assert(
-          race(g.a, g.b, s.target),
+          race(g.a, g.b, s.target) || (!!s.scoreAdjustment && g.a !== g.b),
           `${kind === "pickleball" ? "Pickleball" : "Table tennis"} games must reach the target and be won by two. Stop at the first winning score.`,
         );
         w = g.a > g.b ? 0 : 1;

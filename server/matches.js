@@ -79,15 +79,18 @@ export function serializeMatch(db, m, user) {
     locked: isLocked,
     permissions: {
       eloToggle:
+        !!user?.approved &&
         !m.forfeit &&
         m.status !== "voided" &&
         (isAdmin || (m.status === "submitted" && side !== undefined)),
       edit:
+        !!user?.approved &&
         !m.forfeit &&
         m.status !== "voided" &&
         !isLocked &&
         (m.status === "submitted" ? isAdmin || side !== undefined : isAdmin),
       accept:
+        !!user?.approved &&
         m.status === "submitted" &&
         (isAdmin || side !== undefined || (c && organizer(db, user, c))),
       elo:
@@ -277,7 +280,13 @@ export function accept(db, id, user, revision) {
   audit(db, user, "match.confirm", id, { revision });
   return serializeMatch(db, getMatch(db, id), user);
 }
-export function checkoff(db, id, user, revision) {
+export function checkoff(
+  db,
+  id,
+  user,
+  revision,
+  { deferRebuild = false } = {},
+) {
   const m = getMatch(db, id);
   assert(
     admin(db, user, m.game),
@@ -298,7 +307,7 @@ export function checkoff(db, id, user, revision) {
   db.prepare(
     "UPDATE matches SET elo_checked=?,elo_checker=?,team_snapshot=? WHERE id=?",
   ).run(Date.now(), user.id, values ? JSON.stringify(values) : null, id);
-  rebuild(db, m.game, m.format);
+  if (!deferRebuild) rebuild(db, m.game, m.format);
   audit(db, user, "match.elo", id, { revision });
   notify(
     db,
@@ -308,7 +317,7 @@ export function checkoff(db, id, user, revision) {
     "Elo checked off and recalculated",
     `/game.html?game=${m.game}&match=${m.id}`,
   );
-  return serializeMatch(db, getMatch(db, id), user);
+  return deferRebuild ? null : serializeMatch(db, getMatch(db, id), user);
 }
 function prepare(db, game, body, user) {
   const g = db.prepare("SELECT * FROM games WHERE slug=?").get(game);

@@ -3,6 +3,9 @@ APP.run(async () => {
   if (!APP.me) return APP.login();
   if (!APP.me.site_admin && !APP.me.admin_of.length)
     throw new Error("Admin access is required.");
+  const { countryList, profileNationalities } =
+    await import("./profile-flairs.js");
+  const countries = await countryList();
   $("#adt-themes").remove();
   $("#adp-themes").remove();
   $("#adp-games .form-actions").remove();
@@ -130,6 +133,45 @@ APP.run(async () => {
     const inputId = "admin-player-photo-" + p.id;
     photo.innerHTML = `<span data-admin-photo-preview>${UI.avatar(p.name, "", p.photo)}</span><div class="avatar-editor-copy"><b>Profile picture</b><p>PNG, JPEG, or WebP, up to 5 MB.</p><div class="avatar-editor-actions"><label class="btn btn-outline btn-sm" for="${inputId}">Upload photo</label><input id="${inputId}" type="file" accept="image/png,image/jpeg,image/webp" hidden>${button("Remove photo", "remove-photo", p.photo ? "" : "disabled")}</div></div>`;
     $(".dialog-body", d).prepend(photo);
+    if (APP.me.site_admin) {
+      const profile = p.profile || {};
+      const nationalities = profileNationalities(profile);
+      const choices = [
+        ["", "None"],
+        ...countries.map((country) => [country.name, country.name]),
+      ];
+      for (const nationality of nationalities)
+        if (!countries.some((country) => country.name === nationality))
+          choices.push([nationality, nationality + " (existing entry)"]);
+      const form = document.createElement("form");
+      form.className = "settings-form";
+      form.innerHTML = `<h3>Display name and flairs</h3>${field("Display name", "admin-name", p.name, "text", "required")}${select("Nationality", "admin-nationality", choices, nationalities[0] || "")}${select("Second nationality", "admin-nationality-2", choices, nationalities[1] || "")}${field("Favourite team", "admin-team", profile.favoriteTeam || "")}${field("Smash tag", "admin-tag", profile.tag || "")}${field("Smash mains", "admin-mains", profile.mains || "")}<button class="btn btn-primary" type="submit">Save profile</button>`;
+      photo.after(form);
+      form.onsubmit = async (event) => {
+        event.preventDefault();
+        const value = (id) => $("#field-" + id, form).value;
+        try {
+          await APP.api(
+            `admin/players/${p.id}/profile`,
+            {
+              name: value("admin-name"),
+              nationalities: [
+                value("admin-nationality"),
+                value("admin-nationality-2"),
+              ].filter(Boolean),
+              favoriteTeam: value("admin-team"),
+              tag: value("admin-tag"),
+              mains: value("admin-mains"),
+            },
+            "PATCH",
+          );
+          UI.toast("Profile saved.");
+          await people();
+        } catch (error) {
+          $(".hint[role=alert]", d).textContent = error.message;
+        }
+      };
+    }
     async function updatePhoto(file) {
       const input = $("input", photo),
         remove = $("[data-action=remove-photo]", photo);
@@ -581,7 +623,7 @@ APP.run(async () => {
       rows
         .map(
           (r) =>
-            `<article class="flair-item"><div><b>${esc(r.name)} · ${esc(r.kind)}</b><p>${r.kind === "handle" ? "Requested handle: " + esc(r.payload.handle) : "Merge fill-in #" + r.payload.source + " into player #" + r.payload.target}</p></div><div>${button("Approve", "approve", `data-request="${r.id}"`)}${button("Reject", "reject", `data-request="${r.id}"`)}</div></article>`,
+            `<article class="flair-item"><div><b>${esc(r.name)} · ${esc(r.kind)}</b><p>${r.kind === "participation" ? "Requests permission to participate and record matches." : r.kind === "handle" ? "Requested handle: " + esc(r.payload.handle) : "Merge fill-in #" + r.payload.source + " into player #" + r.payload.target}</p></div><div>${button("Approve", "approve", `data-request="${r.id}"`)}${button("Reject", "reject", `data-request="${r.id}"`)}</div></article>`,
         )
         .join("") +
       (rows.length ? "" : UI.empty("No account requests."));

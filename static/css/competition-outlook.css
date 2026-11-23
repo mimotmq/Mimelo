@@ -211,3 +211,193 @@ tr[data-progress="eliminated"] > td:first-child {
     white-space: normal;
   }
 }
+
+.competition-standings-table .avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+.competition-standings-table .standings-pct {
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .competition-standings-table .avatar {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+  }
+}
+#fixture-groups details {
+  border-bottom: 1px solid var(--line);
+}
+#fixture-groups summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+#fixture-groups .table-wrap {
+  margin-top: 12px;
+}
+
+.fixture-day {
+  border-bottom: 1px solid var(--line);
+}
+.fixture-day summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+}
+.fixture-day summary span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.fixture-day-matches {
+  padding: 0 22px 12px;
+}
+.fixture-card {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.fixture-match {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  text-decoration: none;
+}
+button.fixture-match,
+a.fixture-match {
+  cursor: pointer;
+}
+.fixture-side {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.fixture-away {
+  text-align: right;
+}
+.fixture-result {
+  min-width: 48px;
+  text-align: center;
+  font-size: 1rem;
+}
+.fixture-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+#cp-fixtures:not([hidden]) {
+  margin-top: 20px;
+}
+@media (max-width: 700px) {
+  .competition-standings-table .standings-points-score {
+    display: none;
+  }
+  .fixture-day summary {
+    padding: 16px;
+  }
+  .fixture-day-matches {
+    padding: 0 16px 10px;
+  }
+}
+.fixture-day-matches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 0 24px;
+}
+#fixture-groups .fixture-day > summary {
+  padding: 16px 22px;
+  justify-content: flex-start;
+}
+#fixture-groups .fixture-day > summary::before {
+  content: "▸";
+  color: var(--muted);
+}
+#fixture-groups .fixture-day[open] > summary::before {
+  content: "▾";
+}
+#fixture-groups .fixture-day > summary span {
+  margin-left: auto;
+}
+@media (max-width: 700px) {
+  #fixture-groups .fixture-day > summary {
+    padding: 15px 16px;
+  }
+}
+@media (max-width: 700px) {
+  .table-tennis-standings table {
+    min-width: 620px;
+  }
+  .table-tennis-standings .standings-wdl,
+  .table-tennis-standings .standings-scores,
+  .table-tennis-standings .standings-points-score {
+    display: table-cell;
+  }
+  .table-tennis-standings .standings-player {
+    min-width: 160px;
+  }
+  .table-tennis-standings .standings-pct {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+.standings-scroll-hint {
+  display: none;
+}
+@media (max-width: 700px) {
+  .standings-scroll-hint {
+    display: block;
+    margin: 0;
+    padding: 0 12px 8px;
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+}
+.fixture-games {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 700px) {
+  .table-tennis-standings table {
+    table-layout: fixed;
+    width: 680px;
+  }
+  .table-tennis-standings .standings-rank {
+    width: 28px;
+  }
+  .table-tennis-standings .standings-player {
+    width: 165px;
+    min-width: 165px;
+  }
+  .table-tennis-standings .standings-played,
+  .table-tennis-standings .standings-wdl {
+    width: 42px;
+  }
+  .table-tennis-standings .standings-pct {
+    width: 80px;
+  }
+  .table-tennis-standings .standings-points-score,
+  .table-tennis-standings .standings-scores {
+    width: 88px;
+  }
+  .table-tennis-standings .standings-difference {
+    width: 60px;
+  }
+}

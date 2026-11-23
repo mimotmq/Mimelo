@@ -25,13 +25,15 @@ export function roundTitle(index, total, pool = "W") {
 }
 export function fixtureScoreText(f) {
   const s = typeof f.score === "string" ? sourceRef(f.score) : f.score;
-  return f.forfeit
-    ? "Walkover"
-    : f.match_id
-      ? `${f.a_score}–${f.b_score}${s?.pens ? ` (${s.pens.join("–")} pens)` : ""}${s?.aet ? " a.e.t." : ""}`
-      : f.status === "bye"
-        ? "Bye"
-        : "—";
+  return f.no_contest
+    ? "No contest"
+    : f.forfeit
+      ? "Walkover"
+      : f.match_id
+        ? `${f.a_score}–${f.b_score}${s?.pens ? ` (${s.pens.join("–")} pens)` : ""}${s?.aet ? " a.e.t." : ""}`
+        : f.status === "bye"
+          ? "Bye"
+          : "—";
 }
 
 // Generated draws retain every slot, including byes. Keep their positions so
@@ -206,17 +208,19 @@ export function renderBracket(container, c, { UI, APP }) {
     const state =
       f.status === "bye"
         ? "Advances · bye"
-        : f.status === "completed"
-          ? f.forfeit
-            ? "Walkover"
-            : "Final score"
-          : f.status === "cancelled"
-            ? "Not required"
-            : f.match_id
-              ? "Awaiting acceptance"
-              : f.status === "ready"
-                ? "Ready to play"
-                : "Upcoming";
+        : f.no_contest
+          ? "No contest"
+          : f.status === "completed"
+            ? f.forfeit
+              ? "Walkover"
+              : "Final score"
+            : f.status === "cancelled"
+              ? "Not required"
+              : f.match_id
+                ? "Awaiting acceptance"
+                : f.status === "ready"
+                  ? "Ready to play"
+                  : "Upcoming";
     const detail = [
       f.score?.aet ? "a.e.t." : "",
       f.score?.pens ? "Penalties" : "",

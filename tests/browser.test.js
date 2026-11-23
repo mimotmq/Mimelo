@@ -235,7 +235,8 @@ test("template screens and live workflows at desktop and mobile widths", async (
   await ready();
   await page.locator("[data-action=draw]").click();
   await page.locator("#ct-fixtures").click();
-  await page.locator("#fixtures-body a").first().waitFor();
+  await page.locator("#fixture-groups summary").first().click();
+  await page.locator("#fixture-groups a.fixture-match").first().waitFor();
   await noOverflow();
   await page.screenshot({
     path: "artifacts/competition-desktop.png",

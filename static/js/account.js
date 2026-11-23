@@ -2,6 +2,11 @@ APP.run(async () => {
   if (!APP.me) return APP.login();
   const { $, $$, esc, text, toast, field, button } = UI;
   let me = APP.me;
+  if (!me.approved)
+    $(".page-head").insertAdjacentHTML(
+      "afterend",
+      '<p class="notice-strip">Your account is awaiting site admin approval. You can browse as a spectator until approved.</p>',
+    );
   $(".breadcrumb").innerHTML =
     '<a href="index.html">Home</a><span class="sep">/</span><span>Your account</span>';
   function avatars() {

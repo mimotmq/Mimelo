@@ -36,7 +36,7 @@ export function fixtureList(db, id) {
     .get(id)?.game;
   return db
     .prepare(
-      "SELECT f.*,m.id AS match_id,m.a_score,m.b_score,m.score,m.forfeit,m.status AS result_status FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided' WHERE f.competition_id=? ORDER BY f.id",
+      "SELECT f.*,m.id AS match_id,m.a_score,m.b_score,m.score,m.forfeit,m.played_at,m.submitted,m.status AS result_status FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided' WHERE f.competition_id=? ORDER BY f.id",
     )
     .all(id)
     .map((f) => {
@@ -538,6 +538,8 @@ export function standings(
     against: 0,
     sets_difference: 0,
     points_difference: 0,
+    points_for: 0,
+    points_against: 0,
     head_to_head: 0,
     points: 0,
   }));
@@ -545,6 +547,7 @@ export function standings(
   const completed = fs.filter(
     (f) =>
       f.status === "completed" &&
+      !f.no_contest &&
       (!before ||
         (f.match_status === "accepted" &&
           ((f.played_at ?? f.submitted) <
@@ -574,6 +577,12 @@ export function standings(
     b.for += f.b_score || 0;
     b.against += f.a_score || 0;
     const score = json(f.score);
+    for (const game of score.games || []) {
+      a.points_for += game.a;
+      a.points_against += game.b;
+      b.points_for += game.b;
+      b.points_against += game.a;
+    }
     let diff = (score.games || []).reduce((sum, g) => sum + g.a - g.b, 0);
     a.points_difference += diff;
     b.points_difference -= diff;

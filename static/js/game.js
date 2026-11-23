@@ -324,6 +324,28 @@ APP.run(async () => {
       $(".panel-head h2", b.closest(".panel")).textContent = title;
       UI.pager(b.closest(".panel"), result, review);
     }
+    const panel = $("#locked-body").closest(".panel");
+    let bulk = $("[data-action=check-all-elo]", panel);
+    if (!bulk && (APP.me?.site_admin || APP.me?.admin_of?.includes(APP.slug))) {
+      bulk = document.createElement("button");
+      bulk.type = "button";
+      bulk.className = "btn btn-outline btn-sm";
+      bulk.dataset.action = "check-all-elo";
+      bulk.textContent = "Check off all Elo";
+      $(".panel-head", panel).append(bulk);
+      bulk.onclick = async () => {
+        bulk.disabled = true;
+        try {
+          const result = await APP.api(`games/${APP.slug}/elo-checkoff`, {});
+          UI.toast(`${result.checked} Elo checkoffs completed.`);
+          await review();
+        } catch (error) {
+          UI.toast(error.message);
+          bulk.disabled = false;
+        }
+      };
+    }
+    if (bulk) bulk.disabled = !elo.total;
     bindMatches();
   }
   async function show(name, push = true) {
@@ -373,6 +395,11 @@ APP.run(async () => {
     if (!APP.me) {
       $(".record-layout").innerHTML =
         `<div class="panel panel-body"><h2>Log in to record a result</h2><p>Results can be submitted by participants and relevant admins.</p><a class="btn btn-primary" href="login.html?next=${encodeURIComponent(APP.url("game", { view: "record" }))}">Log in</a></div>`;
+      return;
+    }
+    if (!APP.me.approved) {
+      $(".record-layout").innerHTML =
+        '<div class="panel panel-body"><h2>Awaiting account approval</h2><p>A site admin must approve your account before you can record results. You can browse as a spectator in the meantime.</p></div>';
       return;
     }
     let fixed = null,
@@ -461,6 +488,22 @@ APP.run(async () => {
           "beforebegin",
           '<p class="hint pickleball-score-key">Scores · Side 1 – Side 2</p>',
         );
+      if (["tt", "tennis", "pickleball"].includes(g.kind)) {
+        $("#r-note")
+          .closest(".field")
+          .insertAdjacentHTML(
+            "beforebegin",
+            field("Umpire (optional)", "umpire", editing?.score.umpire || "") +
+              (["tt", "pickleball"].includes(g.kind)
+                ? field(
+                    "Score adjustment reason (optional)",
+                    "score-adjustment",
+                    editing?.score.scoreAdjustment || "",
+                  ) +
+                  '<p class="hint">Use for an adjusted score, such as a points penalty.</p>'
+                : ""),
+          );
+      }
       if (fixed || editing) $("#field-record-format").disabled = true;
       if (g.kind === "smash") {
         const { createSmashRecorder } = await import("./smash-record.js");
@@ -735,6 +778,11 @@ APP.run(async () => {
         score = { ...config(), games };
       }
       score.note = $("#r-note").value;
+      if (["tt", "tennis", "pickleball"].includes(g.kind)) {
+        score.umpire = $("#field-umpire").value;
+        if (["tt", "pickleball"].includes(g.kind))
+          score.scoreAdjustment = $("#field-score-adjustment").value.trim();
+      }
       return {
         played_at:
           editing &&

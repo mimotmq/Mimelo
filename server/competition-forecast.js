@@ -648,12 +648,30 @@ export function competitionForecast(
         if (hasNext) row.qualification = 0;
       }
     }
+    const reentry = Math.max(
+      0,
+      ...c.fixtures
+        .filter((f) => knockout(f) && f.no_contest && f.winner === row.entry)
+        .map((f) => f.id),
+    );
+    const noContestElimination = c.fixtures.some(
+      (f) =>
+        knockout(f) &&
+        f.no_contest &&
+        f.id > reentry &&
+        [f.a, f.b].includes(row.entry),
+    );
     const losses = c.fixtures.filter(
-      (f) => knockout(f) && f.status === "completed" && f.loser === row.entry,
+      (f) =>
+        knockout(f) &&
+        f.status === "completed" &&
+        f.id > reentry &&
+        f.loser === row.entry,
     ).length;
     if (
       (c.kind === "knockout" || hasBracket) &&
-      losses >= (c.settings.elimination === "double" ? 2 : 1)
+      (noContestElimination ||
+        losses >= (c.settings.elimination === "double" ? 2 : 1))
     ) {
       row.status = "eliminated";
       row.title = 0;

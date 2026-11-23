@@ -1,0 +1,293 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createApp } from "../server/app.js";
+import { register, passwordHash } from "../server/auth.js";
+import { validateScore } from "../server/scoring.js";
+
+test("adjusted table tennis scores preserve the umpire and require a reason", () => {
+  const input = {
+    bestOf: 3,
+    target: 21,
+    games: [
+      { a: 10, b: 21 },
+      { a: 9, b: 16 },
+    ],
+    umpire: "Jordan",
+    scoreAdjustment: "Five-point penalty against side 2",
+  };
+  const result = validateScore("tt", "singles", input);
+  assert.equal(result.score.games[1].b, 16);
+  assert.equal(result.score.umpire, "Jordan");
+  assert.equal(result.score.scoreAdjustment, input.scoreAdjustment);
+  assert.throws(() =>
+    validateScore("tt", "singles", { ...input, scoreAdjustment: "" }),
+  );
+});
+
+test("site admins edit profiles, check all Elo, and record no-contest league fixtures", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  const password = "ManagementTestPassword!";
+  const hash = await passwordHash(password);
+  const admin = register(
+    app.db,
+    { name: "Admin", handle: "manageadmin" },
+    hash,
+    null,
+    true,
+  );
+  const other = register(
+    app.db,
+    { name: "Player", handle: "manageplayer" },
+    hash,
+  );
+  async function session(user) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/login",
+      headers: { "x-mimelo-request": "1" },
+      payload: { identity: user.handle, password },
+    });
+    return {
+      "x-mimelo-request": "1",
+      "x-csrf-token": response.json().csrf,
+      cookie: response.cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+    };
+  }
+  const ah = await session(admin),
+    ph = await session(other);
+  async function call(headers, method, path, payload, status = 200) {
+    const result = await app.inject({
+      method,
+      url: "/api/" + path,
+      headers,
+      ...(payload === undefined ? {} : { payload }),
+    });
+    assert.equal(result.statusCode, status, result.body);
+    return result.json();
+  }
+  await call(
+    ph,
+    "PATCH",
+    `admin/players/${other.player_id}/profile`,
+    { name: "Forbidden" },
+    403,
+  );
+  await call(ah, "PATCH", `admin/players/${other.player_id}/profile`, {
+    name: "Renamed",
+    nationalities: ["Canada"],
+    tag: "tag",
+  });
+  const player = await call(ah, "GET", `players/${other.player_id}`);
+  assert.equal(player.name, "Renamed");
+  assert.deepEqual(player.profile.nationalities, ["Canada"]);
+  const league = await call(ah, "POST", "competitions", {
+    game: "tt",
+    name: "League",
+    kind: "league",
+    entries: [[admin.player_id], [other.player_id]],
+    settings: { bestOf: 3, target: 21 },
+  });
+  const draw = await call(ah, "POST", `competitions/${league.id}/draw`, {});
+  const fixture = draw.fixtures.find((f) => f.status === "ready");
+  await call(ph, "POST", `fixtures/${fixture.id}/no-contest`, {}, 403);
+  await call(ah, "POST", `fixtures/${fixture.id}/no-contest`, {});
+  const updated = await call(ah, "GET", `competitions/${league.id}`);
+  assert.equal(updated.fixtures[0].no_contest, 1);
+  assert.equal(updated.fixtures[0].status, "completed");
+  assert.ok(updated.standings[""].every((row) => row.played === 0));
+  assert.equal(
+    (await call(ah, "POST", "games/tt/elo-checkoff", {})).checked,
+    0,
+  );
+});
+
+test("knockout no contest can create a bye or advance an eligible replacement", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  const password = "KnockoutTestPassword!";
+  const hash = await passwordHash(password);
+  const admin = register(
+    app.db,
+    { name: "Admin", handle: "knockadmin" },
+    hash,
+    null,
+    true,
+  );
+  const ids = [admin.player_id];
+  for (let i = 0; i < 3; i++)
+    ids.push(
+      Number(
+        app.db
+          .prepare("INSERT INTO players(name,created) VALUES(?,?)")
+          .run(`Player ${i}`, Date.now()).lastInsertRowid,
+      ),
+    );
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { "x-mimelo-request": "1" },
+    payload: { identity: "knockadmin", password },
+  });
+  const headers = {
+    "x-mimelo-request": "1",
+    "x-csrf-token": login.json().csrf,
+    cookie: login.cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+  };
+  async function call(method, url, payload) {
+    const response = await app.inject({
+      method,
+      url: "/api/" + url,
+      headers,
+      ...(payload === undefined ? {} : { payload }),
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    return response.json();
+  }
+  const competition = await call("POST", "competitions", {
+    game: "tt",
+    name: "Cup",
+    kind: "knockout",
+    entries: ids.map((id) => [id]),
+    settings: { bestOf: 1, target: 11 },
+  });
+  const draw = await call("POST", `competitions/${competition.id}/draw`, {});
+  const first = draw.fixtures.find((f) => f.status === "ready");
+  await call("POST", `fixtures/${first.id}/no-contest`, {});
+  const updated = await call("GET", `competitions/${competition.id}`);
+  assert.equal(updated.fixtures.find((f) => f.id === first.id).no_contest, 1);
+  const other = updated.fixtures.find((f) => f.status === "ready");
+  const match = await call("POST", "games/tt/matches", {
+    fixture: other.id,
+    score: { games: [{ a: 11, b: 5 }] },
+  });
+  await call("POST", `matches/${match.id}/accept`, { revision: 1 });
+  const done = await call("GET", `competitions/${competition.id}`);
+  assert.ok(done.fixtures.some((f) => f.status === "bye"));
+  assert.equal((await call("POST", "games/tt/elo-checkoff", {})).checked, 1);
+  assert.equal((await call("POST", "games/tt/elo-checkoff", {})).checked, 0);
+});
+
+test("an eliminated entrant can replace a no-contest knockout pair", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  const password = "ReplacementPassword!";
+  const admin = register(
+    app.db,
+    { name: "Admin", handle: "replaceadmin" },
+    await passwordHash(password),
+    null,
+    true,
+  );
+  const ids = [admin.player_id];
+  for (let i = 0; i < 3; i++)
+    ids.push(
+      Number(
+        app.db
+          .prepare("INSERT INTO players(name,created) VALUES(?,?)")
+          .run(`Player ${i}`, Date.now()).lastInsertRowid,
+      ),
+    );
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { "x-mimelo-request": "1" },
+    payload: { identity: "replaceadmin", password },
+  });
+  const headers = {
+    "x-mimelo-request": "1",
+    "x-csrf-token": login.json().csrf,
+    cookie: login.cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+  };
+  async function call(method, url, payload) {
+    const r = await app.inject({
+      method,
+      url: "/api/" + url,
+      headers,
+      ...(payload === undefined ? {} : { payload }),
+    });
+    assert.equal(r.statusCode, 200, r.body);
+    return r.json();
+  }
+  const c = await call("POST", "competitions", {
+    game: "tt",
+    name: "Replacement cup",
+    kind: "knockout",
+    entries: ids.map((id) => [id]),
+    settings: { bestOf: 1, target: 11 },
+  });
+  const drawn = await call("POST", `competitions/${c.id}/draw`, {});
+  const [one, two] = drawn.fixtures.filter((f) => f.status === "ready");
+  const result = await call("POST", "games/tt/matches", {
+    fixture: one.id,
+    score: { games: [{ a: 11, b: 4 }] },
+  });
+  await call("POST", `matches/${result.id}/accept`, { revision: 1 });
+  const replacement = one.b;
+  await call("POST", `fixtures/${two.id}/no-contest`, { replacement });
+  const updated = await call("GET", `competitions/${c.id}`);
+  const final = updated.fixtures.find((f) => f.round === 2);
+  assert.equal(
+    updated.fixtures.find((f) => f.id === two.id).winner,
+    replacement,
+  );
+  assert.ok([final.a, final.b].includes(replacement));
+  assert.equal(final.status, "ready");
+});
+
+test("new signups are spectators until a site admin approves participation", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  const password = "SpectatorTestPassword!";
+  register(
+    app.db,
+    { name: "Admin", handle: "spectatoradmin" },
+    await passwordHash(password),
+    null,
+    true,
+  );
+  async function request(method, url, headers, payload) {
+    return app.inject({
+      method,
+      url: "/api/" + url,
+      headers: { "x-mimelo-request": "1", ...headers },
+      ...(payload === undefined ? {} : { payload }),
+    });
+  }
+  const signup = await request(
+    "POST",
+    "signup",
+    {},
+    { name: "New player", handle: "spectatornew", password },
+  );
+  assert.equal(signup.statusCode, 200, signup.body);
+  assert.equal(signup.json().user.approved, false);
+  const spectator = {
+    "x-csrf-token": signup.json().csrf,
+    cookie: signup.cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+  };
+  const blocked = await request("POST", "games/tt/matches", spectator, {});
+  assert.equal(blocked.statusCode, 403);
+  const login = await request(
+    "POST",
+    "login",
+    {},
+    { identity: "spectatoradmin", password },
+  );
+  const admin = {
+    "x-csrf-token": login.json().csrf,
+    cookie: login.cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+  };
+  const requests = (await request("GET", "admin/requests", admin)).json();
+  assert.equal(requests[0].kind, "participation");
+  assert.equal(
+    (
+      await request("POST", `admin/requests/${requests[0].id}`, admin, {
+        approve: true,
+      })
+    ).statusCode,
+    200,
+  );
+  const me = (await request("GET", "me", spectator)).json();
+  assert.equal(me.user.approved, true);
+});

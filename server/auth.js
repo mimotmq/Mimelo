@@ -51,6 +51,7 @@ export function publicUser(db, u) {
     handle: u.handle,
     email: u.email || "",
     site_admin: !!u.site_admin,
+    approved: !!u.approved,
     name: p.name,
     profile: json(p.profile),
     photo: p.photo,
