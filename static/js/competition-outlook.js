@@ -1,3 +1,4 @@
+import { tiebreakLabels } from "./competition-settings.js";
 const labels = {
   qualified: "Qualified",
   eliminated: "Eliminated",
@@ -58,7 +59,7 @@ export function renderCompetitionOutlook(c) {
     const box = document.createElement("section");
     box.id = "competition-extra-standings";
     box.className = "panel competition-extra-standings";
-    box.innerHTML = `<div class="panel-head"><h2>Best-placed qualifiers</h2><span class="chip">${c.settings.extraCount} advance from position ${c.settings.extraPlace}</span></div><p class="panel-body muted">Current candidates · raw points, then ${(c.settings.extraTieBreaks || []).map((key) => ({ difference: "score difference", for: "scores for", points_difference: "point difference", sets_difference: "set difference" })[key]).join(" → ")}. Unresolved boundary ties require an admin decision.</p>${UI.standingsTable(c, c.extraStandings)}`;
+    box.innerHTML = `<div class="panel-head"><h2>Best-placed qualifiers</h2><span class="chip">${c.settings.extraCount} advance from position ${c.settings.extraPlace}</span></div><p class="panel-body muted">Current candidates · raw points, then ${(c.settings.extraTieBreaks || []).map((key) => tiebreakLabels(APP.game.kind)[key]).join(" → ")}. Unresolved boundary ties require an admin decision.</p>${UI.standingsTable(c, c.extraStandings)}`;
     section.after(box);
   }
 }

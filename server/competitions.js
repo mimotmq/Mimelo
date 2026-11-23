@@ -1,3 +1,9 @@
+import {
+  validateConferences,
+  conferenceBracketSeeds,
+  conferenceSchedule,
+} from "./conferences.js";
+import { defaultTiebreaks, statCatalog } from "../static/js/standings-stats.js";
 import { assert, integer, json, organizer, audit, notify } from "./db.js";
 import { randomInt } from "node:crypto";
 import { catalogImage } from "./catalog-images.js";
@@ -68,7 +74,9 @@ export function settings(body, kind, format) {
     playoffs: !!body.playoffs,
     playoffCount: Number(body.playoffCount) || 4,
     seeding: body.seeding || "elo",
-    tieBreaks: body.tieBreaks || ["head_to_head", "difference", "for"],
+    tieBreaks: body.tieBreaks ?? defaultTiebreaks(kind),
+    tableColumns: body.tableColumns,
+    countNoContestForPct: body.countNoContestForPct === true,
     tieResolution: body.tieResolution || "admin",
     bestOf: Number(body.bestOf) || 3,
     target: Number(body.target) || 11,
@@ -94,31 +102,32 @@ export function settings(body, kind, format) {
     !s.extraCount || s.extraPlace > s.advance,
     "Extra qualifiers must come from a place below the automatic qualifiers.",
   );
+  const keys = Object.keys(statCatalog(kind));
+  const validList = (values, allowed) =>
+    Array.isArray(values) &&
+    values.every((key) => allowed.includes(key)) &&
+    new Set(values).size === values.length;
   assert(
-    Array.isArray(s.extraTieBreaks) &&
-      s.extraTieBreaks.length <= 4 &&
-      new Set(s.extraTieBreaks).size === s.extraTieBreaks.length &&
-      s.extraTieBreaks.every((k) =>
-        ["difference", "for", "points_difference", "sets_difference"].includes(
-          k,
-        ),
-      ),
+    s.tableColumns === undefined || validList(s.tableColumns, keys),
+    "Choose valid table columns.",
+  );
+  assert(
+    validList(s.extraTieBreaks, [
+      ...keys.filter((key) => key !== "points"),
+      "sets_difference",
+      "points_difference",
+    ]),
     "Choose unique cross-group tiebreaks; head-to-head cannot compare different groups.",
   );
   integer(s.playoffCount, 2, 256);
   assert(
-    Array.isArray(s.tieBreaks) &&
-      s.tieBreaks.length <= 5 &&
-      s.tieBreaks.every((x) =>
-        [
-          "head_to_head",
-          "difference",
-          "for",
-          "sets_difference",
-          "points_difference",
-        ].includes(x),
-      ) &&
-      new Set(s.tieBreaks).size === s.tieBreaks.length,
+    validList(s.tieBreaks, [
+      ...keys,
+      "points",
+      "head_to_head",
+      "sets_difference",
+      "points_difference",
+    ]),
     "Choose unique tiebreak criteria.",
   );
   assert(
@@ -470,7 +479,21 @@ export function draw(db, c, user) {
     db.prepare("UPDATE entrants SET seed=? WHERE id=?").run(i + 1, e.id),
   );
   const ids = es.map((e) => e.id);
-  if (c.kind === "league") league(db, c, ids);
+  if (c.kind === "league" && c.settings.conferenceLayout) {
+    const layout = c.settings.conferenceLayout;
+    validateConferences(layout, ids);
+    for (const f of conferenceSchedule(layout))
+      fixture(
+        db,
+        c,
+        "league",
+        "",
+        f.round,
+        `Round ${f.round} · ${f.category}`,
+        f.a,
+        f.b,
+      );
+  } else if (c.kind === "league") league(db, c, ids);
   else if (c.kind === "groups") {
     assert(
       c.settings.groupCount * 2 <= ids.length,
@@ -520,7 +543,7 @@ export function standings(
 ) {
   const fs = db
     .prepare(
-      "SELECT f.*,m.id AS match_id,m.submitted,m.played_at,m.status AS match_status,m.score,m.a_score,m.b_score,m.forfeit FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id WHERE f.competition_id=? AND f.pool=? AND f.stage IN('league','group','tiebreak')",
+      "SELECT f.*,m.id AS match_id,m.submitted,m.played_at,m.status AS match_status,m.score,m.a_score,m.b_score,m.forfeit FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided' WHERE f.competition_id=? AND f.pool=? AND f.stage IN('league','group','tiebreak')",
     )
     .all(c.id, pool)
     .filter((f) =>
@@ -544,24 +567,32 @@ export function standings(
     points: 0,
   }));
   const by = new Map(rows.map((r) => [r.entry, r]));
-  const completed = fs.filter(
-    (f) =>
-      f.status === "completed" &&
-      !f.no_contest &&
-      (!before ||
-        (f.match_status === "accepted" &&
-          ((f.played_at ?? f.submitted) <
-            (before.played_at ?? before.submitted) ||
-            ((f.played_at ?? f.submitted) ===
-              (before.played_at ?? before.submitted) &&
-              f.match_id < before.id)))),
-  );
+  const cutoff = before && (before.played_at ?? before.submitted);
+  const completed = fs.filter((f) => {
+    if (f.status !== "completed") return false;
+    if (f.no_contest)
+      return (
+        c.settings.countNoContestForPct &&
+        (!before || (f.scheduled && f.scheduled < cutoff))
+      );
+    const when = f.played_at ?? f.submitted;
+    return (
+      !before ||
+      (f.match_status === "accepted" &&
+        (when < cutoff || (when === cutoff && f.match_id < before.id)))
+    );
+  });
   for (const f of completed) {
     const a = by.get(f.a),
       b = by.get(f.b);
     if (!a || !b) continue;
     a.played++;
     b.played++;
+    if (f.no_contest) {
+      a.nc = (a.nc || 0) + 1;
+      b.nc = (b.nc || 0) + 1;
+      continue;
+    }
     if (f.winner === f.a) {
       a.w++;
       b.l++;
@@ -578,14 +609,16 @@ export function standings(
     b.against += f.a_score || 0;
     const score = json(f.score);
     for (const game of score.games || []) {
-      a.points_for += game.a;
-      a.points_against += game.b;
-      b.points_for += game.b;
-      b.points_against += game.a;
+      // A deciding tennis match tiebreak contributes one game to its winner.
+      const left = game.matchTiebreak ? Number(game.a > game.b) : game.a;
+      const right = game.matchTiebreak ? Number(game.b > game.a) : game.b;
+      a.points_for += left;
+      a.points_against += right;
+      b.points_for += right;
+      b.points_against += left;
     }
-    let diff = (score.games || []).reduce((sum, g) => sum + g.a - g.b, 0);
-    a.points_difference += diff;
-    b.points_difference -= diff;
+    a.points_difference = a.points_for - a.points_against;
+    b.points_difference = b.points_for - b.points_against;
   }
   const fc =
     db.prepare("SELECT kind FROM games WHERE slug=?").get(c.game).kind === "fc";
@@ -695,7 +728,9 @@ export function progress(db, c) {
     );
     const plan = qualificationPlan(c, tables, decisions);
     if (!plan.pending.length) {
-      const qualified = avoidGroupRematches(plan.selected, tables, c);
+      const qualified = plan.conferenceSeeds
+        ? conferenceBracketSeeds(plan.conferenceSeeds)
+        : avoidGroupRematches(plan.selected, tables, c);
       const before = Math.max(...fs.map((f) => f.id));
       bracket(db, c, qualified);
       const children = db
@@ -713,7 +748,7 @@ export function progress(db, c) {
     }
   }
   const all = db
-    .prepare("SELECT * FROM fixtures WHERE competition_id=?")
+    .prepare("SELECT * FROM fixtures WHERE competition_id=? ORDER BY id")
     .all(c.id);
   if (
     all.length &&

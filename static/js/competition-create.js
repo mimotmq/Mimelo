@@ -4,7 +4,8 @@ APP.run(async () => {
   if (!d) return;
   const pickleball =
     APP.game.kind === "pickleball" ? await import("./pickleball.js") : null;
-  const { mountTiebreakEditor } = await import("./competition-settings.js");
+  const { mountTiebreakEditor, mountColumnEditor } =
+    await import("./competition-settings.js");
   let selected = new Map(),
     order = [],
     seeds = new Map(),
@@ -111,6 +112,10 @@ APP.run(async () => {
     "smash",
     "pickleball",
   ].includes(APP.game.kind);
+  $("#comp-league-options").insertAdjacentHTML(
+    "beforeend",
+    '<p class="hint">For conferences, divisions and crossover games, choose Conferences and schedule on the league page before generating the draw.</p>',
+  );
   schedule.append(
     $("#comp-group-options"),
     $("#comp-league-options"),
@@ -173,6 +178,12 @@ APP.run(async () => {
   );
   moveField("#field-enrollment", signup);
   moveField("#field-deadline", signup);
+  const columnRoot = document.createElement("div");
+  standings.append(columnRoot);
+  const columns = mountColumnEditor(columnRoot, {
+    game: APP.slug,
+    settings: {},
+  });
   const tieRoot = document.createElement("div");
   standings.append(tieRoot);
   const tieEditor = mountTiebreakEditor(tieRoot, { kind: APP.game.kind });
@@ -480,6 +491,7 @@ APP.run(async () => {
           matchTiebreak:
             $("#field-competition-format").value === "doubles" &&
             !!$("#competition-match-tb")?.checked,
+          tableColumns: columns.read(),
           tieBreaks: tieEditor.read(),
           tieResolution: $("#field-tie-resolution").value,
         },

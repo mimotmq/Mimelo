@@ -1,16 +1,27 @@
+import { lowerIsBetter } from "../static/js/standings-stats.js";
+export const orderedCriteria = (criteria) =>
+  criteria.includes("points") ? criteria : ["points", ...criteria];
+function compareStat(a, b, key) {
+  return lowerIsBetter(key) ? a[key] - b[key] : b[key] - a[key];
+}
 export function rankTable(rows, fixtures, criteria, football, random = null) {
   const by = new Map(rows.map((r) => [r.entry, r]));
   for (const row of rows) {
     row.points = football ? row.w * 3 + row.d : row.w;
+    row.pct = row.played
+      ? (row.w + (row.d + (row.nc || 0)) / 2) / row.played
+      : 0;
     row.difference = row.for - row.against;
     row.sets_difference = row.difference;
     row.head_to_head = 0;
   }
-  for (const f of fixtures) {
+  const order = orderedCriteria(criteria);
+  const beforeH2H = order.slice(0, order.indexOf("head_to_head"));
+  for (const f of order.includes("head_to_head") ? fixtures : []) {
     if (f.no_contest) continue;
     const a = by.get(f.a),
       b = by.get(f.b);
-    if (!a || !b || a.points !== b.points) continue;
+    if (!a || !b || beforeH2H.some((key) => a[key] !== b[key])) continue;
     if (f.winner === a.entry) a.head_to_head += football ? 3 : 1;
     else if (f.winner === b.entry) b.head_to_head += football ? 3 : 1;
     else if (football) {
@@ -19,8 +30,8 @@ export function rankTable(rows, fixtures, criteria, football, random = null) {
     }
   }
   const compare = (a, b) => {
-    for (const key of ["points", ...criteria])
-      if (a[key] !== b[key]) return b[key] - a[key];
+    for (const key of order)
+      if (a[key] !== b[key]) return compareStat(a, b, key);
     return 0;
   };
   // Resolve otherwise identical projected rows without favouring an entry ID.
@@ -59,7 +70,7 @@ export function boundary(rows, count, pool, decisions = {}) {
 export function crossGroupTable(tables, settings, random = null) {
   const compare = (a, b) => {
     for (const key of ["points", ...settings.extraTieBreaks])
-      if (a[key] !== b[key]) return b[key] - a[key];
+      if (a[key] !== b[key]) return compareStat(a, b, key);
     return 0;
   };
   const rows = [...tables],
@@ -76,7 +87,63 @@ export function crossGroupTable(tables, settings, random = null) {
     tiedWithPrevious: i > 0 && compare(rows[i - 1], r) === 0,
   }));
 }
+function conferencePlan(c, rows, decisions) {
+  const pending = [],
+    seeds = [];
+  // Keep the ordering the standings engine computed, rebuilding ties after subsetting.
+  const subset = (ids) => {
+    const chosen = rows.filter((row) => ids.includes(row.entry));
+    return chosen.map((r, i) => ({
+      ...r,
+      position: i + 1,
+      tiedWithPrevious:
+        i > 0 &&
+        r.tiedWithPrevious &&
+        rows
+          .slice(rows.indexOf(chosen[i - 1]) + 1, rows.indexOf(r) + 1)
+          .every((x) => x.tiedWithPrevious),
+    }));
+  };
+  function choose(ids, count, key, label) {
+    const ranked = subset(ids);
+    const decision = boundary(ranked, count, key, decisions);
+    if (decision.pending) pending.push({ ...decision.pending, label });
+    return decision.selected;
+  }
+  for (const [i, conf] of c.settings.conferenceLayout.conferences.entries()) {
+    const winners = conf.divisions.flatMap((div, j) =>
+      choose(
+        div.entries,
+        1,
+        `@division-${i}-${j}`,
+        conf.name + " · " + div.name + " winner",
+      ),
+    );
+    const ids = conf.divisions.flatMap((div) => div.entries);
+    const wildcardCount = c.settings.conferenceLayout.wildcards;
+    const extras =
+      wildcardCount && winners.length === conf.divisions.length
+        ? choose(
+            ids.filter((id) => !winners.includes(id)),
+            wildcardCount,
+            `@wildcards-${i}`,
+            conf.name + " wild cards",
+          )
+        : [];
+    seeds.push([...subset(winners), ...subset(extras)].map((r) => r.entry));
+  }
+  return {
+    direct: seeds.flat(),
+    extra: [],
+    extraTable: [],
+    pending,
+    selected: seeds.flat(),
+    conferenceSeeds: seeds,
+  };
+}
 export function qualificationPlan(c, tables, decisions = {}) {
+  if (c.kind === "league" && c.settings.conferenceLayout && tables[""]?.length)
+    return conferencePlan(c, tables[""], decisions);
   const direct = [],
     pending = [],
     candidates = [];

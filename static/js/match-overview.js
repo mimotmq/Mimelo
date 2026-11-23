@@ -35,7 +35,15 @@ export function renderMatchOverview(
   const standings = context.competition?.standings
     .map(
       ({ pool, rows }) =>
-        `<section class="match-standings-table">${pool ? `<h4>Group ${esc(pool)}</h4>` : ""}<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>P</th><th>W</th>${context.kind === "fc" ? "<th>D</th>" : ""}<th>L</th>${context.kind === "fc" ? "<th>Pts</th>" : ""}</tr></thead><tbody>${rows.map((row) => `<tr${row.players.some((player) => match.participants.some((p) => p.id === player.id)) ? ' class="match-standings-highlight"' : ""}><td>${row.position}</td><td>${row.players.map((player) => esc(player.name)).join(" + ")}</td><td>${row.played}</td><td>${row.w}</td>${context.kind === "fc" ? `<td>${row.d}</td>` : ""}<td>${row.l}</td>${context.kind === "fc" ? `<td>${row.points}</td>` : ""}</tr>`).join("")}</tbody></table></div></section>`,
+        `<section class="match-standings-table">${pool ? `<h4>Group ${esc(pool)}</h4>` : ""}${UI.standingsTable(
+          {
+            game: match.game,
+            format: match.format,
+            settings: { tableColumns: context.competition.tableColumns },
+          },
+          rows,
+          match.participants.map((p) => p.id),
+        )}</section>`,
     )
     .join("");
   const competition = context.competition;

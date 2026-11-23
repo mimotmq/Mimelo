@@ -338,35 +338,6 @@ a.fixture-match {
     padding: 15px 16px;
   }
 }
-@media (max-width: 700px) {
-  .table-tennis-standings table {
-    min-width: 620px;
-  }
-  .table-tennis-standings .standings-wdl,
-  .table-tennis-standings .standings-scores,
-  .table-tennis-standings .standings-points-score {
-    display: table-cell;
-  }
-  .table-tennis-standings .standings-player {
-    min-width: 160px;
-  }
-  .table-tennis-standings .standings-pct {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-}
-.standings-scroll-hint {
-  display: none;
-}
-@media (max-width: 700px) {
-  .standings-scroll-hint {
-    display: block;
-    margin: 0;
-    padding: 0 12px 8px;
-    color: var(--muted);
-    font-size: 0.75rem;
-  }
-}
 .fixture-games {
   grid-column: 1 / -1;
   text-align: center;
@@ -374,30 +345,81 @@ a.fixture-match {
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
+.stat-table {
+  overflow-x: auto;
+}
+.stat-table table {
+  table-layout: auto;
+  min-width: 100%;
+  width: max-content;
+}
+.stat-table [data-stat] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding-inline: clamp(8px, 1.4vw, 20px);
+}
+.stat-table [data-stat$="difference"] {
+  font-weight: 700;
+}
+.stat-table .standings-player {
+  width: auto;
+  min-width: 150px;
+}
+.standings-column-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-block: 10px 16px;
+}
+.standings-column-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+}
+.standings-table-editor {
+  min-width: 0;
+}
+.standings-table-editor .stat-table {
+  max-width: 100%;
+}
+.standings-table-editor summary {
+  cursor: pointer;
+}
+
+.standings-customize-dialog {
+  width: min(920px, calc(100vw - 24px));
+  max-width: 100%;
+}
+.standings-column-options input {
+  accent-color: var(--accent);
+}
 @media (max-width: 700px) {
-  .table-tennis-standings table {
-    table-layout: fixed;
-    width: 680px;
+  .stat-table .standings-player {
+    min-width: 115px;
   }
-  .table-tennis-standings .standings-rank {
-    width: 28px;
+  .stat-table [data-stat] {
+    padding-inline: 9px;
   }
-  .table-tennis-standings .standings-player {
-    width: 165px;
-    min-width: 165px;
+}
+@media (max-width: 700px) {
+  .stat-table .standings-player {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--surface);
   }
-  .table-tennis-standings .standings-played,
-  .table-tennis-standings .standings-wdl {
-    width: 42px;
+  .stat-table
+    tr:is(
+      [data-progress="qualified"],
+      [data-progress="champion"],
+      [data-group-winner="true"]
+    )
+    .standings-player {
+    background: color-mix(in srgb, var(--success) 8%, var(--surface));
   }
-  .table-tennis-standings .standings-pct {
-    width: 80px;
-  }
-  .table-tennis-standings .standings-points-score,
-  .table-tennis-standings .standings-scores {
-    width: 88px;
-  }
-  .table-tennis-standings .standings-difference {
-    width: 60px;
+  .stat-table tr[data-progress="eliminated"] .standings-player {
+    background: color-mix(in srgb, var(--danger) 7%, var(--surface));
   }
 }

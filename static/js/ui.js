@@ -790,10 +790,8 @@
         }),
     );
   }
-  function standingsTable(c, rows) {
+  function standingsTable(c, rows, highlight = []) {
     const kind = APP.games.find((g) => g.slug === c.game)?.kind;
-    const fc = kind === "fc";
-    const tableTennis = kind === "tt";
     const progress = (row) => {
       const state = c.projection?.rows.find((item) => item.entry === row.entry);
       if (c.kind === "league" && !c.settings.playoffs) {
@@ -808,7 +806,30 @@
         ? `<span class="progression-badges">${state.status !== "contending" ? `<span class="progression-badge" data-status="${state.status}">${{ qualified: "Qualified", eliminated: "Eliminated", champion: "Champion" }[state.status]}</span>` : ""}${state.group_winner ? '<span class="progression-badge" data-status="winner">Group winner</span>' : ""}</span>`
         : "";
     };
-    return `${tableTennis ? '<p class="standings-scroll-hint">Swipe to see all statistics</p>' : ""}<div class="table-wrap competition-standings-table${tableTennis ? " table-tennis-standings" : ""}"><table><thead><tr><th class="standings-rank">#</th><th class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th><th class="standings-played">P</th>${tableTennis ? '<th class="standings-pct" title="Win percentage">Win %</th>' : ""}<th class="standings-wdl">W</th>${fc ? '<th class="standings-wdl">D</th>' : ""}<th class="standings-wdl">L</th>${tableTennis ? '<th class="standings-points-score" title="Points scored and conceded">Points</th>' : ""}<th class="standings-scores">${fc ? "Goals" : "Games / sets"}</th><th class="standings-difference" title="${fc ? "Goal difference" : "Game / set difference"}">${fc ? "GD" : "Diff"}</th>${fc ? '<th class="standings-points">Pts</th>' : ""}</tr></thead><tbody>${rows.map((row) => `<tr${progress(row) ? ` data-progress="${progress(row).status}" data-group-winner="${progress(row).group_winner && progress(row).status !== "eliminated"}"` : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}${row.players.map((p) => playerLink(p)).join(" + ")}${badge(row)}</td><td class="standings-played">${row.played}</td>${tableTennis ? `<td class="standings-pct">${row.played ? ((100 * row.w) / row.played).toFixed(1) + "%" : "—"}</td>` : ""}<td class="standings-wdl">${row.w}</td>${fc ? `<td class="standings-wdl">${row.d}</td>` : ""}<td class="standings-wdl">${row.l}</td>${tableTennis ? `<td class="standings-points-score">${row.points_for ?? 0}–${row.points_against ?? 0}</td>` : ""}<td class="standings-scores">${row.for}–${row.against}</td><td class="standings-difference">${row.difference > 0 ? "+" : ""}${row.difference}</td>${fc ? `<td class="standings-points">${row.points}</td>` : ""}</tr>`).join("")}</tbody></table></div>`;
+    const { statCatalog, defaultColumns, statText } = UI.standingsStats;
+    const catalog = statCatalog(kind);
+    const columns = (c.settings?.tableColumns || defaultColumns(kind)).filter(
+      (key) => catalog[key],
+    );
+    const headings = columns
+      .map((key) => {
+        const [label, title] = catalog[key];
+        return `<th scope="col" data-stat="${key}" title="${title}" aria-label="${title}">${label}</th>`;
+      })
+      .join("");
+    const body = rows
+      .map((row) => {
+        const state = progress(row);
+        const attrs = state
+          ? ` data-progress="${state.status}" data-group-winner="${state.group_winner && state.status !== "eliminated"}"`
+          : "";
+        const cells = columns
+          .map((key) => `<td data-stat="${key}">${statText(row, key)}</td>`)
+          .join("");
+        return `<tr${attrs}${row.players.some((p) => highlight.includes(p.id)) ? ' class="match-standings-highlight"' : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}${row.players.map((p) => (p.id || p.player_id ? playerLink(p) : esc(p.name))).join(" + ")}${badge(row)}</td>${cells}</tr>`;
+      })
+      .join("");
+    return `<div class="table-wrap competition-standings-table stat-table"><table><thead><tr><th scope="col" class="standings-rank">#</th><th scope="col" class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th>${headings}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
 
   window.UI = {
@@ -846,6 +867,7 @@
     standingsTable,
   };
   APP.shell = Promise.all([APP.ready, APP.dom]).then(async () => {
+    UI.standingsStats = await import("./standings-stats.js");
     // All runtime deviations correspond to explicit requirements; original HTML/CSS remain unchanged.
     const appearance = document.createElement("link");
     appearance.rel = "stylesheet";

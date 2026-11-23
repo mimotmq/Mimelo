@@ -1,5 +1,8 @@
+import { conferenceBracketSeeds } from "./conferences.js";
+import { lowerIsBetter } from "../static/js/standings-stats.js";
 import {
   rankTable,
+  orderedCriteria,
   crossGroupTable,
   qualificationPlan,
 } from "./competition-table.js";
@@ -39,7 +42,7 @@ function addResult(rows, f, football) {
   const by = (rows._by ||= new Map(rows.map((r) => [r.entry, r])));
   const a = by.get(f.a),
     b = by.get(f.b);
-  if (!a || !b) return;
+  if (!a || !b || f.no_contest) return;
   a.played++;
   b.played++;
   if (f.winner === a.entry) {
@@ -56,8 +59,16 @@ function addResult(rows, f, football) {
   b.against += f.a_score;
   b.for += f.b_score;
   a.against += f.b_score;
-  a.points_difference += f.points_difference || 0;
-  b.points_difference -= f.points_difference || 0;
+  const left =
+    f.points_for ?? f.score?.games?.reduce((n, g) => n + g.a, 0) ?? 0;
+  const right =
+    f.points_against ?? f.score?.games?.reduce((n, g) => n + g.b, 0) ?? 0;
+  a.points_for = (a.points_for || 0) + left;
+  a.points_against = (a.points_against || 0) + right;
+  b.points_for = (b.points_for || 0) + right;
+  b.points_against = (b.points_against || 0) + left;
+  a.points_difference += left - right;
+  b.points_difference += right - left;
 }
 function sampleFixture(f, ratings, football, drawRate, random, c) {
   if (!f.a || !f.b)
@@ -75,6 +86,10 @@ function sampleFixture(f, ratings, football, drawRate, random, c) {
   const winning = football
     ? Math.min(99, losing + margin)
     : Math.ceil(c.settings.bestOf / 2);
+  const scoreGap = 1 + Math.floor(random() * 15);
+  const common = football
+    ? losing
+    : (winning + losing) * (c.settings.target || 3);
   return {
     ...f,
     status: "completed",
@@ -82,8 +97,8 @@ function sampleFixture(f, ratings, football, drawRate, random, c) {
     loser: winner === f.a ? f.b : winner === f.b ? f.a : null,
     a_score: !winner ? losing : winner === f.a ? winning : losing,
     b_score: !winner ? losing : winner === f.b ? winning : losing,
-    points_difference:
-      (winner === f.a ? 1 : -1) * (1 + Math.floor(random() * 15)),
+    points_for: common + (winner === f.a ? scoreGap : 0),
+    points_against: common + (winner === f.b ? scoreGap : 0),
   };
 }
 function hypotheticalBracket(ids, tables, c) {
@@ -223,7 +238,8 @@ function simulate(c, ratings, football, drawRate, random) {
       football,
       random,
     );
-  let selected = [];
+  let selected = [],
+    conferenceSeeds;
   if (c.kind !== "knockout") {
     // Simulated equal rows use fair lots; actual qualification remains pending.
     const loose = Object.fromEntries(
@@ -291,6 +307,7 @@ function simulate(c, ratings, football, drawRate, random) {
       }
     const plan = qualificationPlan(c, loose, simulatedDecisions);
     selected = plan.direct;
+    conferenceSeeds = plan.conferenceSeeds;
     if (effectiveExtra(c)) {
       const cross = crossGroupTable(
         plan.extraTable,
@@ -308,7 +325,12 @@ function simulate(c, ratings, football, drawRate, random) {
   if (c.kind === "league" && !c.settings.playoffs)
     return { champion: c.champion || selected[0], selected: [], next: [] };
   let fs = c.fixtures.filter(knockout);
-  if (!fs.length) fs = hypotheticalBracket(selected, tables, c);
+  if (!fs.length)
+    fs = hypotheticalBracket(
+      conferenceSeeds ? conferenceBracketSeeds(conferenceSeeds) : selected,
+      tables,
+      c,
+    );
   const resolved = new Map(),
     first = new Set(),
     next = [];
@@ -372,6 +394,7 @@ function proofGroup(c, rows, fixtures, football) {
       },
     ]),
   );
+  const order = orderedCriteria(c.settings.tieBreaks);
   if (remaining.length > 8) {
     for (const r of rows) {
       const count = remaining.filter(
@@ -391,8 +414,8 @@ function proofGroup(c, rows, fixtures, football) {
             min,
       ).length;
       limits.set(r.entry, {
-        min: 1 + above,
-        max: n - below,
+        min: order[0] === "points" ? 1 + above : 1,
+        max: order[0] === "points" ? n - below : n,
         minPoints: min,
         maxPoints: max,
         extraMin: min,
@@ -409,24 +432,27 @@ function proofGroup(c, rows, fixtures, football) {
       {
         difference: [r.difference, r.difference],
         for: [r.for, r.for],
+        against: [r.against, r.against],
+        points_for: [r.points_for ?? 0, r.points_for ?? 0],
+        points_against: [r.points_against ?? 0, r.points_against ?? 0],
         sets_difference: [r.sets_difference, r.sets_difference],
         points_difference: [r.points_difference, r.points_difference],
       },
     ]),
   );
   function compare(a, b) {
-    if (a.points !== b.points) return a.points > b.points ? 1 : -1;
-    for (const key of c.settings.tieBreaks) {
-      const x =
-          key === "head_to_head"
-            ? [a.head_to_head, a.head_to_head]
-            : bounds.get(a.entry)[key],
-        y =
-          key === "head_to_head"
-            ? [b.head_to_head, b.head_to_head]
-            : bounds.get(b.entry)[key];
-      if (x[0] > y[1]) return 1;
-      if (x[1] < y[0]) return -1;
+    for (const key of order) {
+      const x = bounds.get(a.entry)[key] ?? [a[key], a[key]];
+      const y = bounds.get(b.entry)[key] ?? [b[key], b[key]];
+      const direction = lowerIsBetter(key) ? -1 : 1;
+      if (
+        key === "head_to_head" &&
+        remaining.length &&
+        order.slice(0, order.indexOf(key)).some((k) => bounds.get(a.entry)[k])
+      )
+        return 0;
+      if (x[0] > y[1]) return direction;
+      if (x[1] < y[0]) return -direction;
       if (x[0] !== x[1] || y[0] !== y[1] || x[0] !== y[0]) return 0;
     }
     return 0;
@@ -469,6 +495,8 @@ function proofGroup(c, rows, fixtures, football) {
           structuredClone(bounds.get(a.entry)),
           structuredClone(bounds.get(b.entry)),
         ];
+      a.played++;
+      b.played++;
       if (winner === a.entry) {
         a.w++;
         b.l++;
@@ -489,6 +517,9 @@ function proofGroup(c, rows, fixtures, football) {
         }
         // Forfeits can award the win without a score margin or scores for.
         bound.for[1] += football ? 99 : max;
+        bound.against[1] += football ? 99 : max;
+        bound.points_for[1] += 1000000000;
+        bound.points_against[1] += 1000000000;
         bound.points_difference[0] -= 1000000000;
         bound.points_difference[1] += 1000000000;
       }
@@ -632,6 +663,32 @@ export function competitionForecast(
       } else if (effectiveExtra(c) && !through) {
         // An entrant can still alternate between a direct and extra berth.
         out = false;
+      }
+      if (c.settings.conferenceLayout) {
+        // Overall rank alone cannot clinch a division championship or a conference wild card.
+        const conf = c.settings.conferenceLayout.conferences.find((conf) =>
+          conf.divisions.some((div) => div.entries.includes(row.entry)),
+        );
+        const div = conf.divisions.find((div) =>
+          div.entries.includes(row.entry),
+        );
+        const rivals = div.entries.filter((id) => id !== row.entry);
+        const other = conf.divisions
+          .flatMap((d) => d.entries)
+          .filter((id) => id !== row.entry);
+        through =
+          rivals.every((id) => proofs.get(id).maxPoints < proof.minPoints) ||
+          other.filter((id) => proofs.get(id).maxPoints >= proof.minPoints)
+            .length < c.settings.conferenceLayout.wildcards;
+        out =
+          rivals.some((id) => proofs.get(id).minPoints > proof.maxPoints) &&
+          other.filter((id) => proofs.get(id).minPoints > proof.maxPoints)
+            .length >=
+            conf.divisions.length + c.settings.conferenceLayout.wildcards;
+        if (orderedCriteria(c.settings.tieBreaks)[0] !== "points") {
+          through = false;
+          out = false;
+        }
       }
       if (prelimDone && !plan.pending.length) {
         through = qualified.has(row.entry);

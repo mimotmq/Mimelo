@@ -1,7 +1,7 @@
 APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     id = Number(APP.params.get("id"));
-  const { mountTiebreakEditor, tiebreakLabels } =
+  const { mountTiebreakEditor, mountColumnEditor, tiebreakLabels } =
     await import("./competition-settings.js");
   const { renderBracket, fixtureScoreText } =
     await import("./competition-bracket.js");
@@ -120,7 +120,12 @@ APP.run(async () => {
     }
     text("#crumb-game", APP.game.name);
     text("#table-heading", c.name + " standings");
-    text("#table-sub", "Accepted results · organizer-selected tiebreak rules");
+    text(
+      "#table-sub",
+      c.settings.countNoContestForPct
+        ? "A no contest counts as played and half a win for PCT. It awards no win, loss or Elo."
+        : "Accepted results · organizer-selected tiebreak rules",
+    );
     text("#table-chip", c.format);
     text("#fixtures-sub", "Scheduled fixtures and accepted results");
     $("#ct-bracket").hidden = c.kind === "league" && !c.settings.playoffs;
@@ -146,6 +151,91 @@ APP.run(async () => {
           ? "This competition is decided by the bracket."
           : "Standings appear when the draw is generated.",
       );
+    if (c.settings.conferenceLayout && c.standings[""]?.length) {
+      const wrap = $("#comp-table-wrap");
+      const views = [["Overall", c.standings[""]]];
+      for (const conf of c.settings.conferenceLayout.conferences) {
+        const all = conf.divisions.flatMap((d) => d.entries);
+        views.push([
+          conf.name,
+          c.standings[""].filter((r) => all.includes(r.entry)),
+        ]);
+        for (const div of conf.divisions)
+          views.push([
+            conf.name + " · " + div.name,
+            c.standings[""].filter((r) => div.entries.includes(r.entry)),
+          ]);
+      }
+      wrap.innerHTML =
+        select(
+          "Standings",
+          "division-table",
+          views.map(([label], i) => [i, label]),
+          0,
+        ) + "<div data-division-table></div>";
+      const chooser = $("#field-division-table", wrap);
+      chooser.onchange = () => {
+        const rows = views[Number(chooser.value)][1].map((row, i) => ({
+          ...row,
+          position: i + 1,
+        }));
+        $("[data-division-table]", wrap).innerHTML = UI.standingsTable(c, rows);
+      };
+      chooser.onchange();
+    }
+    if (c.canManage && c.kind !== "knockout") {
+      const wrap = $("#comp-table-wrap");
+      wrap.insertAdjacentHTML(
+        "afterbegin",
+        button("Customize table", "table-settings"),
+      );
+      $('[data-action="table-settings"]', wrap).onclick = () => {
+        const canRank =
+          ["registration", "closed"].includes(c.state) ||
+          (c.kind === "league" &&
+            !c.settings.playoffs &&
+            !c.settings.tieRounds?.length &&
+            !Object.keys(c.qualifications || {}).length);
+        let columns, ranking;
+        const dialog = UI.formDialog(
+          "Customize standings",
+          "<div data-columns></div>" +
+            (canRank
+              ? '<div data-order></div><label class="check"><input type="checkbox" name="countNoContest" ' +
+                (c.settings.countNoContestForPct ? "checked" : "") +
+                ">Count a no contest as played and half a win for PCT only</label>"
+              : ""),
+          async (data) => {
+            await APP.api(
+              "competitions/" + id + "/table",
+              {
+                tableColumns: columns.read(),
+                ...(ranking
+                  ? {
+                      tieBreaks: ranking.read(),
+                      countNoContestForPct: data.has("countNoContest"),
+                    }
+                  : {}),
+              },
+              "PATCH",
+            );
+            await load();
+          },
+        );
+        dialog.classList.add("standings-customize-dialog");
+        columns = mountColumnEditor(
+          $("[data-columns]", dialog),
+          c,
+          Object.values(c.standings)[0],
+        );
+        $("details", dialog).open = true;
+        if (canRank)
+          ranking = mountTiebreakEditor($("[data-order]", dialog), {
+            kind: APP.game.kind,
+            values: c.settings.tieBreaks,
+          });
+      };
+    }
     let fixtureGroups = $("#fixture-groups");
     if (!fixtureGroups) {
       fixtureGroups = document.createElement("div");
@@ -205,7 +295,7 @@ APP.run(async () => {
               : f.status === "ready"
                 ? `<a class="fixture-match" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">${content}</a>`
                 : `<div class="fixture-match">${content}</div>`;
-            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span><span>${time ? esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })) : "Time not set"}</span>${f.no_contest ? "<span>No contest</span>" : ""}${c.canManage && ["ready", "waiting"].includes(f.status) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
+            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span><span>${time ? esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })) : "Time not set"}</span>${f.no_contest ? "<span>No contest</span>" : ""}${c.canManage && (["ready", "waiting"].includes(f.status) || f.no_contest) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
           })
           .join("")}</div>
       </details>`,
@@ -218,7 +308,19 @@ APP.run(async () => {
         if (b.dataset.action === "schedule")
           UI.formDialog(
             "Schedule fixture",
-            field("Date and time (local)", "scheduled", "", "datetime-local"),
+            field(
+              "Date and time (local)",
+              "scheduled",
+              f.scheduled
+                ? new Date(
+                    f.scheduled -
+                      new Date(f.scheduled).getTimezoneOffset() * 60000,
+                  )
+                    .toISOString()
+                    .slice(0, 16)
+                : "",
+              "datetime-local",
+            ),
             async (data) => {
               await APP.api(
                 "fixtures/" + f.id + "/schedule",
@@ -330,6 +432,12 @@ APP.run(async () => {
     if (c.kind === "groups" && c.settings.extraCount)
       $("#rules-points-copy").textContent +=
         ` Top ${c.settings.advance} per group advance, plus the best ${c.settings.extraCount} from finishing position ${c.settings.extraPlace}. Cross-group comparison: points → ${(c.settings.extraTieBreaks || []).map((key) => tiebreakLabels(APP.game.kind)[key]).join(" → ")}. Raw points are used even for unequal groups. Unresolved cross-group ties require an admin decision. First knockout round avoids same-group opponents.`;
+    if (c.settings.conferenceLayout) {
+      const { games, wildcards } = c.settings.conferenceLayout;
+      $("#rules-points-copy").append(
+        ` Each entrant plays ${games.division} division, ${games.conference} other conference and ${games.cross} interconference games. Each division winner and ${wildcards} wild cards per conference advance. Conference champions meet in the final.`,
+      );
+    }
     text(
       "#rules-elo-copy",
       "Admin checkoff is required for Elo. Competition weights: " +
@@ -360,6 +468,17 @@ APP.run(async () => {
         c.enrollment !== "selected";
     panel.innerHTML = `<div class="panel-head"><h2>${mutable ? "Entrants & registration" : "Competition entrants"}</h2><span class="chip">${UI.count(c.entries.length, "entry", "entries")}</span></div><div class="panel-body"><div class="form-actions">${open && !userEntry() ? button("Register", "register") : ""}${c.canManage && mutable ? button("Add entrants", "add-entry") + button("Edit rules", "rules") + button("Set seeds", "seeds") + (c.state === "registration" ? button("Close registration", "close") : "") + button("Generate draw", "draw") : ""}</div><div class="table-wrap"><table><thead><tr><th>Seed</th><th>Entrant</th><th>Action</th></tr></thead><tbody>${c.entries.map((e) => `<tr><td>${e.seed || "—"}</td><td>${esc(name(e.id))}${c.format === "doubles" && e.players.length === 1 ? " · awaiting partner" : ""}</td><td>${mutable && (c.canManage || e.players.some((p) => p.id === APP.me?.player_id)) ? button("Withdraw", "withdraw", `data-entry="${e.id}"`) : ""}</td></tr>`).join("") || '<tr><td colspan="3">No entries yet.</td></tr>'}</tbody></table></div>${c.canManage && mutable && c.format === "doubles" ? button("Pair individual entries", "pair") : ""}</div>`;
     panel.classList.toggle("competition-entrants-compact", !mutable);
+    if (c.canManage && mutable && c.kind === "league") {
+      const form = $(".form-actions", panel);
+      form.insertAdjacentHTML(
+        "beforeend",
+        button("Conferences and schedule", "conferences"),
+      );
+      $('[data-action="conferences"]', form).onclick = async () => {
+        const { configureConferences } = await import("./conference-setup.js");
+        configureConferences(c, load);
+      };
+    }
     if (!mutable) {
       const table = $(".table-wrap", panel);
       const details = document.createElement("details");

@@ -102,15 +102,16 @@ test("compact tournament setup and editing save ordered tiebreak rules without d
       const ties = dialog.locator(
         ".competition-tiebreaks:not([data-cross-group])",
       );
-      const difference =
-        game === "eafc27"
-          ? "Goal difference"
-          : game === "tennis"
-            ? "Set difference"
-            : "Game difference";
-      await ties
-        .getByRole("button", { name: `Move ${difference} up`, exact: true })
-        .click();
+      // Start with an explicit custom order, independently of each sport's defaults.
+      while (await ties.locator("[data-remove]").count())
+        await ties.locator("[data-remove]").first().click();
+      for (const key of ["head_to_head", "difference", "for"]) {
+        await ties
+          .getByRole("button", { name: "Add tiebreak", exact: true })
+          .click();
+        await ties.locator("select").last().selectOption(key);
+      }
+      await ties.locator('[data-move="-1"][data-index="1"]').click();
       await ties
         .getByRole("button", { name: "Remove Head-to-head", exact: true })
         .click();

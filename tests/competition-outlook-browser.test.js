@@ -153,9 +153,13 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
       await page
         .locator("#comp-table-wrap .table-wrap")
         .evaluateAll((els) =>
-          els.every((el) => el.scrollWidth <= el.clientWidth + 1),
+          els.every(
+            (el) =>
+              el.scrollWidth <= el.clientWidth + 1 ||
+              (innerWidth <= 700 && getComputedStyle(el).overflowX === "auto"),
+          ),
         ),
-      "Standings show the essential columns without horizontal scrolling",
+      "Standings fit desktop and keep all selected statistics reachable on mobile",
     );
     await outlook.screenshot({
       path: `artifacts/competition-outlook-${width}.png`,

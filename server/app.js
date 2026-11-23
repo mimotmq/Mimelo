@@ -1,3 +1,4 @@
+import { validateConferences, conferenceSchedule } from "./conferences.js";
 import { createHash } from "node:crypto";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
@@ -981,6 +982,14 @@ export async function createApp(options = {}) {
             c.format,
           ),
           weights: c.settings.weights,
+          ...(c.kind === "league" && c.settings.conferenceLayout
+            ? {
+                conferenceLayout: c.settings.conferenceLayout,
+                playoffs: true,
+                elimination: "single",
+                playoffCount: c.settings.playoffCount,
+              }
+            : {}),
         };
         db.prepare("UPDATE competitions SET settings=? WHERE id=?").run(
           JSON.stringify(s),
@@ -999,6 +1008,101 @@ export async function createApp(options = {}) {
       return serializeCompetition(db, getCompetition(db, c.id));
     });
   });
+  app.patch("/api/competitions/:id/conferences", async (req) =>
+    tx(() => {
+      const user = signed(req),
+        c = getCompetition(db, req.params.id);
+      assert(organizer(db, user, c), "Organizer access required.", 403);
+      assert(
+        c.kind === "league" && ["registration", "closed"].includes(c.state),
+        "Configure conferences before generating a league draw.",
+        409,
+      );
+      const layout = req.body.layout;
+      if (layout !== null) {
+        validateConferences(
+          layout,
+          entries(db, c.id)
+            .filter((e) => !e.withdrawn)
+            .map((e) => e.id),
+        );
+        conferenceSchedule(layout);
+        c.settings.playoffs = true;
+        c.settings.elimination = "single";
+        c.settings.playoffCount = layout.conferences.reduce(
+          (n, conf) => n + conf.divisions.length + layout.wildcards,
+          0,
+        );
+      }
+      c.settings.conferenceLayout = layout;
+      db.prepare("UPDATE competitions SET settings=? WHERE id=?").run(
+        JSON.stringify(c.settings),
+        c.id,
+      );
+      audit(db, user, "competition.conferences", c.id);
+      return { ok: true };
+    }),
+  );
+  app.patch("/api/competitions/:id/table", async (req) =>
+    tx(() => {
+      const user = signed(req),
+        c = getCompetition(db, req.params.id);
+      assert(organizer(db, user, c), "Organizer access required.", 403);
+      assert(c.kind !== "knockout", "This competition has no standings table.");
+      const { tableColumns, tieBreaks, countNoContestForPct } = req.body;
+      const next = {
+        ...c.settings,
+        ...(tableColumns === undefined ? {} : { tableColumns }),
+      };
+      const rulesChanged =
+        (tieBreaks !== undefined &&
+          JSON.stringify(tieBreaks) !== JSON.stringify(c.settings.tieBreaks)) ||
+        (countNoContestForPct !== undefined &&
+          countNoContestForPct !== !!c.settings.countNoContestForPct);
+      if (rulesChanged) {
+        const beforeDraw = ["registration", "closed"].includes(c.state);
+        assert(
+          beforeDraw ||
+            (c.kind === "league" &&
+              !c.settings.playoffs &&
+              !c.settings.tieRounds?.length &&
+              !db
+                .prepare("SELECT 1 FROM qualifications WHERE competition_id=?")
+                .get(c.id)),
+          "Qualification rules are locked after the draw.",
+          409,
+        );
+        if (tieBreaks !== undefined) next.tieBreaks = tieBreaks;
+        if (countNoContestForPct !== undefined) {
+          assert(
+            typeof countNoContestForPct === "boolean",
+            "Invalid no-contest setting.",
+          );
+          next.countNoContestForPct = countNoContestForPct;
+        }
+      }
+      settings(next, game(c.game).kind, c.format);
+      db.prepare("UPDATE competitions SET settings=? WHERE id=?").run(
+        JSON.stringify(next),
+        c.id,
+      );
+      if (rulesChanged && c.state === "completed") {
+        const rows = standings(db, { ...c, settings: next });
+        assert(
+          rows.length && !rows[1]?.tiedWithPrevious,
+          "These rules leave the championship tied.",
+          409,
+        );
+        db.prepare("UPDATE competitions SET champion=? WHERE id=?").run(
+          rows[0].entry,
+          c.id,
+        );
+      } else if (rulesChanged && c.state === "active")
+        progress(db, { ...c, settings: next });
+      audit(db, user, "competition.table", c.id);
+      return { ok: true };
+    }),
+  );
   app.post("/api/competitions/:id/entries", async (req) => {
     const u = participant(req);
     return tx(() => {
@@ -1253,7 +1357,7 @@ export async function createApp(options = {}) {
     const c = getCompetition(db, f.competition_id);
     assert(organizer(db, u, c), "Organizer access required.", 403);
     assert(
-      ["ready", "waiting"].includes(f.status),
+      ["ready", "waiting"].includes(f.status) || f.no_contest,
       "This fixture is already completed.",
     );
     const time = req.body.scheduled ? Number(req.body.scheduled) : null;

@@ -175,6 +175,7 @@ export function matchContext(db, match, participants) {
       stage: fixture?.stage || "",
       label: fixture?.label || "",
       round: fixture?.round,
+      tableColumns: c.settings.tableColumns,
       standings: pools.map((pool) => ({
         pool,
         rows: standings(db, c, pool, null, match),
