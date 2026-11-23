@@ -64,7 +64,9 @@ test("compact tournament setup and editing save ordered tiebreak rules without d
         .fill(new Date(Date.now() + 86400000).toISOString().slice(0, 16));
       await dialog.locator('[name="comp-format"][value="knockout"]').check();
       assert.equal(
-        await dialog.locator(".competition-tiebreaks").isVisible(),
+        await dialog
+          .locator(".competition-tiebreaks:not([data-cross-group])")
+          .isVisible(),
         false,
       );
       assert.equal(await dialog.locator("#comp-legs").isVisible(), false);
@@ -97,7 +99,9 @@ test("compact tournament setup and editing save ordered tiebreak rules without d
         await dialog.locator("#field-competition-best").isVisible(),
         game !== "eafc27",
       );
-      const ties = dialog.locator(".competition-tiebreaks");
+      const ties = dialog.locator(
+        ".competition-tiebreaks:not([data-cross-group])",
+      );
       const difference =
         game === "eafc27"
           ? "Goal difference"
@@ -188,20 +192,29 @@ test("compact tournament setup and editing save ordered tiebreak rules without d
         const edit = page.locator("dialog.competition-rules-dialog[open]");
         assert.deepEqual(
           await edit
-            .locator("[data-tiebreak]")
+            .locator("[data-tiebreak-editor] [data-tiebreak]")
             .evaluateAll((es) => es.map((e) => e.value)),
           saved.tieBreaks,
         );
         await edit.locator("#field-kind").selectOption("knockout");
         assert.equal(
-          await edit.locator(".competition-tiebreaks").isVisible(),
+          await edit
+            .locator(".competition-tiebreaks:not([data-cross-group])")
+            .isVisible(),
           false,
         );
         await edit.locator("#field-kind").selectOption("groups");
-        while (await edit.locator("[data-remove]").count())
-          await edit.locator("[data-remove]").first().click();
+        while (
+          await edit.locator("[data-tiebreak-editor] [data-remove]").count()
+        )
+          await edit
+            .locator("[data-tiebreak-editor] [data-remove]")
+            .first()
+            .click();
         assert.match(
-          await edit.locator(".competition-tiebreaks").innerText(),
+          await edit
+            .locator(".competition-tiebreaks:not([data-cross-group])")
+            .innerText(),
           /straight to the tie resolution/,
         );
         await edit.locator("#field-tieResolution").selectOption("match");

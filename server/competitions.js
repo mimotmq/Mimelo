@@ -1,6 +1,12 @@
 import { assert, integer, json, organizer, audit, notify } from "./db.js";
 import { randomInt } from "node:crypto";
 import { catalogImage } from "./catalog-images.js";
+import { profileNationalities } from "./profile.js";
+import {
+  rankTable,
+  qualificationPlan,
+  crossGroupTable,
+} from "./competition-table.js";
 import { validatePickleballFormat } from "./scoring.js";
 export function getCompetition(db, id) {
   const c = db.prepare("SELECT * FROM competitions WHERE id=?").get(Number(id));
@@ -15,9 +21,13 @@ export function entries(db, id) {
       ...e,
       players: db
         .prepare(
-          "SELECT p.id,p.name,p.photo FROM entrant_players ep JOIN players p ON p.id=ep.player_id WHERE ep.entry_id=? ORDER BY p.id",
+          "SELECT p.id,p.name,p.photo,p.profile FROM entrant_players ep JOIN players p ON p.id=ep.player_id WHERE ep.entry_id=? ORDER BY p.id",
         )
-        .all(e.id),
+        .all(e.id)
+        .map(({ profile, ...player }) => ({
+          ...player,
+          nationalities: profileNationalities(json(profile)),
+        })),
     }));
 }
 export function fixtureList(db, id) {
@@ -52,6 +62,9 @@ export function settings(body, kind, format) {
     elimination: body.elimination || "single",
     groupCount: Number(body.groupCount) || 2,
     advance: Number(body.advance) || 2,
+    extraCount: Number(body.extraCount ?? 0),
+    extraPlace: Number(body.extraPlace ?? 3),
+    extraTieBreaks: body.extraTieBreaks ?? ["difference", "for"],
     playoffs: !!body.playoffs,
     playoffCount: Number(body.playoffCount) || 4,
     seeding: body.seeding || "elo",
@@ -71,6 +84,27 @@ export function settings(body, kind, format) {
   );
   integer(s.groupCount, 1, 64);
   integer(s.advance, 1, 128);
+  integer(s.extraCount, 0, 64);
+  integer(s.extraPlace, 1, 256);
+  assert(
+    s.extraCount <= s.groupCount,
+    "Extra qualifiers cannot exceed the number of groups.",
+  );
+  assert(
+    !s.extraCount || s.extraPlace > s.advance,
+    "Extra qualifiers must come from a place below the automatic qualifiers.",
+  );
+  assert(
+    Array.isArray(s.extraTieBreaks) &&
+      s.extraTieBreaks.length <= 4 &&
+      new Set(s.extraTieBreaks).size === s.extraTieBreaks.length &&
+      s.extraTieBreaks.every((k) =>
+        ["difference", "for", "points_difference", "sets_difference"].includes(
+          k,
+        ),
+      ),
+    "Choose unique cross-group tiebreaks; head-to-head cannot compare different groups.",
+  );
   integer(s.playoffCount, 2, 256);
   assert(
     Array.isArray(s.tieBreaks) &&
@@ -176,6 +210,52 @@ function fixture(db, c, stage, pool, round, label, a, b, conditional = 0) {
 }
 const win = (id) => ({ fixture: id, outcome: "winner" }),
   lose = (id) => ({ fixture: id, outcome: "loser" });
+export function avoidGroupRematches(ids, tables, c) {
+  if (c.kind !== "groups" || Object.keys(tables).length < 2) return ids;
+  let size = 2,
+    positions = [1, 2];
+  while (size < ids.length) size *= 2;
+  for (let n = 4; n <= size; n *= 2)
+    positions = positions.flatMap((x) => [x, n + 1 - x]);
+  const group = new Map(
+    Object.entries(tables).flatMap(([pool, rows]) =>
+      rows.map((r) => [r.entry, pool]),
+    ),
+  );
+  const left = [],
+    right = [];
+  for (let i = 0; i < size; i += 2) {
+    left.push(ids[positions[i] - 1] ?? null);
+    right.push(ids[positions[i + 1] - 1] ?? null);
+  }
+  const assigned = new Map();
+  function assign(i, seen) {
+    const choices = right
+      .map((_, j) => j)
+      .sort((a, b) => Math.abs(a - i) - Math.abs(b - i));
+    for (const j of choices) {
+      if (
+        seen.has(j) ||
+        (left[i] && right[j] && group.get(left[i]) === group.get(right[j]))
+      )
+        continue;
+      seen.add(j);
+      if (!assigned.has(j) || assign(assigned.get(j), seen)) {
+        assigned.set(j, i);
+        return true;
+      }
+    }
+    return false;
+  }
+  for (let i = 0; i < left.length; i++)
+    assert(
+      assign(i, new Set()),
+      "This qualifier mix cannot avoid same-group first-round matches. Adjust the qualification rules.",
+    );
+  const reordered = [...ids];
+  for (const [j, i] of assigned) reordered[positions[i * 2 + 1] - 1] = right[j];
+  return reordered;
+}
 function bracket(db, c, ids) {
   let size = 2;
   while (size < ids.length) size *= 2;
@@ -303,6 +383,12 @@ function bracket(db, c, ids) {
     );
   }
 }
+function groupLabel(index) {
+  let label = "";
+  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26))
+    label = String.fromCharCode(65 + ((n - 1) % 26)) + label;
+  return label;
+}
 function league(db, c, ids, pool = "") {
   let list = [...ids];
   if (list.length % 2) list.push(null);
@@ -394,15 +480,18 @@ export function draw(db, c, user) {
       c.settings.advance < Math.floor(ids.length / c.settings.groupCount) + 1,
       "Too many qualifiers per group.",
     );
+    assert(
+      !c.settings.extraCount ||
+        c.settings.extraPlace <= Math.floor(ids.length / c.settings.groupCount),
+      "Every group must contain the selected extra-qualifier finishing position.",
+    );
     const buckets = Array.from({ length: c.settings.groupCount }, () => []);
     ids.forEach((id, i) => {
       const row = Math.floor(i / buckets.length),
         col = i % buckets.length;
       buckets[row % 2 ? buckets.length - 1 - col : col].push(id);
     });
-    buckets.forEach((ids, i) =>
-      league(db, c, ids, String.fromCharCode(65 + i)),
-    );
+    buckets.forEach((ids, i) => league(db, c, ids, groupLabel(i)));
   } else bracket(db, c, ids);
   db.prepare("UPDATE competitions SET state='active' WHERE id=?").run(c.id);
   audit(db, user, "competition.draw", c.id);
@@ -422,10 +511,16 @@ export const qualificationCount = (c) =>
     : c.settings.playoffs
       ? c.settings.playoffCount
       : 1;
-export function standings(db, c, pool = "", onlyFixtures = null) {
+export function standings(
+  db,
+  c,
+  pool = "",
+  onlyFixtures = null,
+  before = null,
+) {
   const fs = db
     .prepare(
-      "SELECT f.*,m.score,m.a_score,m.b_score,m.forfeit FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id WHERE f.competition_id=? AND f.pool=? AND f.stage IN('league','group','tiebreak')",
+      "SELECT f.*,m.id AS match_id,m.submitted,m.played_at,m.status AS match_status,m.score,m.a_score,m.b_score,m.forfeit FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id WHERE f.competition_id=? AND f.pool=? AND f.stage IN('league','group','tiebreak')",
     )
     .all(c.id, pool)
     .filter((f) =>
@@ -447,7 +542,17 @@ export function standings(db, c, pool = "", onlyFixtures = null) {
     points: 0,
   }));
   const by = new Map(rows.map((r) => [r.entry, r]));
-  const completed = fs.filter((f) => f.status === "completed");
+  const completed = fs.filter(
+    (f) =>
+      f.status === "completed" &&
+      (!before ||
+        (f.match_status === "accepted" &&
+          ((f.played_at ?? f.submitted) <
+            (before.played_at ?? before.submitted) ||
+            ((f.played_at ?? f.submitted) ===
+              (before.played_at ?? before.submitted) &&
+              f.match_id < before.id)))),
+  );
   for (const f of completed) {
     const a = by.get(f.a),
       b = by.get(f.b);
@@ -475,31 +580,7 @@ export function standings(db, c, pool = "", onlyFixtures = null) {
   }
   const fc =
     db.prepare("SELECT kind FROM games WHERE slug=?").get(c.game).kind === "fc";
-  for (const r of rows) {
-    r.points = fc ? r.w * 3 + r.d : r.w;
-    r.difference = r.for - r.against;
-    r.sets_difference = r.difference;
-  }
-  for (const r of rows)
-    for (const f of completed) {
-      const opp = f.a === r.entry ? f.b : f.b === r.entry ? f.a : null;
-      if (opp && by.get(opp).points === r.points)
-        r.head_to_head +=
-          f.winner === r.entry ? (fc ? 3 : 1) : !f.winner && fc ? 1 : 0;
-    }
-  const criteria = ["points", ...c.settings.tieBreaks];
-  const compare = (a, b) => {
-    for (const k of criteria) {
-      if (a[k] !== b[k]) return b[k] - a[k];
-    }
-    return 0;
-  };
-  rows.sort((a, b) => compare(a, b) || a.entry - b.entry);
-  return rows.map((r, i) => ({
-    ...r,
-    position: i + 1,
-    tiedWithPrevious: i > 0 && compare(rows[i - 1], r) === 0,
-  }));
+  return rankTable(rows, completed, c.settings.tieBreaks, fc);
 }
 export function progress(db, c) {
   const latest = new Map((c.settings.tieRounds || []).map((r) => [r.pool, r]));
@@ -587,25 +668,25 @@ export function progress(db, c) {
     (c.kind === "groups" || c.settings.playoffs)
   ) {
     const pools = [...new Set(prelim.map((f) => f.pool))];
-    const qualified = [];
-    let pending = false;
-    for (const pool of pools) {
-      const rows = standings(db, c, pool),
-        count = qualificationCount(c);
-      assert(count <= rows.length, "Qualifier count exceeds entries.");
-      let selected = rows.slice(0, count).map((r) => r.entry);
-      if (rows[count]?.tiedWithPrevious) {
-        const decision = db
-          .prepare(
-            "SELECT entries FROM qualifications WHERE competition_id=? AND pool=?",
-          )
-          .get(c.id, pool);
-        if (decision) selected = json(decision.entries, []);
-        else pending = true;
-      }
-      qualified.push(...selected);
-    }
-    if (!pending) {
+    const tables = Object.fromEntries(
+      pools.map((pool) => [pool, standings(db, c, pool)]),
+    );
+    for (const rows of Object.values(tables))
+      assert(
+        qualificationCount(c) <= rows.length,
+        "Qualifier count exceeds entries.",
+      );
+    const decisions = Object.fromEntries(
+      db
+        .prepare(
+          "SELECT pool,entries FROM qualifications WHERE competition_id=?",
+        )
+        .all(c.id)
+        .map((row) => [row.pool, json(row.entries, [])]),
+    );
+    const plan = qualificationPlan(c, tables, decisions);
+    if (!plan.pending.length) {
+      const qualified = avoidGroupRematches(plan.selected, tables, c);
       const before = Math.max(...fs.map((f) => f.id));
       bracket(db, c, qualified);
       const children = db
@@ -677,13 +758,39 @@ export function serializeCompetition(db, c) {
         .map((f) => f.pool),
     ),
   ];
+  const tables = Object.fromEntries(
+    pools.map((pool) => [pool, standings(db, c, pool)]),
+  );
+  const decisions = Object.fromEntries(
+    db
+      .prepare("SELECT pool,entries FROM qualifications WHERE competition_id=?")
+      .all(c.id)
+      .map((row) => [row.pool, json(row.entries, [])]),
+  );
+  const prelim = fs.filter((f) => ["league", "group"].includes(f.stage));
+  const plan = qualificationPlan(c, tables, decisions);
   return {
     ...c,
+    qualifications: decisions,
+    extraStandings: crossGroupTable(
+      Object.entries(tables)
+        .map(([pool, rows]) => {
+          const chosen = decisions["@place:" + pool]?.[0];
+          const candidate = chosen
+            ? rows.find((row) => row.entry === chosen)
+            : rows[(c.settings.extraPlace || 3) - 1];
+          return candidate ? { ...candidate, pool } : null;
+        })
+        .filter(Boolean),
+      { extraTieBreaks: c.settings.extraTieBreaks || ["difference", "for"] },
+    ),
+    qualificationPending:
+      prelim.length && prelim.every((f) => f.status === "completed")
+        ? plan.pending
+        : [],
     entries: es,
     fixtures: fs,
-    standings: Object.fromEntries(
-      pools.map((pool) => [pool, standings(db, c, pool)]),
-    ),
+    standings: tables,
     players: es.reduce((n, e) => n + e.players.length, 0),
   };
 }

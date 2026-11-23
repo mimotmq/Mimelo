@@ -2,6 +2,8 @@ APP.run(async () => {
   if (!APP.me) return APP.login();
   const { $, $$, esc, text, toast, field, button } = UI;
   let me = APP.me;
+  $(".breadcrumb").innerHTML =
+    '<a href="index.html">Home</a><span class="sep">/</span><span>Your account</span>';
   function avatars() {
     for (const id of ["avatar-preview", "header-avatar", "side-avatar"]) {
       const e = $("#" + id);
@@ -13,7 +15,7 @@ APP.run(async () => {
   }
   text(".page-head .sub", `${me.name} · @${me.handle}`);
   $$('a[href*="player.html"]').forEach(
-    (a) => (a.href = APP.url("player", { player: me.player_id })),
+    (a) => (a.href = "player.html?player=" + me.player_id),
   );
   const logout = $('.page-actions a[href="login.html"]');
   if (logout) {
@@ -47,12 +49,58 @@ APP.run(async () => {
   $("#acct-bio").value = me.profile.bio || "";
   const club = $("#acct-club");
   club.outerHTML = `<input class="input" id="acct-club" value="${esc(me.profile.favoriteTeam || "")}">`;
-  $("#profile-form .form-actions").insertAdjacentHTML(
-    "beforebegin",
-    field("Nationality", "nationality", me.profile.nationality || "") +
-      field("Smash tag", "tag", me.profile.tag || "") +
-      field("Smash mains", "mains", me.profile.mains || ""),
+  const { countryList, profileNationalities } =
+    await import("./profile-flairs.js");
+  const countries = await countryList();
+  const nationalities = profileNationalities(me.profile);
+  const choices = [
+    ["", "Not specified"],
+    ...countries.map((country) => [country.name, country.name]),
+  ];
+  for (const nationality of nationalities)
+    if (!countries.some((country) => country.name === nationality))
+      choices.push([nationality, nationality + " (existing entry)"]);
+  const form = $("#profile-form"),
+    actions = $(".form-actions", form);
+  function profileGroup(label) {
+    const group = document.createElement("fieldset");
+    group.className = "profile-fieldset";
+    group.innerHTML = `<legend>${esc(label)}</legend>`;
+    return group;
+  }
+  const shared = profileGroup("Shared identity");
+  shared.append(
+    $("#acct-name").closest(".form-grid"),
+    $("#acct-email").closest(".field"),
+    $("#acct-bio").closest(".field"),
   );
+  shared.insertAdjacentHTML(
+    "beforeend",
+    `<div class="form-grid">${UI.select("Nationality (optional)", "nationality", choices, nationalities[0] || "")}${UI.select("Second nationality (optional)", "nationality-secondary", choices, nationalities[1] || "")}</div>`,
+  );
+  const football = profileGroup("Football");
+  football.append($("#acct-club").closest(".field"));
+  $(".hint", football).textContent = "Shown on your EA FC profiles.";
+  const smash = profileGroup("Super Smash Bros.");
+  smash.innerHTML +=
+    field("Smash tag", "tag", me.profile.tag || "") +
+    field("Smash mains", "mains", me.profile.mains || "");
+  form.replaceChildren(shared, football, smash, actions);
+  const nationalityFields = [
+    $("#field-nationality"),
+    $("#field-nationality-secondary"),
+  ];
+  function nationalityOptions() {
+    nationalityFields.forEach((input, index) => {
+      for (const option of input.options)
+        option.disabled =
+          !!option.value && option.value === nationalityFields[1 - index].value;
+    });
+  }
+  nationalityFields.forEach((input) =>
+    input.addEventListener("change", nationalityOptions),
+  );
+  nationalityOptions();
   text(
     "#profile-form .form-actions .muted",
     "Changes appear on your public profile.",
@@ -69,7 +117,10 @@ APP.run(async () => {
           profile: {
             bio: $("#acct-bio").value,
             favoriteTeam: $("#acct-club").value,
-            nationality: f.get("nationality"),
+            nationalities: [
+              f.get("nationality"),
+              f.get("nationality-secondary"),
+            ].filter(Boolean),
             tag: f.get("tag"),
             mains: f.get("mains"),
           },
@@ -182,8 +233,19 @@ APP.run(async () => {
   };
   await sessions();
   const profile = await APP.api("players/" + me.player_id);
+  const records = profile.records || [];
   $(".settings-side .panel-body").innerHTML =
-    `<div class="player-cell">${UI.avatar(me.name, "", me.photo)}<b>${esc(me.name)}</b></div><div class="summary-meta">${APP.games.map((g) => `<div><span>${esc(g.name)}</span><b>${UI.elo(profile.ratings.find((r) => r.game === g.slug && r.format === "singles"))} Elo</b></div>`).join("")}</div><a class="btn btn-outline btn-block" href="${APP.url("player", { player: me.player_id })}">Public profile</a>`;
+    `<div class="player-cell">${UI.avatar(me.name, "", me.photo)}<b>${esc(me.name)}</b></div><div class="summary-meta">${
+      records
+        .map((record) => {
+          const game = APP.games.find((g) => g.slug === record.game);
+          const rating = profile.ratings.find(
+            (r) => r.game === record.game && r.format === record.format,
+          );
+          return `<div><span>${esc(game.name)} · ${record.format}</span><b>${rating ? UI.elo(rating) + " Elo" : UI.count(record.matches, "match", "matches")}</b></div>`;
+        })
+        .join("") || "<p>No recorded games yet.</p>"
+    }</div><a class="btn btn-outline btn-block" href="player.html?player=${me.player_id}">Public profile</a>`;
   const notes = $$(".settings-side .notice-card");
   notes[0].innerHTML =
     '<h3>Your roles</h3><div class="tag-row">' +

@@ -118,13 +118,52 @@ APP.run(async () => {
           manage(r.rows.find((p) => p.id === Number(b.dataset.person)))),
     );
     $(".settings-side .summary-meta").innerHTML =
-      `<div><span>Players</span><b>${r.total}</b></div><div><span>Games</span><b>5</b></div><div><span>Starting Elo</span><b>1000</b></div><div><span>K factor</span><b>24</b></div>`;
+      `<div><span>Players</span><b>${r.total}</b></div><div><span>Games</span><b>${games.length}</b></div><div><span>Starting Elo</span><b>1000</b></div><div><span>K factor</span><b>124 → 24</b></div>`;
   }
   function manage(p) {
     const d = UI.dialog(
       "Manage " + p.name,
       `<p>${esc(p.handle ? "@" + p.handle : "Unclaimed fill-in profile")}</p><div class="form-actions">${!p.account_id ? button("Generate claim link", "claim") : APP.me.site_admin ? button("Generate password-reset link", "reset") : ""}</div>${APP.me.site_admin && p.account_id ? "<h3>Game admin roles</h3>" + games.map((g) => `<label class="check"><input type="checkbox" data-role="${g.slug}" ${p.admin_of.includes(g.slug) ? "checked" : ""}>${esc(g.name)}</label>`).join("") : ""}<p class="hint" role="alert"></p>`,
     );
+    const photo = document.createElement("section");
+    photo.className = "avatar-editor";
+    const inputId = "admin-player-photo-" + p.id;
+    photo.innerHTML = `<span data-admin-photo-preview>${UI.avatar(p.name, "", p.photo)}</span><div class="avatar-editor-copy"><b>Profile picture</b><p>PNG, JPEG, or WebP, up to 5 MB.</p><div class="avatar-editor-actions"><label class="btn btn-outline btn-sm" for="${inputId}">Upload photo</label><input id="${inputId}" type="file" accept="image/png,image/jpeg,image/webp" hidden>${button("Remove photo", "remove-photo", p.photo ? "" : "disabled")}</div></div>`;
+    $(".dialog-body", d).prepend(photo);
+    async function updatePhoto(file) {
+      const input = $("input", photo),
+        remove = $("[data-action=remove-photo]", photo);
+      input.disabled = remove.disabled = true;
+      try {
+        const body = file ? new FormData() : undefined;
+        if (file) body.append("photo", file);
+        const result = await APP.api(
+          "admin/players/" + p.id + "/photo",
+          body,
+          file ? "POST" : "DELETE",
+        );
+        p.photo = result.photo;
+        $("[data-admin-photo-preview]", photo).innerHTML = UI.avatar(
+          p.name,
+          "",
+          p.photo,
+        );
+        $(".hint[role=alert]", d).textContent = file
+          ? "Profile picture saved."
+          : "Profile picture removed.";
+        await people();
+      } catch (error) {
+        $(".hint[role=alert]", d).textContent = error.message;
+      } finally {
+        input.disabled = false;
+        input.value = "";
+        remove.disabled = !p.photo;
+      }
+    }
+    $("input", photo).onchange = (event) => {
+      if (event.target.files[0]) updatePhoto(event.target.files[0]);
+    };
+    $("[data-action=remove-photo]", photo).onclick = () => updatePhoto(null);
     for (const kind of ["claim", "reset"])
       $(`[data-action=${kind}]`, d)?.addEventListener("click", async () => {
         try {
@@ -173,7 +212,7 @@ APP.run(async () => {
       try {
         await APP.api("games/" + slug + "/recalculate", {});
         $("#admin-message", d).textContent =
-          "Checked-off results recalculated in submission order.";
+          "Checked-off results recalculated by played date, or entry date when omitted.";
       } catch (e) {
         $("#admin-message", d).textContent = e.message;
       }

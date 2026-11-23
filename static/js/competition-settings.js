@@ -25,12 +25,12 @@ export function tiebreakLabels(kind) {
 
 export function mountTiebreakEditor(
   root,
-  { kind, values = ["head_to_head", "difference", "for"] },
+  { kind, values = ["head_to_head", "difference", "for"], crossGroup = false },
 ) {
   const { esc } = UI;
   const labels = tiebreakLabels(kind);
   const available = [
-    "head_to_head",
+    ...(crossGroup ? [] : ["head_to_head"]),
     "difference",
     "for",
     ...(kind === "fc" ? [] : ["points_difference"]),
@@ -46,8 +46,9 @@ export function mountTiebreakEditor(
   for (const value of order)
     if (!available.includes(value)) available.push(value);
   root.classList.add("competition-tiebreaks");
+  if (crossGroup) root.dataset.crossGroup = "true";
   function render() {
-    root.innerHTML = `<h4>Tiebreak order</h4><p class="hint">Apply these rules from top to bottom after equal ${kind === "fc" ? "points" : "wins"}.</p><ol class="tiebreak-list">${order.map((value, index) => `<li class="tiebreak-rule"><span class="tiebreak-position" aria-hidden="true">${index + 1}</span><select class="select" data-tiebreak="${index}" aria-label="Tiebreak ${index + 1}">${available.map((key) => `<option value="${key}" ${key === value ? "selected" : ""} ${key !== value && order.includes(key) ? "disabled" : ""}>${esc(labels[key])}</option>`).join("")}</select><div class="tiebreak-actions"><button type="button" data-move="-1" data-index="${index}" aria-label="Move ${esc(labels[value])} up" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" data-move="1" data-index="${index}" aria-label="Move ${esc(labels[value])} down" ${index === order.length - 1 ? "disabled" : ""}>↓</button><button type="button" data-remove="${index}" aria-label="Remove ${esc(labels[value])}">×</button></div></li>`).join("")}</ol>${order.length ? "" : '<p class="hint">Equal standings go straight to the tie resolution below.</p>'}<button class="btn btn-ghost btn-sm" type="button" data-add-tiebreak ${order.length === available.length ? "disabled" : ""}>Add tiebreak</button><span class="sr-only" role="status">${order.map((key) => labels[key]).join(" → ") || "No tiebreak rules"}</span>`;
+    root.innerHTML = `<h4>${crossGroup ? "Cross-group tiebreak order" : "Tiebreak order"}</h4><p class="hint">${crossGroup ? "Compare raw points (or wins) across groups, including unequal groups, then apply these rules. Remaining ties need an admin decision." : `Apply these rules from top to bottom after equal ${kind === "fc" ? "points" : "wins"}.`}</p><ol class="tiebreak-list">${order.map((value, index) => `<li class="tiebreak-rule"><span class="tiebreak-position" aria-hidden="true">${index + 1}</span><select class="select" data-tiebreak="${index}" aria-label="Tiebreak ${index + 1}">${available.map((key) => `<option value="${key}" ${key === value ? "selected" : ""} ${key !== value && order.includes(key) ? "disabled" : ""}>${esc(labels[key])}</option>`).join("")}</select><div class="tiebreak-actions"><button type="button" data-move="-1" data-index="${index}" aria-label="Move ${esc(labels[value])} up" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" data-move="1" data-index="${index}" aria-label="Move ${esc(labels[value])} down" ${index === order.length - 1 ? "disabled" : ""}>↓</button><button type="button" data-remove="${index}" aria-label="Remove ${esc(labels[value])}">×</button></div></li>`).join("")}</ol>${order.length ? "" : '<p class="hint">Equal standings go straight to the tie resolution below.</p>'}<button class="btn btn-ghost btn-sm" type="button" data-add-tiebreak ${order.length === available.length ? "disabled" : ""}>Add tiebreak</button><span class="sr-only" role="status">${order.map((key) => labels[key]).join(" → ") || "No tiebreak rules"}</span>`;
   }
   root.addEventListener("change", (event) => {
     if (!event.target.matches("[data-tiebreak]")) return;

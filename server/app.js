@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import staticPlugin from "@fastify/static";
@@ -5,6 +6,11 @@ import rateLimit from "@fastify/rate-limit";
 import multipart from "@fastify/multipart";
 import { resolve, join } from "node:path";
 import { mkdirSync } from "node:fs";
+import {
+  nationalityValue,
+  nationalitiesValue,
+  profileNationalities,
+} from "./profile.js";
 import sharp from "sharp";
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
@@ -12,6 +18,8 @@ import { ratedRating, ratingProgress } from "./ratings.js";
 import { registerCatalogImages } from "./catalog-images.js";
 import { registerBadgeImport } from "./badge-import.js";
 import { deleteCompetition } from "./competition-deletion.js";
+import { competitionForecast } from "./competition-forecast.js";
+import { matchContext } from "./match-context.js";
 import {
   openDb,
   json,
@@ -291,10 +299,19 @@ export async function createApp(options = {}) {
         );
         for (const k of ["bio", "nationality", "favoriteTeam", "tag", "mains"])
           if (k in b.profile)
-            old[k] = String(b.profile[k] || "").slice(
-              0,
-              k === "bio" ? 500 : 160,
-            );
+            old[k] =
+              k === "nationality"
+                ? nationalityValue(b.profile[k], old[k])
+                : String(b.profile[k] || "").slice(0, k === "bio" ? 500 : 160);
+        if ("nationalities" in b.profile) {
+          old.nationalities = nationalitiesValue(
+            b.profile.nationalities,
+            profileNationalities(old),
+          );
+          old.nationality = old.nationalities[0] || "";
+        } else if ("nationality" in b.profile) {
+          old.nationalities = old.nationality ? [old.nationality] : [];
+        }
         db.prepare("UPDATE players SET profile=? WHERE id=?").run(
           JSON.stringify(old),
           u.player_id,
@@ -356,9 +373,8 @@ export async function createApp(options = {}) {
     );
     return { ok: true };
   });
-  app.post("/api/me/photo", async (req) => {
-    const u = signed(req),
-      file = await req.file();
+  async function savePlayerPhoto(req, playerId) {
+    const file = await req.file();
     assert(file, "Choose a photo.");
     const buffer = await file.toBuffer();
     const name = token() + ".webp";
@@ -373,9 +389,12 @@ export async function createApp(options = {}) {
     }
     db.prepare("UPDATE players SET photo=? WHERE id=?").run(
       "/uploads/" + name,
-      u.player_id,
+      playerId,
     );
     return { photo: "/uploads/" + name };
+  }
+  app.post("/api/me/photo", async (req) => {
+    return savePlayerPhoto(req, signed(req).player_id);
   });
   app.delete("/api/me/photo", async (req) => {
     const u = signed(req);
@@ -469,28 +488,41 @@ export async function createApp(options = {}) {
     audit(db, u, "game.weights", g.slug, w);
     return w;
   });
+  function playerRecords(id) {
+    return db
+      .prepare(
+        "SELECT m.game,m.format,COUNT(*) matches,SUM(m.status='accepted') accepted,SUM(m.status='submitted') pending,COALESCE(SUM(m.status='accepted' AND m.winner=mp.side),0) w,COALESCE(SUM(m.status='accepted' AND m.winner IS NULL),0) d,COALESCE(SUM(m.status='accepted' AND m.winner IS NOT NULL AND m.winner<>mp.side),0) l FROM match_players mp JOIN matches m ON m.id=mp.match_id WHERE mp.player_id=? AND m.status<>'voided' GROUP BY m.game,m.format ORDER BY m.game,m.format",
+      )
+      .all(id);
+  }
   function playerRows(q = {}) {
     const { limit, offset } = page(q),
       search = `%${String(q.q || "").slice(0, 80)}%`;
+    const gameFilter = q.game ? game(q.game).slug : null;
     const where =
       "WHERE json_extract(p.profile,'$.merged_into') IS NULL AND (p.name LIKE ? OR a.handle LIKE ?)";
+    const activity = gameFilter
+      ? " AND EXISTS(SELECT 1 FROM match_players mp JOIN matches m ON m.id=mp.match_id WHERE mp.player_id=p.id AND m.game=? AND m.status<>'voided')"
+      : "";
+    const filters = [search, search, ...(gameFilter ? [gameFilter] : [])];
     const total = db
       .prepare(
-        `SELECT COUNT(*) n FROM players p LEFT JOIN accounts a ON a.player_id=p.id ${where}`,
+        `SELECT COUNT(*) n FROM players p LEFT JOIN accounts a ON a.player_id=p.id ${where}${activity}`,
       )
-      .get(search, search).n;
+      .get(...filters).n;
     return {
       total,
       limit,
       offset,
       rows: db
         .prepare(
-          `SELECT p.*,a.handle,a.id AS account_id FROM players p LEFT JOIN accounts a ON a.player_id=p.id ${where} ORDER BY p.name,p.id LIMIT ? OFFSET ?`,
+          `SELECT p.*,a.handle,a.id AS account_id FROM players p LEFT JOIN accounts a ON a.player_id=p.id ${where}${activity} ORDER BY p.name,p.id LIMIT ? OFFSET ?`,
         )
-        .all(search, search, limit, offset)
+        .all(...filters, limit, offset)
         .map((p) => ({
           ...p,
           profile: json(p.profile),
+          records: playerRecords(p.id),
           ratings: db
             .prepare("SELECT * FROM ratings WHERE player_id=?")
             .all(p.id)
@@ -505,7 +537,7 @@ export async function createApp(options = {}) {
     return (
       db
         .prepare(
-          "SELECT t.* FROM matches m JOIN match_players mp ON mp.match_id=m.id JOIN teams t ON t.id=CASE WHEN mp.side=0 THEN json_extract(m.score,'$.teamA') ELSE json_extract(m.score,'$.teamB') END WHERE mp.player_id=? AND m.game=? AND m.status<>'voided' ORDER BY m.submitted DESC,m.id DESC LIMIT 1",
+          "SELECT t.* FROM matches m JOIN match_players mp ON mp.match_id=m.id JOIN teams t ON t.id=CASE WHEN mp.side=0 THEN json_extract(m.score,'$.teamA') ELSE json_extract(m.score,'$.teamB') END WHERE mp.player_id=? AND m.game=? AND m.status<>'voided' ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 1",
         )
         .get(id, g.slug) || null
     );
@@ -534,7 +566,7 @@ export async function createApp(options = {}) {
       .get(id, g.slug, format);
     const history = db
       .prepare(
-        "SELECT l.*,m.submitted FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? AND m.game=? AND m.format=? ORDER BY m.submitted DESC,m.id DESC LIMIT 200",
+        "SELECT l.*,m.submitted,m.played_at FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? AND m.game=? AND m.format=? ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 200",
       )
       .all(id, g.slug, format);
     const teams =
@@ -566,13 +598,14 @@ export async function createApp(options = {}) {
     return {
       ...p,
       profile: json(p.profile),
+      records: playerRecords(id),
       ratings: db
         .prepare("SELECT * FROM ratings WHERE player_id=?")
         .all(id)
         .map((r) => ratedRating(db, r)),
       history: db
         .prepare(
-          "SELECT l.*,m.game,m.format,m.submitted FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? ORDER BY m.submitted DESC,m.id DESC LIMIT 200",
+          "SELECT l.*,m.game,m.format,m.submitted,m.played_at FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 200",
         )
         .all(id),
     };
@@ -831,6 +864,35 @@ export async function createApp(options = {}) {
       return serializeCompetition(db, c);
     });
   });
+  const forecastCache = new Map();
+  app.get("/api/competitions/:id/projection", async (req) => {
+    const c = serializeCompetition(db, getCompetition(db, req.params.id));
+    const ratingRows = db
+      .prepare(
+        "SELECT ep.entry_id,AVG(COALESCE(r.elo,1000)) elo FROM entrant_players ep LEFT JOIN ratings r ON r.player_id=ep.player_id AND r.game=? AND r.format=? WHERE ep.competition_id=? GROUP BY ep.entry_id",
+      )
+      .all(c.game, c.format, c.id);
+    const ratings = Object.fromEntries(
+      ratingRows.map((r) => [r.entry_id, r.elo]),
+    );
+    const football = game(c.game).kind === "fc";
+    const history = db
+      .prepare(
+        "SELECT COUNT(*) n,COALESCE(SUM(outcome=0.5),0) draws FROM matches WHERE game=? AND status='accepted' AND forfeit=0",
+      )
+      .get(c.game);
+    const drawRate = (history.draws + 2) / (history.n + 10);
+    const signature = createHash("sha256")
+      .update(JSON.stringify([c, ratings, drawRate]))
+      .digest("hex");
+    const cached = forecastCache.get(c.id);
+    if (cached?.signature === signature) return cached.result;
+    const result = competitionForecast(c, { ratings, football, drawRate });
+    if (forecastCache.size >= 30)
+      forecastCache.delete(forecastCache.keys().next().value);
+    forecastCache.set(c.id, { signature, result });
+    return result;
+  });
   app.get("/api/competitions/:id", async (req) => {
     const c = getCompetition(db, req.params.id);
     return {
@@ -1060,36 +1122,27 @@ export async function createApp(options = {}) {
           .every((f) => f.status === "completed"),
         "Finish preliminary matches first.",
       );
-      const pool = String(req.body.pool || ""),
-        rows = standings(db, c, pool),
-        count = qualificationCount(c);
-      assert(
-        rows.length > count && rows[count].tiedWithPrevious,
-        "There is no unresolved qualifying boundary tie.",
+      const pool = String(req.body.pool || "");
+      const serialized = serializeCompetition(db, c);
+      const pending = serialized.qualificationPending.find(
+        (item) => item.pool === pool,
       );
+      assert(pending, "There is no unresolved qualifying boundary tie.");
       assert(
-        !fixtureList(db, c.id).some(
+        !serialized.fixtures.some(
           (f) => !["league", "group", "tiebreak"].includes(f.stage),
         ),
         "Qualification has already advanced.",
       );
       const chosen = (req.body.entries || []).map(Number);
       assert(
-        chosen.length === count &&
-          new Set(chosen).size === count &&
-          chosen.every((id) => rows.some((r) => r.entry === id)),
-        "Select the required number of distinct qualifiers.",
-      );
-      let start = count - 1;
-      while (start > 0 && rows[start].tiedWithPrevious) start--;
-      let end = count;
-      while (rows[end + 1]?.tiedWithPrevious) end++;
-      const fixed = rows.slice(0, start).map((r) => r.entry),
-        allowed = rows.slice(start, end + 1).map((r) => r.entry);
-      assert(
-        fixed.every((id) => chosen.includes(id)) &&
-          chosen.every((id) => fixed.includes(id) || allowed.includes(id)),
-        "Only the tied qualifying places may be changed.",
+        chosen.length === pending.count &&
+          new Set(chosen).size === pending.count &&
+          pending.fixed.every((id) => chosen.includes(id)) &&
+          chosen.every(
+            (id) => pending.fixed.includes(id) || pending.allowed.includes(id),
+          ),
+        "Only the tied qualifying places may be changed; select the required number of distinct qualifiers.",
       );
       const reason = textValue(req.body.reason, 1000);
       db.prepare(
@@ -1243,7 +1296,7 @@ export async function createApp(options = {}) {
         .get(...values).n,
       rows: db
         .prepare(
-          `SELECT m.* FROM matches m WHERE ${where} ORDER BY m.submitted DESC,m.id DESC LIMIT ? OFFSET ?`,
+          `SELECT m.* FROM matches m WHERE ${where} ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT ? OFFSET ?`,
         )
         .all(...values, limit, offset)
         .map((m) => serializeMatch(db, m, req.user)),
@@ -1251,9 +1304,11 @@ export async function createApp(options = {}) {
       offset,
     };
   });
-  app.get("/api/matches/:id", async (req) =>
-    serializeMatch(db, getMatch(db, req.params.id), req.user),
-  );
+  app.get("/api/matches/:id", async (req) => {
+    const match = getMatch(db, req.params.id);
+    const result = serializeMatch(db, match, req.user);
+    return { ...result, context: matchContext(db, match, result.participants) };
+  });
   app.post("/api/games/:game/preview", async (req) =>
     preview(db, req.params.game, req.body, signed(req)),
   );
@@ -1293,11 +1348,12 @@ export async function createApp(options = {}) {
       .get(g, f).n;
     const rows = db
       .prepare(
-        "SELECT r.*,p.name,p.photo,a.handle FROM ratings r JOIN players p ON p.id=r.player_id LEFT JOIN accounts a ON a.player_id=p.id WHERE game=? AND format=? ORDER BY elo DESC,player_id LIMIT ? OFFSET ?",
+        "SELECT r.*,p.name,p.photo,p.profile,a.handle FROM ratings r JOIN players p ON p.id=r.player_id LEFT JOIN accounts a ON a.player_id=p.id WHERE game=? AND format=? ORDER BY elo DESC,player_id LIMIT ? OFFSET ?",
       )
       .all(g, f, limit, offset)
       .map((r, i) => ({
         ...ratedRating(db, r),
+        profile: json(r.profile),
         rank: offset + i + 1,
         ...db
           .prepare(
@@ -1378,6 +1434,35 @@ export async function createApp(options = {}) {
         : [],
     }));
     return result;
+  });
+  function administeredPlayer(req) {
+    const user = signed(req);
+    assert(
+      user.site_admin ||
+        db.prepare("SELECT 1 FROM game_admins WHERE account_id=?").get(user.id),
+      "Admin access required.",
+      403,
+    );
+    const id = integer(req.params.id, 1);
+    const player = db.prepare("SELECT profile FROM players WHERE id=?").get(id);
+    assert(
+      player && !json(player.profile).merged_into,
+      "Player not found.",
+      404,
+    );
+    return { id, user };
+  }
+  app.post("/api/admin/players/:id/photo", async (req) => {
+    const { id, user } = administeredPlayer(req);
+    const result = await savePlayerPhoto(req, id);
+    audit(db, user, "player.photo", id, { removed: false });
+    return result;
+  });
+  app.delete("/api/admin/players/:id/photo", async (req) => {
+    const { id, user } = administeredPlayer(req);
+    db.prepare("UPDATE players SET photo=NULL WHERE id=?").run(id);
+    audit(db, user, "player.photo", id, { removed: true });
+    return { photo: null };
   });
   app.post("/api/admin/links", async (req) =>
     tx(() =>

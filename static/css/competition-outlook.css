@@ -1,0 +1,213 @@
+.competition-outlook,
+.competition-extra-standings {
+  margin: 24px 0;
+}
+.competition-outlook .panel-head {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.competition-outlook .panel-head p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.competition-outlook-scroll {
+  max-height: 420px;
+  overflow: auto;
+}
+.competition-outlook table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.competition-outlook th:first-child {
+  width: 52%;
+}
+.competition-outlook th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+.competition-outlook td,
+.competition-outlook th {
+  padding: 14px 18px;
+}
+.competition-outlook .player-cell {
+  white-space: normal;
+}
+.competition-chance {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.competition-chance b {
+  font-size: 1rem;
+}
+.competition-chance-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--line);
+}
+.competition-chance-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.progression-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.progression-badges:empty {
+  display: none;
+}
+.progression-badge {
+  display: inline-flex;
+  padding: 3px 7px;
+  border-radius: var(--pill);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.progression-badge[data-status="qualified"],
+.progression-badge[data-status="winner"],
+.progression-badge[data-status="champion"] {
+  color: var(--success);
+  background: var(--success-soft);
+}
+.progression-badge[data-status="eliminated"] {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+tr[data-progress="qualified"],
+tr[data-progress="champion"],
+tr[data-group-winner="true"] {
+  background: color-mix(in srgb, var(--success) 8%, var(--surface));
+}
+tr[data-progress="eliminated"] {
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+tr[data-progress="qualified"] > td:first-child,
+tr[data-progress="champion"] > td:first-child,
+tr[data-group-winner="true"] > td:first-child {
+  border-left: 3px solid var(--success);
+}
+tr[data-progress="eliminated"] > td:first-child {
+  border-left: 3px solid var(--danger);
+}
+.competition-outlook-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 16px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.competition-outlook-note > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.competition-outlook-note i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.competition-outlook-note i[data-status="eliminated"] {
+  background: var(--danger);
+}
+.competition-outlook-note p {
+  flex-basis: 100%;
+}
+.comp-number-row > p {
+  grid-column: 1 / -1;
+}
+@media (max-width: 700px) {
+  .competition-outlook td,
+  .competition-outlook th {
+    padding: 12px 8px;
+  }
+  .competition-outlook th:first-child {
+    width: 48%;
+  }
+  .competition-outlook .player-cell {
+    gap: 6px;
+  }
+  .competition-outlook .avatar {
+    display: none;
+  }
+  .competition-outlook .name {
+    font-size: 0.8rem;
+  }
+  .competition-outlook .chip {
+    white-space: normal;
+  }
+  .competition-chance b {
+    font-size: 0.85rem;
+  }
+  .competition-outlook-note {
+    padding: 14px 12px;
+  }
+}
+
+.competition-outlook .player-cell,
+.competition-extra-standings .player-cell {
+  text-decoration: none;
+  color: var(--ink);
+}
+.competition-outlook .player-cell:hover,
+.competition-extra-standings .player-cell:hover {
+  color: var(--accent);
+}
+
+.competition-standings-table table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.competition-standings-table .standings-player {
+  width: 36%;
+}
+.competition-standings-table .standings-rank {
+  width: 40px;
+}
+.competition-standings-table .player-cell {
+  text-decoration: none;
+  color: var(--ink);
+}
+@media (max-width: 700px) {
+  .competition-standings-table .standings-wdl,
+  .competition-standings-table .standings-scores {
+    display: none;
+  }
+  .competition-standings-table .standings-player {
+    width: 49%;
+  }
+  .competition-standings-table .standings-rank {
+    width: 26px;
+  }
+  .competition-standings-table td,
+  .competition-standings-table th {
+    padding: 12px 5px;
+  }
+  .competition-standings-table .player-cell {
+    gap: 5px;
+  }
+  .competition-standings-table .avatar {
+    display: none;
+  }
+  .competition-standings-table .name {
+    font-size: 0.8rem;
+  }
+  .competition-standings-table .chip {
+    white-space: normal;
+  }
+}

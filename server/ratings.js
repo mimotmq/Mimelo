@@ -5,7 +5,7 @@ export const ESTABLISHED_MATCHES = 8;
 
 export function ratingProgress(db, game, format, playerId, through = null) {
   const timeline = through
-    ? " AND (m.submitted < ? OR (m.submitted = ? AND m.id <= ?))"
+    ? " AND (COALESCE(m.played_at,m.submitted) < ? OR (COALESCE(m.played_at,m.submitted) = ? AND m.id <= ?))"
     : "";
   const { n } = db
     .prepare(
@@ -16,7 +16,13 @@ export function ratingProgress(db, game, format, playerId, through = null) {
       playerId,
       game,
       format,
-      ...(through ? [through.submitted, through.submitted, through.id] : []),
+      ...(through
+        ? [
+            through.played_at ?? through.submitted,
+            through.played_at ?? through.submitted,
+            through.id,
+          ]
+        : []),
     );
   return {
     rated_matches: n,
@@ -27,7 +33,7 @@ export function ratingProgress(db, game, format, playerId, through = null) {
 }
 
 export function ratedRating(db, row) {
-  return row
-    ? { ...row, ...ratingProgress(db, row.game, row.format, row.player_id) }
-    : null;
+  if (!row) return null;
+  const progress = ratingProgress(db, row.game, row.format, row.player_id);
+  return { ...row, peak: progress.provisional ? null : row.peak, ...progress };
 }

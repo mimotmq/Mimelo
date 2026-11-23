@@ -56,6 +56,7 @@ body[data-game="pickleball"] {
   padding-bottom: 8px;
 }
 #record-form .pickleball-record-game.live-game-row {
+  position: relative;
   display: flex;
   flex: none;
   align-items: center;
@@ -94,16 +95,6 @@ body[data-game="pickleball"] {
 }
 .pickleball-score-key {
   margin: 0;
-}
-@media (min-width: 1121px) {
-  .games-grid .game-card.small {
-    grid-column: span 3;
-  }
-}
-@media (min-width: 861px) and (max-width: 1120px) {
-  .games-grid .game-card.small {
-    grid-column: span 6;
-  }
 }
 @media (max-width: 700px) {
   #record-form .pickleball-record-game.live-game-row {

@@ -548,6 +548,27 @@ test("long EAFC names stay readable in mobile match cards and dialogs", async (t
   const page = await browser.newPage();
   const match = {
     id: 99,
+    format: "singles",
+    context: {
+      kind: "fc",
+      competition: null,
+      sides: [0, 1].map((side) => ({
+        side,
+        elo: 1000,
+        provisional: true,
+        form: [],
+      })),
+      h2h: { meetings: 0, a: 0, draws: 0, b: 0 },
+      odds: {
+        provisional: true,
+        draw_history: 0,
+        outcomes: [
+          { side: 0, probability: 0.4, decimal: 2.5 },
+          { side: null, probability: 0.2, decimal: 5 },
+          { side: 1, probability: 0.4, decimal: 2.5 },
+        ],
+      },
+    },
     game: "eafc27",
     submitted: Date.now(),
     status: "accepted",

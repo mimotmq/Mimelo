@@ -4,12 +4,17 @@ import { getCompetition, locked, progress, entries } from "./competitions.js";
 import { organizer } from "./db.js";
 import { ratingProgress, ESTABLISHED_MATCHES } from "./ratings.js";
 import { catalogImage, smashMedia } from "./catalog-images.js";
+import { profileNationalities } from "./profile.js";
 export function members(db, id) {
   return db
     .prepare(
-      "SELECT mp.player_id AS id,mp.side,p.name FROM match_players mp JOIN players p ON p.id=mp.player_id WHERE match_id=? ORDER BY side,p.id",
+      "SELECT mp.player_id AS id,mp.side,p.name,p.photo,p.profile FROM match_players mp JOIN players p ON p.id=mp.player_id WHERE match_id=? ORDER BY side,p.id",
     )
-    .all(id);
+    .all(id)
+    .map(({ profile, ...player }) => ({
+      ...player,
+      nationalities: profileNationalities(json(profile)),
+    }));
 }
 export function getMatch(db, id) {
   const m = db.prepare("SELECT * FROM matches WHERE id=?").get(Number(id));
@@ -154,12 +159,12 @@ export function rebuild(db, game, format) {
   while (true) {
     const batch = db
       .prepare(
-        "SELECT * FROM matches WHERE game=? AND format=? AND status='accepted' AND elo_enabled=1 AND elo_checked IS NOT NULL AND forfeit=0 AND (submitted>? OR (submitted=? AND id>?)) ORDER BY submitted,id LIMIT 500",
+        "SELECT * FROM matches WHERE game=? AND format=? AND status='accepted' AND elo_enabled=1 AND elo_checked IS NOT NULL AND forfeit=0 AND (COALESCE(played_at,submitted)>? OR (COALESCE(played_at,submitted)=? AND id>?)) ORDER BY COALESCE(played_at,submitted),id LIMIT 500",
       )
       .all(game, format, cursorTime, cursorTime, cursorId);
     if (!batch.length) break;
     for (const m of batch) {
-      cursorTime = m.submitted;
+      cursorTime = m.played_at ?? m.submitted;
       cursorId = m.id;
       const ps = members(db, m.id);
       const a = ps.filter((p) => p.side === 0),
@@ -190,10 +195,13 @@ export function rebuild(db, game, format) {
           d,
           after,
         );
+        const count = (counts.get(p.id) || 0) + 1;
+        const peak =
+          count <= ESTABLISHED_MATCHES ? after : Math.max(before.peak, after);
         db.prepare(
           "INSERT INTO ratings VALUES(?,?,?,?,?) ON CONFLICT(game,format,player_id) DO UPDATE SET elo=excluded.elo,peak=excluded.peak",
-        ).run(game, format, p.id, after, Math.max(before.peak, after));
-        counts.set(p.id, (counts.get(p.id) || 0) + 1);
+        ).run(game, format, p.id, after, peak);
+        counts.set(p.id, count);
       }
     }
   }
@@ -444,12 +452,36 @@ export function preview(db, game, body, user) {
     ),
   };
 }
+function playedTime(value) {
+  if (value == null) return null;
+  assert(
+    typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value > 0 &&
+      value <= Date.now() + 60000,
+    "Enter a valid played date and time that is not in the future.",
+  );
+  return value;
+}
+function durationMinutes(value) {
+  if (value == null) return null;
+  assert(
+    typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value >= 1 &&
+      value <= 10080,
+    "Enter a duration between 1 and 10,080 whole minutes.",
+  );
+  return value;
+}
 export function submit(db, game, body, user) {
   const { c, f, format, sides, sc, rules } = prepare(db, game, body, user);
+  const playedAt = playedTime(body.played_at),
+    duration = durationMinutes(body.duration_minutes);
   const id = Number(
     db
       .prepare(
-        "INSERT INTO matches(game,competition_id,fixture_id,format,score,a_score,b_score,outcome,winner,submitted,submitter,elo_enabled,rules) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO matches(game,competition_id,fixture_id,format,score,a_score,b_score,outcome,winner,submitted,submitter,elo_enabled,rules,played_at,duration_minutes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
       )
       .run(
         game,
@@ -465,6 +497,8 @@ export function submit(db, game, body, user) {
         user.id,
         body.elo_enabled === false ? 0 : 1,
         JSON.stringify(rules),
+        playedAt,
+        duration,
       ).lastInsertRowid,
   );
   for (let side = 0; side < 2; side++)
@@ -608,11 +642,17 @@ export function edit(db, id, body, user, voided = false) {
           .get(tid, m.game),
         "Choose teams from this edition.",
       );
+  const playedAt =
+    body.played_at === undefined ? m.played_at : playedTime(body.played_at);
+  const duration =
+    body.duration_minutes === undefined
+      ? m.duration_minutes
+      : durationMinutes(body.duration_minutes);
   rewindFixture(db, m);
   const old = json(m.score),
     sameTeams = old.teamA === sc.score.teamA && old.teamB === sc.score.teamB;
   db.prepare(
-    "UPDATE matches SET score=?,a_score=?,b_score=?,outcome=?,winner=?,revision=revision+1,status=?,accepted=NULL,acceptor=NULL,elo_checked=NULL,elo_checker=NULL,elo_enabled=?,team_snapshot=? WHERE id=?",
+    "UPDATE matches SET score=?,a_score=?,b_score=?,outcome=?,winner=?,revision=revision+1,status=?,accepted=NULL,acceptor=NULL,elo_checked=NULL,elo_checker=NULL,elo_enabled=?,team_snapshot=?,played_at=?,duration_minutes=? WHERE id=?",
   ).run(
     JSON.stringify(sc.score),
     sc.a,
@@ -622,6 +662,8 @@ export function edit(db, id, body, user, voided = false) {
     voided ? "voided" : "submitted",
     body.elo_enabled === undefined ? m.elo_enabled : body.elo_enabled ? 1 : 0,
     sameTeams ? m.team_snapshot : null,
+    playedAt,
+    duration,
     id,
   );
   if (voided)
@@ -693,17 +735,22 @@ export function forfeit(db, fixtureId, winnerEntry, user) {
   return serializeMatch(db, getMatch(db, id), user);
 }
 
-// Reprice existing checked-off matches once when the adaptive K policy ships.
-// Runs atomically and preserves approvals, submission order, and team snapshots.
+// Replay checked-off matches when the rating or established-peak policy changes.
+// Runs atomically and preserves approvals, entry timestamps, and team snapshots.
 export function upgradeRatings(db) {
   db.transaction(() => {
-    if (db.prepare("SELECT 1 FROM migrations WHERE version=3").get()) return;
+    const adaptive = db
+      .prepare("SELECT 1 FROM migrations WHERE version=3")
+      .get();
+    const peaks = db.prepare("SELECT 1 FROM migrations WHERE version=4").get();
+    if (adaptive && peaks) return;
     const pools = db
       .prepare(
         "SELECT DISTINCT game,format FROM matches WHERE elo_checked IS NOT NULL",
       )
       .all();
     for (const pool of pools) rebuild(db, pool.game, pool.format);
-    db.prepare("INSERT INTO migrations VALUES(3)").run();
+    db.prepare("INSERT OR IGNORE INTO migrations VALUES(3)").run();
+    db.prepare("INSERT OR IGNORE INTO migrations VALUES(4)").run();
   })();
 }

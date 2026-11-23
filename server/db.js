@@ -88,6 +88,16 @@ export function openDb(path) {
     db.prepare("DELETE FROM catalog_images WHERE kind='team'").run();
     db.prepare("INSERT INTO migrations VALUES(2)").run();
   })();
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=5").get()) return;
+    db.exec(
+      "ALTER TABLE matches ADD COLUMN played_at INTEGER; ALTER TABLE matches ADD COLUMN duration_minutes INTEGER",
+    );
+    db.exec(
+      "CREATE INDEX matches_played_timeline ON matches(game,format,COALESCE(played_at,submitted),id)",
+    );
+    db.prepare("INSERT INTO migrations VALUES(5)").run();
+  })();
   return db;
 }
 export const json = (v, fallback = {}) => {

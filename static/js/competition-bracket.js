@@ -140,7 +140,8 @@ export function renderBracket(container, c, { UI, APP }) {
   }
   const entries = new Map(c.entries.map((e) => [e.id, e]));
   const doubles = c.format === "doubles",
-    fc = APP.game.kind === "fc";
+    fc = APP.game.kind === "fc",
+    racket = ["tennis", "tt", "pickleball"].includes(APP.game.kind);
   const groups =
     c.settings.elimination === "double"
       ? [
@@ -186,8 +187,17 @@ export function renderBracket(container, c, { UI, APP }) {
       : '<span class="bt-avatar-placeholder" aria-hidden="true">' +
         (f.status === "bye" ? "–" : "?") +
         "</span>";
+    const identity =
+      racket && entry
+        ? entry.players
+            .map(
+              (player) =>
+                `<span class="bt-racket-person"><span class="bt-racket-name">${esc(player.name)}</span>${UI.nationalityFlags(player)}</span>`,
+            )
+            .join("")
+        : esc(entrant(f, side));
     return `<span class="bt-side ${won ? "bt-winner" : ""} ${entry ? "" : "bt-unresolved"}" data-entry="${f[side] || ""}">
-      <span class="bt-player"><span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name" title="${esc(entrant(f, side))}">${esc(entrant(f, side))}</span></span>
+      <span class="bt-player"><span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : ""}" title="${esc(entrant(f, side))}">${identity}</span></span>
       ${fc ? `<span class="bt-team" title="${esc(team?.name || "Club not recorded")}" aria-label="${esc(team?.name || "Club not recorded")}">${team?.image ? `<img src="${esc(team.image)}" alt="" loading="lazy">` : `<span class="bt-club-code">${esc(team?.code || "—")}</span>`}</span>` : ""}
       <span class="bt-score" aria-label="${esc(f.forfeit ? (won ? "Walkover winner" : "Forfeit") : "Score " + score)}">${esc(score)}${f.score?.pens ? `<small class="bt-penalty" aria-label="${f.score.pens[n]} penalties">${f.score.pens[n]}</small>` : ""}</span></span>`;
   }

@@ -32,7 +32,11 @@ APP.run(async () => {
     );
   }
   async function load() {
-    c = await APP.api("competitions/" + id);
+    const [details, projection] = await Promise.all([
+      APP.api("competitions/" + id),
+      APP.api(`competitions/${id}/projection`),
+    ]);
+    c = { ...details, projection };
     if (c.game !== APP.slug) {
       location.replace("competition.html?game=" + c.game + "&id=" + id);
       return;
@@ -194,6 +198,9 @@ APP.run(async () => {
           : "admin decision with explanation") +
         ".",
     );
+    if (c.kind === "groups" && c.settings.extraCount)
+      $("#rules-points-copy").textContent +=
+        ` Top ${c.settings.advance} per group advance, plus the best ${c.settings.extraCount} from finishing position ${c.settings.extraPlace}. Cross-group comparison: points → ${(c.settings.extraTieBreaks || []).map((key) => tiebreakLabels(APP.game.kind)[key]).join(" → ")}. Raw points are used even for unequal groups. Unresolved cross-group ties require an admin decision. First knockout round avoids same-group opponents.`;
     text(
       "#rules-elo-copy",
       "Admin checkoff is required for Elo. Competition weights: " +
@@ -204,6 +211,9 @@ APP.run(async () => {
     const cards = $$("#cp-rules .format-card p");
     cards.at(-1).textContent =
       "An organizer, admin, or representative from each side may accept results. Only an admin can check off Elo. A downstream submission locks earlier dependent results.";
+    const { renderCompetitionOutlook } =
+      await import("./competition-outlook.js");
+    renderCompetitionOutlook(c);
     await management();
   }
   async function management() {
@@ -318,7 +328,7 @@ APP.run(async () => {
     $("[data-action=rules]", panel)?.addEventListener("click", async () => {
       const pickleball =
         APP.game.kind === "pickleball" ? await import("./pickleball.js") : null;
-      let tieEditor;
+      let tieEditor, extraTieEditor;
       const ruleDialog = UI.formDialog(
         "Competition rules",
         field("Name", "name", c.name) +
@@ -426,6 +436,20 @@ APP.run(async () => {
             'min="1"',
           ) +
           field(
+            "Additional best-placed qualifiers",
+            "extraCount",
+            c.settings.extraCount || 0,
+            "number",
+            'min="0" max="64"',
+          ) +
+          field(
+            "From finishing position",
+            "extraPlace",
+            c.settings.extraPlace || 3,
+            "number",
+            'min="2"',
+          ) +
+          field(
             "Playoff qualifiers",
             "playoffCount",
             c.settings.playoffCount,
@@ -444,7 +468,7 @@ APP.run(async () => {
             ? `<label class="check"><input type="checkbox" name="matchTiebreak" ${c.settings.matchTiebreak ? "checked" : ""}>Doubles: final match tiebreak</label>`
             : "") +
           (pickleball ? pickleball.scoringHelp : "") +
-          "<div data-tiebreak-editor></div>" +
+          "<div data-tiebreak-editor></div><div data-extra-tiebreak-editor></div>" +
           select(
             "Tie resolution",
             "tieResolution",
@@ -476,6 +500,10 @@ APP.run(async () => {
                 bestOf: Number(f.get("bestOf")),
                 groupCount: Number(f.get("groupCount")),
                 advance: Number(f.get("advance")),
+                extraCount:
+                  f.get("kind") === "groups" ? Number(f.get("extraCount")) : 0,
+                extraPlace: Number(f.get("extraPlace")),
+                extraTieBreaks: extraTieEditor.read(),
                 playoffCount: Number(f.get("playoffCount")),
                 tieBreaks: tieEditor.read(),
                 tieResolution: f.get("tieResolution"),
@@ -494,12 +522,23 @@ APP.run(async () => {
         kind: APP.game.kind,
         values: c.settings.tieBreaks,
       });
+      extraTieEditor = mountTiebreakEditor(
+        $("[data-extra-tiebreak-editor]", ruleDialog),
+        {
+          kind: APP.game.kind,
+          values: c.settings.extraTieBreaks || ["difference", "for"],
+          crossGroup: true,
+        },
+      );
       function updateRuleFields() {
         const kind = $("#field-kind", ruleDialog).value;
         const playoffs = $('[name="playoffs"]', ruleDialog);
-        for (const key of ["groupCount", "advance"])
+        for (const key of ["groupCount", "advance", "extraCount", "extraPlace"])
           $("#field-" + key, ruleDialog).closest(".field").hidden =
             kind !== "groups";
+        $("[data-extra-tiebreak-editor]", ruleDialog).hidden =
+          kind !== "groups" ||
+          !Number($("#field-extraCount", ruleDialog).value);
         playoffs.closest("label").hidden = kind !== "league";
         $("#field-playoffCount", ruleDialog).closest(".field").hidden =
           kind !== "league" || !playoffs.checked;
@@ -567,54 +606,51 @@ APP.run(async () => {
       );
       $("[data-action=cancel-delete]", d).onclick = () => d.close();
     };
-    for (const [pool, rows] of Object.entries(c.standings)) {
-      const count =
-        c.kind === "groups"
-          ? c.settings.advance
-          : c.settings.playoffs
-            ? c.settings.playoffCount
-            : 1;
+    for (const pending of c.qualificationPending || []) {
       if (
-        !c.fixtures.some((f) =>
+        c.fixtures.some((f) =>
           ["knockout", "semifinal", "final"].includes(f.stage),
-        ) &&
-        rows[count]?.tiedWithPrevious
-      ) {
-        const box = document.createElement("div");
-        box.className = "notice-strip";
-        box.innerHTML = `<span>Qualification tie ${esc(pool ? ": group " + pool : "")}. ${c.settings.tieResolution === "match" ? "An extra match can settle the boundary." : "An admin must select qualifiers with a reason."}</span>${c.canAdmin ? button("Resolve", "resolve") : ""}${c.canManage && c.settings.tieResolution === "match" ? button("Schedule tiebreak", "tiebreak") : ""}`;
-        panel.append(box);
-        $("[data-action=tiebreak]", box)?.addEventListener(
-          "click",
-          async () => {
-            try {
-              await APP.api(`competitions/${id}/tiebreak`, { pool });
-              await load();
-            } catch (e) {
-              UI.toast(e.message);
-            }
+        )
+      )
+        continue;
+      const { pool, rows, count } = pending;
+      const extra = pool.startsWith("@");
+      const box = document.createElement("div");
+      box.className = "notice-strip";
+      box.innerHTML = `<span>${esc(pending.label || `Qualification tie${pool ? ": group " + pool : ""}`)}. ${extra || c.settings.tieResolution === "admin" ? "An admin must select qualifiers with a reason." : "An extra match can settle the boundary."}</span>${c.canAdmin ? button("Resolve", "resolve") : ""}${!extra && c.canManage && c.settings.tieResolution === "match" ? button("Schedule tiebreak", "tiebreak") : ""}`;
+      panel.append(box);
+      $("[data-action=tiebreak]", box)?.addEventListener("click", async () => {
+        try {
+          await APP.api(`competitions/${id}/tiebreak`, { pool });
+          await load();
+        } catch (e) {
+          UI.toast(e.message);
+        }
+      });
+      $("[data-action=resolve]", box)?.addEventListener("click", () =>
+        UI.formDialog(
+          "Resolve qualification",
+          rows
+            .filter(
+              (r) =>
+                pending.fixed.includes(r.entry) ||
+                pending.allowed.includes(r.entry),
+            )
+            .map(
+              (r, i) =>
+                `<label class="check"><input type="checkbox" name="qualifier" value="${r.entry}" ${i < count ? "checked" : ""}>${esc(name(r.entry))}${pending.fixed.includes(r.entry) ? " · already secured" : ""}</label>`,
+            )
+            .join("") + field("Reason", "reason", "", "text", "required"),
+          async (f) => {
+            await APP.api(`competitions/${id}/qualify`, {
+              pool,
+              entries: f.getAll("qualifier").map(Number),
+              reason: f.get("reason"),
+            });
+            await load();
           },
-        );
-        $("[data-action=resolve]", box)?.addEventListener("click", () =>
-          UI.formDialog(
-            "Resolve qualification",
-            rows
-              .map(
-                (r) =>
-                  `<label class="check"><input type="checkbox" name="qualifier" value="${r.entry}" ${r.position <= count ? "checked" : ""}>${esc(name(r.entry))}</label>`,
-              )
-              .join("") + field("Reason", "reason", "", "text", "required"),
-            async (f) => {
-              await APP.api(`competitions/${id}/qualify`, {
-                pool,
-                entries: f.getAll("qualifier").map(Number),
-                reason: f.get("reason"),
-              });
-              await load();
-            },
-          ),
-        );
-      }
+        ),
+      );
     }
   }
   async function entryDialog(manager) {

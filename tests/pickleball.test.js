@@ -296,7 +296,7 @@ test("pickleball records, ratings, competitions and mobile score entry work in s
   await page.waitForFunction(() =>
     document
       .querySelector("#matches-body")
-      .textContent.includes("No matches yet"),
+      .textContent.includes("No matching results"),
   );
   await page.goBack();
   await page

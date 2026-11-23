@@ -4,10 +4,18 @@
 @import url("./competition-settings.css");
 @import url("./game-mobile.css");
 @import url("./pickleball.css");
+@import url("./home-games.css");
+@import url("./site-pages.css");
+@import url("./match-overview.css");
+@import url("./competition-outlook.css");
 /* Live appearance refinements; the original design-reference styles stay intact. */
 /* Tiny universal transition durations can delay inherited visibility on load. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition: none !important; }
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+  }
 }
 .logo-plate,
 .game-icon,

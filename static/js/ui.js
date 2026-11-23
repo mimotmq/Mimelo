@@ -99,6 +99,10 @@
     Number(value ?? 1000).toLocaleString(undefined, {
       maximumFractionDigits: 0,
     }) + (state?.provisional === false ? "" : "?");
+  const peak = (state) =>
+    state?.provisional === false && state.peak != null
+      ? elo({ elo: state.peak, provisional: false })
+      : "—";
   function icons(root = document) {
     $$("[data-icon]", root).forEach((el) => {
       el.innerHTML = icon(el.dataset.icon, Number(el.dataset.size) || 20);
@@ -143,7 +147,7 @@
         await save(new FormData(e.target), d);
         d.close();
       } catch (x) {
-        $(".hint", d).textContent = x.message;
+        $("[role=alert]", d).textContent = x.message;
       } finally {
         b.disabled = false;
       }
@@ -154,8 +158,13 @@
     `<div class="field"><label for="field-${esc(name)}">${esc(label)}</label><input class="input" id="field-${esc(name)}" name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></div>`;
   const select = (label, name, options, value) =>
     `<div class="field"><label for="field-${esc(name)}">${esc(label)}</label><select class="select" id="field-${esc(name)}" name="${esc(name)}">${options.map(([v, l]) => `<option value="${esc(v)}" ${String(value) === String(v) ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
-  const playerLink = (p) =>
-    `<a class="player-cell" href="${APP.url("player", { player: p.player_id || p.id })}">${avatar(p.name, "avatar-sm", p.photo)}<span class="name">${esc(p.name)}</span></a>`;
+  const playerLink = (p) => {
+    const profile = p.profile || p;
+    const nationality = ["tennis", "tt", "pickleball"].includes(APP.game.kind)
+      ? UI.nationalityFlags?.(profile) || ""
+      : "";
+    return `<a class="player-cell" href="player.html?player=${p.player_id || p.id}">${avatar(p.name, "avatar-sm", p.photo)}<span class="player-link-copy"><span class="name">${esc(p.name)}</span>${nationality}</span></a>`;
+  };
   function pager(parent, result, load) {
     let nav = parent.querySelector(":scope > .live-pagination");
     if (!nav) {
@@ -379,6 +388,25 @@
       requestAnimationFrame(() => setValue(player, true)),
     );
     return load;
+  }
+  function setupSiteContext() {
+    if (/\/(account|player)\.html$/.test(location.pathname)) {
+      document.body.removeAttribute("data-game");
+      document.body.removeAttribute("data-game-variant");
+      document.body.classList.add("site-page");
+      const header = $(".header-inner");
+      const nav = document.createElement("nav");
+      nav.className = "main-nav";
+      nav.setAttribute("aria-label", "Primary");
+      nav.innerHTML =
+        '<a class="nav-link" href="index.html">Home</a><a class="nav-link" href="players.html">Players</a>';
+      $(".brand", header).after(nav);
+      const back = $('.header-actions a[href*="game.html"]');
+      if (back) {
+        back.href = "index.html";
+        back.innerHTML = `${icon("arrow", 18)} Home`;
+      }
+    }
   }
   function setupGameIdentity() {
     const main = $("main#main");
@@ -636,10 +664,18 @@
       const kind = m.rules?.kind || APP.game.kind,
         cols = s.games.length,
         totalLabel = kind === "tennis" ? "Sets" : "Games";
+      const identities = (side) =>
+        m.participants
+          .filter((player) => player.side === side)
+          .map(
+            (player) =>
+              `<span class="score-player-identity"><span>${esc(player.name)}</span>${["tennis", "tt", "pickleball"].includes(kind) ? UI.nationalityFlags?.(player) || "" : ""}</span>`,
+          )
+          .join('<span class="score-pair-separator"> + </span>');
       const rows = [0, 1]
         .map(
           (n) =>
-            `<div class="tennis-score-row ${m.winner === n ? "match-winner" : ""}"><span class="tennis-score-player"><span title="${side(n)}">${side(n)}</span></span>${s.games.map((g, i) => `<span class="tennis-score-cell ${g.winner === n ? "set-winner" : ""}">${kind === "smash" ? '<span class="match-stock-icons">' + fighterIcons(m, i, n) + "</span>" : ""}${n === 0 ? g.a : g.b}${g.tb ? "<sup>" + g.tb[n] + "</sup>" : ""}${g.winner === n && g.jv ? '<sup class="jv">JV</sup>' : ""}${g.suddenDeath ? "<sup>SD</sup>" : ""}</span>`).join("")}<span class="tennis-score-total">${n === 0 ? m.a_score : m.b_score}</span></div>`,
+            `<div class="tennis-score-row ${m.winner === n ? "match-winner" : ""}"><span class="tennis-score-player"><span title="${side(n)}">${identities(n)}</span></span>${s.games.map((g, i) => `<span class="tennis-score-cell ${g.winner === n ? "set-winner" : ""}">${kind === "smash" ? '<span class="match-stock-icons">' + fighterIcons(m, i, n) + "</span>" : ""}${n === 0 ? g.a : g.b}${g.tb ? "<sup>" + g.tb[n] + "</sup>" : ""}${g.winner === n && g.jv ? '<sup class="jv">JV</sup>' : ""}${g.suddenDeath ? "<sup>SD</sup>" : ""}</span>`).join("")}<span class="tennis-score-total">${n === 0 ? m.a_score : m.b_score}</span></div>`,
         )
         .join("");
       return `<div class="${kind === "smash" ? "smash-scoreboard" : "tennis-scoreboard"} ${kind === "tt" ? "tt-scoreboard" : ""}" style="--tennis-set-count:${cols};--tennis-score-columns:minmax(112px,1.8fr) repeat(${cols},minmax(24px,.4fr)) 30px" aria-label="${esc(kind)} scorecard"><div class="tennis-score-row tennis-score-head"><span>Player</span>${s.games.map((_, i) => '<span class="tennis-score-cell">' + (i + 1) + "</span>").join("")}<span class="tennis-score-total-head">${totalLabel}</span></div>${rows}</div>`;
@@ -671,10 +707,22 @@
         cell.dataset.label = labels[i];
         if (i === 0) cell.classList.add("match-date");
         else if (i === 1) cell.classList.add("match-result");
-        else if (i === labels.length - 1) cell.classList.add("match-open");
+        else if (labels[i] === "Action" || !labels[i])
+          cell.classList.add("match-open");
         else cell.classList.add("match-meta");
       });
     });
+  }
+  function resultCard(match) {
+    const names = [0, 1]
+      .map((side) =>
+        match.participants
+          .filter((p) => p.side === side)
+          .map((p) => p.name)
+          .join(" + "),
+      )
+      .join(" vs ");
+    return `<a class="match-result-trigger" data-match="${match.id}" href="${esc(APP.url("game", { game: match.game, view: "matches", match: match.id }))}" aria-label="${esc("View match: " + names)}">${score(match)}</a>`;
   }
   function status(m) {
     return m.forfeit
@@ -689,10 +737,14 @@
   }
   async function matchDialog(id) {
     const m = await APP.api("matches/" + id);
+    const { renderMatchOverview } = await import("./match-overview.js");
     const d = dialog(
       "Match result",
-      `${score(m)}<p class="sub">${esc(status(m))} · ${date(m.submitted)}</p>${m.locked ? '<p class="notice-strip">Locked by a downstream match submission.</p>' : ""}${m.score.note ? `<p>${esc(m.score.note)}</p>` : ""}${m.teams?.length ? "<p>" + m.teams.map((t) => esc(t.name) + " · " + (t.overall ?? "overall missing")).join(" vs ") + "</p>" : ""}${smashDetails(m)}${m.ledger.length ? '<div class="summary-meta">' + m.ledger.map((l) => "<div><span>" + esc(m.participants.find((p) => p.id === l.player_id)?.name) + "</span><b>" + elo({ elo: l.before, provisional: l.provisional_before }) + " → " + elo({ elo: l.after, provisional: l.provisional }) + "</b></div>").join("") + "</div>" : ""}<div class="form-actions">${m.permissions.accept ? button("Accept result", "accept") : ""}${m.permissions.elo ? button("Check off Elo", "elo") : ""}${m.permissions.eloToggle ? button(m.elo_enabled ? "Exclude from Elo" : "Include in Elo", "elo-enabled") : ""}${m.permissions.edit ? button("Correct result", "edit") : ""}${m.permissions.void ? button("Void result", "void") : ""}</div><p class="hint" role="alert"></p>`,
+      renderMatchOverview(m, { score, status, smashDetails, button }),
     );
+    d.classList.add("match-overview-dialog");
+    $(".dialog-head h2", d).id = "match-overview-title-" + m.id;
+    d.setAttribute("aria-labelledby", "match-overview-title-" + m.id);
     $$("[data-action]", d).forEach(
       (b) =>
         (b.onclick = async () => {
@@ -729,7 +781,7 @@
             toast("Saved.");
             window.dispatchEvent(new Event("records-changed"));
           } catch (e) {
-            $(".hint", d).textContent = e.message;
+            $("[role=alert]", d).textContent = e.message;
           } finally {
             b.disabled = false;
           }
@@ -738,8 +790,17 @@
   }
   function standingsTable(c, rows) {
     const fc = APP.games.find((g) => g.slug === c.game)?.kind === "fc";
-    return `<div class="table-wrap"><table><thead><tr><th>#</th><th>${c.format === "doubles" ? "Pair" : "Player"}</th><th>P</th><th>W</th>${fc ? "<th>D</th>" : ""}<th>L</th><th>${fc ? "Goals" : "Games / sets"}</th>${fc ? "<th>Pts</th>" : ""}</tr></thead><tbody>${rows.map((r) => `<tr><td>${r.position}</td><td>${r.players.map((p) => playerLink(p)).join(" + ")}</td><td>${r.played}</td><td>${r.w}</td>${fc ? `<td>${r.d}</td>` : ""}<td>${r.l}</td><td>${r.for}–${r.against}</td>${fc ? `<td>${r.points}</td>` : ""}</tr>`).join("")}</tbody></table></div>`;
+    const progress = (row) =>
+      c.projection?.rows.find((state) => state.entry === row.entry);
+    const badge = (row) => {
+      const state = progress(row);
+      return state
+        ? `<span class="progression-badges">${state.status !== "contending" ? `<span class="progression-badge" data-status="${state.status}">${{ qualified: "Qualified", eliminated: "Eliminated", champion: "Champion" }[state.status]}</span>` : ""}${state.group_winner ? '<span class="progression-badge" data-status="winner">Group winner</span>' : ""}</span>`
+        : "";
+    };
+    return `<div class="table-wrap competition-standings-table"><table><thead><tr><th class="standings-rank">#</th><th class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th><th class="standings-played">P</th><th class="standings-wdl">W</th>${fc ? '<th class="standings-wdl">D</th>' : ""}<th class="standings-wdl">L</th><th class="standings-scores">${fc ? "Goals" : "Games / sets"}</th><th class="standings-difference" title="${fc ? "Goal difference" : "Game / set difference"}">${fc ? "GD" : "Diff"}</th>${fc ? '<th class="standings-points">Pts</th>' : ""}</tr></thead><tbody>${rows.map((row) => `<tr${progress(row) ? ` data-progress="${progress(row).status}" data-group-winner="${progress(row).group_winner && progress(row).status !== "eliminated"}"` : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}${row.players.map((p) => playerLink(p)).join(" + ")}${badge(row)}</td><td class="standings-played">${row.played}</td><td class="standings-wdl">${row.w}</td>${fc ? `<td class="standings-wdl">${row.d}</td>` : ""}<td class="standings-wdl">${row.l}</td><td class="standings-scores">${row.for}–${row.against}</td><td class="standings-difference">${row.difference > 0 ? "+" : ""}${row.difference}</td>${fc ? `<td class="standings-points">${row.points}</td>` : ""}</tr>`).join("")}</tbody></table></div>`;
   }
+
   window.UI = {
     $,
     $$,
@@ -753,6 +814,7 @@
     date,
     rating,
     elo,
+    peak,
     count,
     toast,
     dialog,
@@ -767,6 +829,7 @@
     tabs,
     picker,
     score,
+    resultCard,
     status,
     matchDialog,
     matchTable,
@@ -776,13 +839,17 @@
     // All runtime deviations correspond to explicit requirements; original HTML/CSS remain unchanged.
     const appearance = document.createElement("link");
     appearance.rel = "stylesheet";
-    appearance.href = "css/appearance.css";
+    appearance.href =
+      "css/appearance.css?v=profiles-and-match-overviews-20261122";
     await new Promise((resolve, reject) => {
       appearance.onload = resolve;
       appearance.onerror = () =>
         reject(new Error("Could not load the site appearance. Please reload."));
       document.head.append(appearance);
     });
+    const flairs = await import("./profile-flairs.js");
+    await flairs.countryList();
+    UI.nationalityFlags = flairs.nationalityFlags;
     const styles = document.createElement("style");
     styles.textContent =
       ".live-pagination{padding:16px;flex-wrap:wrap}.live-pagination .muted{margin-right:auto}.live-game-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}.live-game-row h4,.live-game-row .wide{grid-column:1/-1}.live-score-grid{display:grid;gap:16px}.dialog{max-width:min(720px,calc(100vw - 24px))}.dialog .form-actions{flex-wrap:wrap}.input,.select{min-width:0;max-width:100%}.player-cell .name{overflow-wrap:anywhere}.avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}.bracket-match{min-width:200px}.live-pagination button:disabled{opacity:.4}.table-wrap{max-width:100%;overflow:auto}.settings-layout>*,.settings-card,.sidebar,.view>*{min-width:0}.view{grid-template-columns:minmax(0,1fr)}";
@@ -852,6 +919,7 @@
       }
     `;
     document.head.append(styles);
+    setupSiteContext();
     const g = APP.game;
     if (document.body.hasAttribute("data-game")) {
       document.body.dataset.game = {
@@ -882,7 +950,11 @@
     }
     if (pickleball) {
       $$(".footer-col")
-        .filter((column) => $('a[href*="game.html"]', column))
+        .filter((column) =>
+          $$('a[href*="game.html"]', column).some(
+            (link) => !new URL(link.href).searchParams.has("view"),
+          ),
+        )
         .forEach((column) => {
           column.insertAdjacentHTML(
             "beforeend",
@@ -1035,6 +1107,12 @@
           `<a class="game-card small" data-tone="pickleball" href="game.html?game=pickleball"><div class="game-card-top"><span class="game-icon"><img src="assets/brand/${esc(pickleball.logo)}" alt="Pickleball"></span></div><div class="game-card-body"><h3>Pickleball</h3><p>Singles &amp; doubles. Game scores, ratings, and competitions.</p></div><div class="game-card-foot"><span class="game-card-cta">Open game</span></div></a>`,
         );
       }
+      $(".games-grid").classList.add("uniform-game-grid");
+      $$(".games-grid .game-card").forEach((card) => {
+        card.classList.remove("large", "small");
+        $(".game-card-foot", card).innerHTML =
+          `<span class="game-card-cta">Open game ${icon("arrow", 16)}</span>`;
+      });
       const p = await APP.api("players?limit=5");
       if ($(".home-players .avatar-stack"))
         $(".home-players .avatar-stack").innerHTML = p.rows

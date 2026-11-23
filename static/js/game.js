@@ -2,6 +2,16 @@ APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     g = APP.game;
   document.body.classList.add("game-page");
+  const descriptions = [
+    "Everyone plays everyone. Results build the table; eligible matches count for Elo after admin checkoff.",
+    "Group tables seed a bracket. Eligible results count for Elo after admin checkoff; knockout rounds can be weighted.",
+    g.kind === "fc"
+      ? "A knockout bracket with one champion. Tied knockout matches need a winner after extra time or penalties."
+      : "A knockout bracket with one champion. Each completed match sends its winner to the next round.",
+  ];
+  $$(".format-card p").forEach((paragraph, i) => {
+    if (descriptions[i]) paragraph.textContent = descriptions[i];
+  });
   const mobileNav = document.createElement("nav");
   mobileNav.className = "game-mobile-nav";
   mobileNav.setAttribute("aria-label", "Game views");
@@ -93,14 +103,18 @@ APP.run(async () => {
     rows
       .map(
         (m) =>
-          `<tr><td>${UI.date(m.submitted)}</td><td>${UI.score(m)}</td><td>${esc(m.competition_name || "Friendly")}</td><td>${m.elo_checked ? "Checked" : "—"}</td><td><span class="status ${m.status === "submitted" ? "status-pending" : "status-live"}">${esc(UI.status(m))}</span></td><td>${button("Open", "match", `data-match="${m.id}"`)}</td></tr>`,
+          `<tr><td>${UI.date(m.played_at ?? m.submitted)}</td><td>${UI.resultCard(m)}</td><td>${esc(m.competition_name || "Friendly")}</td><td>${m.elo_checked ? "Checked" : "—"}</td><td><span class="status ${m.status === "submitted" ? "status-pending" : "status-live"}">${esc(UI.status(m))}</span></td></tr>`,
       )
-      .join("") || '<tr><td colspan="6">No matches yet.</td></tr>';
+      .join("") || '<tr><td colspan="5">No matching results.</td></tr>';
   function bindMatches(root = document) {
     $$("[data-match]", root).forEach(
       (b) =>
-        (b.onclick = () =>
-          UI.matchDialog(b.dataset.match).catch((e) => UI.toast(e.message))),
+        (b.onclick = (event) => {
+          if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+            return;
+          event.preventDefault();
+          UI.matchDialog(b.dataset.match).catch((e) => UI.toast(e.message));
+        }),
     );
   }
   async function overview() {
@@ -139,15 +153,12 @@ APP.run(async () => {
       recent.rows
         .map(
           (m) =>
-            `<div class="activity-row"><span class="activity-icon">${UI.icon(m.status === "accepted" ? "check" : "clock", 17)}</span><div class="activity-copy"><b>${m.participants.map((p) => esc(p.name)).join(" · ")}</b><span>${esc(UI.status(m))}</span></div><span class="activity-meta">${UI.date(m.submitted)}</span></div>`,
+            `<div class="activity-row"><span class="activity-icon">${UI.icon(m.status === "accepted" ? "check" : "clock", 17)}</span><div class="activity-copy"><b>${m.participants.map((p) => esc(p.name)).join(" · ")}</b><span>${esc(UI.status(m))}</span></div><span class="activity-meta">${UI.date(m.played_at ?? m.submitted)}</span></div>`,
         )
         .join("") || UI.empty("No activity yet.");
     $("#overview-pending").innerHTML =
       pending.rows
-        .map(
-          (m) =>
-            `<div class="leader-row"><div class="leader-name"><b>${m.participants.map((p) => esc(p.name)).join(" · ")}</b><span>${esc(m.competition_name || "Friendly")}</span></div>${button("Open", "match", `data-match="${m.id}"`)}</div>`,
-        )
+        .map((m) => `<div class="leader-row">${UI.resultCard(m)}</div>`)
         .join("") || UI.empty("No results waiting.");
     bindMatches();
   }
@@ -155,6 +166,8 @@ APP.run(async () => {
     const result = await APP.api(
       `matches?game=${APP.slug}&offset=${offset}&status=${matchStatus}&q=${encodeURIComponent($("#match-search").value)}`,
     );
+    $("#matches-body").closest("table").querySelector("thead").innerHTML =
+      "<tr><th>Date</th><th>Match</th><th>Competition</th><th>Elo</th><th>Status</th></tr>";
     $("#matches-body").innerHTML = matchRows(result.rows);
     UI.matchTable($("#matches-body").closest("table"));
     UI.pager($("[data-view-panel=matches]"), result, matches);
@@ -201,7 +214,7 @@ APP.run(async () => {
       result.rows
         .map(
           (p) =>
-            `<tr class="game-ranking-row"><td data-label="Rank">${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num" data-label="Elo">${UI.elo(p)}</td><td data-label="Peak">${UI.elo(p, p.peak)}</td><td data-label="W">${p.w || 0}</td><td data-label="D">${p.d || 0}</td><td data-label="L">${p.l || 0}</td></tr>`,
+            `<tr class="game-ranking-row"><td data-label="Rank">${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num" data-label="Elo">${UI.elo(p)}</td><td data-label="Peak">${UI.peak(p)}</td><td data-label="W">${p.w || 0}</td><td data-label="D">${p.d || 0}</td><td data-label="L">${p.l || 0}</td></tr>`,
         )
         .join("") ||
       '<tr><td colspan="7">No rated results in this format yet.</td></tr>';
@@ -237,7 +250,11 @@ APP.run(async () => {
         out.innerHTML = UI.empty("Choose a league or group competition.");
         return;
       }
-      const c = await APP.api("competitions/" + chooser.value);
+      const [detail, projection] = await Promise.all([
+        APP.api("competitions/" + chooser.value),
+        APP.api(`competitions/${chooser.value}/projection`),
+      ]);
+      const c = { ...detail, projection };
       out.innerHTML =
         Object.entries(c.standings)
           .map(
@@ -266,7 +283,7 @@ APP.run(async () => {
   APP.refreshCompetitions = competitions;
   async function players(offset = 0) {
     const result = await APP.api(
-      `players?offset=${offset}&q=${encodeURIComponent($("#player-search").value)}`,
+      `players?game=${APP.slug}&offset=${offset}&q=${encodeURIComponent($("#player-search").value)}`,
     );
     const table = $("#players-body").closest("table");
     $("thead", table).innerHTML =
@@ -274,7 +291,7 @@ APP.run(async () => {
     $("#players-body").innerHTML = result.rows
       .map(
         (p) =>
-          `<tr><td>${UI.playerLink(p)}</td><td>${esc(p.handle ? "@" + p.handle : "Fill-in")}</td><td>${UI.elo(p.ratings.find((r) => r.game === APP.slug && r.format === "singles"))}</td><td><a class="panel-link" href="${APP.url("player", { player: p.id })}">View</a></td></tr>`,
+          `<tr><td>${UI.playerLink(p)}</td><td>${esc(p.handle ? "@" + p.handle : "Fill-in")}</td><td>${p.ratings.some((r) => r.game === APP.slug && r.format === "singles") ? UI.elo(p.ratings.find((r) => r.game === APP.slug && r.format === "singles")) : "Unrated"}</td><td><a class="panel-link" href="player.html?player=${p.id}">View</a></td></tr>`,
       )
       .join("");
     UI.pager($("[data-view-panel=players]"), result, players);
@@ -301,7 +318,7 @@ APP.run(async () => {
     ]) {
       const b = $(id);
       $("thead", b.closest("table")).innerHTML =
-        "<tr><th>Submitted</th><th>Match</th><th>Competition</th><th>Elo</th><th>Status</th><th>Action</th></tr>";
+        "<tr><th>Submitted</th><th>Match</th><th>Competition</th><th>Elo</th><th>Status</th></tr>";
       b.innerHTML = matchRows(result.rows);
       UI.matchTable(b.closest("table"));
       $(".panel-head h2", b.closest(".panel")).textContent = title;
@@ -351,6 +368,7 @@ APP.run(async () => {
   await show(view, false);
   if (APP.params.get("match")) await UI.matchDialog(APP.params.get("match"));
   async function setupRecord() {
+    const gameScores = new Map();
     const form = $("#record-form");
     if (!APP.me) {
       $(".record-layout").innerHTML =
@@ -527,11 +545,25 @@ APP.run(async () => {
           smashRecorder.renderGames(s.bestOf);
           return;
         }
-        $("#record-games").classList.toggle("pickleball-scoreline", !!pickleball);
+        $$("#record-games [data-game-row]").forEach((row) => {
+          const index = Number(row.dataset.gameRow);
+          gameScores.set(index, {
+            a: $("#field-score" + index + "a").value,
+            b: $("#field-score" + index + "b").value,
+            tb: [
+              $("#field-tb" + index + "a")?.value || "",
+              $("#field-tb" + index + "b")?.value || "",
+            ],
+          });
+        });
+        $("#record-games").classList.toggle(
+          "pickleball-scoreline",
+          !!pickleball,
+        );
         $("#record-games").innerHTML = Array.from(
           { length: s.bestOf },
           (_, i) => {
-            const prev = editing?.score.games?.[i] || {};
+            const prev = gameScores.get(i) || editing?.score.games?.[i] || {};
             if (pickleball)
               return `<section class="live-game-row pickleball-record-game" data-game-row="${i}" aria-labelledby="pickleball-game-${i}"><h4 id="pickleball-game-${i}">Game ${i + 1}</h4>${field(`Game ${i + 1} · Side 1 score`, `score${i}a`, prev.a ?? "", "number", 'min="0" max="200" inputmode="numeric"')}<span class="pickleball-score-separator" aria-hidden="true">–</span>${field(`Game ${i + 1} · Side 2 score`, `score${i}b`, prev.b ?? "", "number", 'min="0" max="200" inputmode="numeric"')}</section>`;
             return `<section class="live-game-row" data-game-row="${i}"><h4>${g.kind === "tennis" ? "Set" : "Game"} ${i + 1}</h4>${field("Side 1 score", `score${i}a`, prev.a ?? "", "number", 'min="0" max="200" inputmode="numeric"')}${field("Side 2 score", `score${i}b`, prev.b ?? "", "number", 'min="0" max="200" inputmode="numeric"')}${g.kind === "tennis" ? field("Tiebreak points · side 1", `tb${i}a`, prev.tb?.[0] ?? "", "number", 'min="0" inputmode="numeric"') + field("Tiebreak points · side 2", `tb${i}b`, prev.tb?.[1] ?? "", "number", 'min="0" inputmode="numeric"') : ""}</section>`;
@@ -629,6 +661,24 @@ APP.run(async () => {
     $$(".summary-meta > div")
       .filter((e) => /Season/.test(e.textContent))
       .forEach((e) => e.remove());
+    const timing = document.createElement("fieldset");
+    timing.className = "record-timing";
+    timing.innerHTML = `<legend>Match timing <span class="muted">Optional</span></legend><div class="form-grid"><div class="field"><label for="r-played-date">Date played</label><input class="input" type="date" id="r-played-date" aria-describedby="played-time-hint"></div><div class="field"><label for="r-start-time">Start time</label><input class="input" type="time" id="r-start-time" aria-describedby="played-time-hint"></div><div class="field"><label for="r-duration">Duration (minutes)</label><input class="input" type="number" id="r-duration" min="1" max="10080" step="1" placeholder="Optional"></div></div><p class="hint" id="played-time-hint">Enter both a date and start time, or leave both blank to use the submission date. Your local time (${esc(Intl.DateTimeFormat().resolvedOptions().timeZone)}). Duration is optional.</p>`;
+    form.querySelector(".form-actions").before(timing);
+    const playedDate = $("#r-played-date"),
+      startTime = $("#r-start-time");
+    if (editing?.played_at) {
+      const local = new Date(editing.played_at);
+      const value = new Date(
+        local.getTime() - local.getTimezoneOffset() * 60000,
+      ).toISOString();
+      playedDate.value = value.slice(0, 10);
+      startTime.value = value.slice(11, 16);
+    }
+    if (editing?.duration_minutes)
+      $("#r-duration").value = editing.duration_minutes;
+    const initialPlayedDate = playedDate.value,
+      initialStartTime = startTime.value;
     const sides = () =>
       [0, 1].map((s) =>
         Array.from({ length: recordFormat === "doubles" ? 2 : 1 }, (_, i) =>
@@ -636,6 +686,10 @@ APP.run(async () => {
         ),
       );
     function read() {
+      if (!!playedDate.value !== !!startTime.value)
+        throw new Error(
+          "Enter both the played date and start time, or leave both blank.",
+        );
       let score;
       if (!setsGame)
         score = {
@@ -682,6 +736,17 @@ APP.run(async () => {
       }
       score.note = $("#r-note").value;
       return {
+        played_at:
+          editing &&
+          playedDate.value === initialPlayedDate &&
+          startTime.value === initialStartTime
+            ? editing.played_at
+            : playedDate.value
+              ? new Date(`${playedDate.value}T${startTime.value}`).getTime()
+              : null,
+        duration_minutes: $("#r-duration").value
+          ? Number($("#r-duration").value)
+          : null,
         format: recordFormat,
         sides: savedSides || sides(),
         score,
@@ -716,7 +781,7 @@ APP.run(async () => {
         }
         text(
           "#sum-elo-note",
-          `Estimate · K ${UI.rating(result.k)} · ${result.weight}× weight. Admin checkoff applies Elo in submission order.`,
+          `Estimate · K ${UI.rating(result.k)} · ${result.weight}× weight. Admin checkoff applies Elo by played date, or entry date when omitted.`,
         );
       } catch (e) {
         if (version !== projectionVersion) return;

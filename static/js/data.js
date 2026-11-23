@@ -59,6 +59,9 @@
       return app;
     },
   );
+  // A fast failed request can arrive before deferred page scripts attach their
+  // handlers. Keep the rejection for those handlers without an unhandled event.
+  app.ready.catch(() => {});
   app.run = async (fn) => {
     app.pending = (app.pending || 0) + 1;
     try {

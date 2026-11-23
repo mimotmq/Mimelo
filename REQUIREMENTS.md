@@ -53,10 +53,10 @@ Status: interview in progress. This file distinguishes user decisions from imple
 ## Elo decisions
 
 - Every player starts at 1000. Base K is 24; user delegates reasonable implementation details.
-- Admin Elo checkoff triggers automatic, immediate Elo recalculation in submission-time order; result acceptance alone does not affect ratings. Retain the manual admin Recalculate Elo recovery action.
+- Admin Elo checkoff triggers automatic, immediate Elo recalculation in played-time order (entry time if omitted); result acceptance alone does not affect ratings. Retain the manual admin Recalculate Elo recovery action.
 - Matches count for Elo by default unless a participant/admin toggles it off. Changes after approval follow the admin-only correction rule.
 - User wording on chronology: "follow when actually played, or rather submitted by the participant/admin, if this causes problems, add back an admin elo update feature."
-- Implementation interpretation communicated: server submission time is the default rating order; approval time is stored separately. Include an admin Recalculate Elo recovery action. Exact played-at/backdating behavior remains to be settled if needed.
+- Implementation interpretation communicated: server submission time is the default rating order; approval time is stored separately. Include an admin Recalculate Elo recovery action. The November 22 follow-up allows an optional played date/start time; when supplied it determines chronology, with the entry time retained for audit. Optional duration is independent.
 - User-selected importance multipliers: friendly 0.8; league 1.0; tournament group 1.0; knockout round 1.1; semifinal 1.1; final 1.2.
 - Game admins may configure weights. User delegated implementation details. Save competition rule versions to prevent later configuration edits silently changing historical calculations.
 - EA FC team strength uses a user-supplied numeric average team rating (typically around 80–90), not template star ratings. Make room for this editable catalog value. Strong Team XI ratings must affect expected outcomes, including larger penalties for upset losses. Exact scaling is an implementation decision still to be documented.
@@ -107,7 +107,7 @@ Status: interview in progress. This file distinguishes user decisions from imple
 
 ## Delegated implementation decisions
 
-- Server submission time is immutable; no backdating. Stable match ID breaks timestamp ties. Admin checkoff/correction replays eligible results chronologically.
+- Server submission time is immutable. The November 22 follow-up permits a separate optional played date/start time and duration, blank by default; played time determines chronology, otherwise entry time is used. Stable match ID breaks timestamp ties. Admin checkoff/correction replays eligible results chronologically.
 - Latest rating decisions: show numeric Elo with `?` until 8 matches receive Elo checkoff in that game/format. Player K starts at 124, tapers logarithmically to 24 on rated match 45, and stays at 24. Match K is the arithmetic mean of the participants’ individual K values; doubles averages all four.
 - Baseline1000, football overall scale20, bounded sport-specific margins, and proportional JV bonus are implemented in server/scoring.js and documented in README.md.
 - Freeze structure at draw generation; schedules stay editable. Withdrawals after the draw use organizer/admin forfeits.
@@ -118,3 +118,20 @@ Status: interview in progress. This file distinguishes user decisions from imple
 - Domain and external hosting remain undecided; local operation requires neither.
 
 These choices implement the discretion granted during the interview; the preserved template's demo data and old application's behavior are not product requirements.
+
+## November 22 profile and match presentation follow-up
+
+- Equal homepage game cards and identical Open game buttons. Account/player navigation belongs to the main site. Profiles open on all actually played games, with no records invented for inactive games.
+- Peaks start after rated match eight, ignoring provisional highs. Admins may upload/remove player photos.
+- Nationalities come from a country list, at most two, represented by flags on profiles and racket-sport rankings/scorecards. Football/Smash flairs are scoped to their game.
+- Match results are larger and directly clickable. Overviews show pre-match form for friendlies, historical tournament standings where applicable, head-to-head, and American Elo odds. Football uses three outcomes with a learned draw estimate starting at 20%.
+- Optional played date/start time and duration are blank initially; an omitted played date falls back to the entry date.
+
+## Competition outlook follow-up
+
+- Show title and qualification chances at the competition's current state. Confirmed qualifiers/group winners are green; confirmed eliminated entries are red, with text labels. Estimates do not constitute proof.
+- Allow a configurable number from a chosen lower finishing position, such as the best eight thirds across twelve groups.
+- Compare raw points even across unequal groups, then a configurable cross-group order (default difference and scores for), with admin resolution if still tied. No cross-group head-to-head criterion.
+- General knockout brackets avoid same-group first-round opponents; FIFA's exact predefined matchup matrix is outside the requested scope.
+
+- Racket-sport tournament and score views use player nationality flags alongside profile photos and names, analogous to club badges in EA FC and fighter icons in Smash. Doubles show flags for each player independently.

@@ -112,7 +112,15 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
     /game=smash/,
   );
   await visit("/player.html?game=smash&player=" + user.player_id);
-  assert.equal(await shell.getAttribute("data-nav-mode"), "drawer");
+  assert.equal(
+    await shell.count(),
+    0,
+    "Player profiles use the global site navigation",
+  );
+  assert.equal(
+    await page.locator('.main-nav a[href="players.html"]').count(),
+    1,
+  );
   for (const width of [390, 820]) {
     await page.emulateMedia({
       reducedMotion: width === 390 ? "reduce" : "no-preference",

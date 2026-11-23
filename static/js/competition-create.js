@@ -124,7 +124,22 @@ APP.run(async () => {
       2,
       "number",
       'min="1" max="128" step="1"',
-    );
+    ) +
+    field(
+      "Additional best-placed qualifiers",
+      "extra-count",
+      0,
+      "number",
+      'min="0" max="64" step="1"',
+    ) +
+    field(
+      "From finishing position",
+      "extra-place",
+      3,
+      "number",
+      'min="2" max="256" step="1"',
+    ) +
+    '<p class="hint">For a 48-team World Cup format: 12 groups, 2 automatic qualifiers per group, plus the best 8 third-place teams. First-round knockout opponents come from different groups.</p>';
   $("#field-group-count").id = "comp-group-count";
   $('label[for="field-group-count"]').htmlFor = "comp-group-count";
   $("#field-advance-count").id = "comp-advance";
@@ -161,6 +176,13 @@ APP.run(async () => {
   const tieRoot = document.createElement("div");
   standings.append(tieRoot);
   const tieEditor = mountTiebreakEditor(tieRoot, { kind: APP.game.kind });
+  const crossRoot = document.createElement("div");
+  standings.append(crossRoot);
+  const crossEditor = mountTiebreakEditor(crossRoot, {
+    kind: APP.game.kind,
+    values: ["difference", "for"],
+    crossGroup: true,
+  });
   moveField("#field-tie-resolution", standings);
   const error = $("#comp-step1-error");
   stage.replaceChildren(grid, error);
@@ -269,7 +291,9 @@ APP.run(async () => {
         const size = Math.floor(n / groups) + (i < n % groups ? 1 : 0);
         fixtures += ((size * (size - 1)) / 2) * legs;
       }
-      const k = groups * Number($("#comp-advance").value);
+      const k =
+        groups * Number($("#comp-advance").value) +
+        Number($("#field-extra-count").value || 0);
       fixtures += ko(k);
       days = Math.ceil(n / groups) * legs + Math.ceil(Math.log2(k));
     }
@@ -290,6 +314,11 @@ APP.run(async () => {
       "Rules and pairings stay editable until the organizer generates the draw.",
     );
     $("#comp-group-options").hidden = kind() !== "groups";
+    crossRoot.hidden =
+      kind() !== "groups" || !Number($("#field-extra-count").value);
+    $("#field-extra-place").closest(".field").hidden = !Number(
+      $("#field-extra-count").value,
+    );
     $("#comp-league-options").hidden = kind() !== "league";
     $("#comp-knockout-options").hidden =
       kind() === "league" && !$("#comp-playoffs").checked;
@@ -389,6 +418,10 @@ APP.run(async () => {
     preview();
   };
   $("#field-enrollment").onchange = preview;
+  for (const selector of ["#field-extra-count", "#field-extra-place"]) {
+    $(selector).oninput = preview;
+    $(selector).onchange = preview;
+  }
   $("#comp-select-all").onclick = () => {
     $$("input[type=checkbox]", $("#comp-players")).forEach((x) => {
       if (!x.checked) {
@@ -435,6 +468,10 @@ APP.run(async () => {
           elimination: $("#comp-elimination").value,
           groupCount: Number($("#comp-group-count").value),
           advance: Number($("#comp-advance").value),
+          extraCount:
+            kind() === "groups" ? Number($("#field-extra-count").value) : 0,
+          extraPlace: Number($("#field-extra-place").value),
+          extraTieBreaks: crossEditor.read(),
           playoffs: kind() === "league" && $("#comp-playoffs").checked,
           playoffCount: Number($("#comp-playoff-count").value),
           seeding: $("#comp-seeding").value,

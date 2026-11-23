@@ -354,3 +354,43 @@ a.bt-match:hover {
     transition: none;
   }
 }
+
+/* Nationality fills the same identity role as football club badges. */
+.bt-player-name.bt-racket-identity {
+  display: grid;
+  gap: 3px;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+  flex: 1;
+}
+.bt-racket-person {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.bt-racket-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bt-racket-person .nationality-flags {
+  flex: none;
+  gap: 3px;
+}
+.bt-racket-person .country-flag {
+  width: 16px;
+  height: 12px;
+}
+.bt-racket-person .nationality-country {
+  max-width: 45px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6rem;
+}
+.bt-right .bt-racket-person {
+  flex-direction: row-reverse;
+}

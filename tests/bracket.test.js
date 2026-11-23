@@ -364,3 +364,73 @@ test("swiping a large mobile draw brings the chosen round's matches into view", 
     "Vertical panning must remain under the user's control",
   );
 });
+
+test("racket-sport bracket cards include nationality flags beside names and photos, including doubles", async (t) => {
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  for (const [game, format] of [
+    ["tennis", "singles"],
+    ["tt", "singles"],
+    ["pickleball", "doubles"],
+  ]) {
+    const h = await setup(t, { count: 4, game, format });
+    for (const user of h.users)
+      h.app.db
+        .prepare("UPDATE players SET profile=? WHERE id=?")
+        .run(
+          JSON.stringify({ nationalities: ["Lebanon", "United States"] }),
+          user.player_id,
+        );
+    const state = await h.state();
+    assert(
+      state.entries.every((e) =>
+        e.players.every((p) => p.nationalities.length === 2),
+      ),
+    );
+    await h.app.listen({ host: "127.0.0.1", port: 0 });
+    const base = "http://127.0.0.1:" + h.app.server.address().port;
+    for (const width of [1440, 390, 320]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`${base}/competition.html?game=${game}&id=${h.comp.id}`);
+      await page.waitForFunction(() => document.body.dataset.ready === "true");
+      const people = page.locator("#bracket-wrap .bt-racket-person");
+      assert.equal(await people.count(), format === "doubles" ? 8 : 4);
+      assert.equal(
+        await people.locator("img.country-flag").count(),
+        format === "doubles" ? 16 : 8,
+      );
+      assert.equal(
+        await people.locator("img[alt=Lebanon]").count(),
+        format === "doubles" ? 8 : 4,
+      );
+      assert(
+        (await page.locator("#bracket-wrap .bt-avatars img").count()) >= 1,
+      );
+      assert(
+        await people.evaluateAll((els) =>
+          els.every((el) => {
+            const row = el.closest(".bt-side").getBoundingClientRect(),
+              flags = el
+                .querySelector(".nationality-flags")
+                .getBoundingClientRect();
+            return flags.left >= row.left - 1 && flags.right <= row.right + 1;
+          }),
+        ),
+        "Flags stay within the card at every width",
+      );
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      );
+      if (width !== 320)
+        await page
+          .locator("#cp-bracket")
+          .screenshot({ path: `artifacts/${game}-bracket-flags-${width}.png` });
+    }
+  }
+  assert.deepEqual(errors, []);
+});
