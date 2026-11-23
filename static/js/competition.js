@@ -276,8 +276,6 @@ APP.run(async () => {
             },
           );
       };
-    clearBracket?.();
-    clearBracket = renderBracket($("#bracket-wrap"), c, { UI, APP });
     if (initialView) {
       const view = APP.params.get("view");
       if (
@@ -289,6 +287,9 @@ APP.run(async () => {
         $("#ct-" + view).click();
       initialView = false;
     }
+    // The bracket measures its panel to lay out the first round.
+    clearBracket?.();
+    clearBracket = renderBracket($("#bracket-wrap"), c, { UI, APP });
     bindMatches();
     const showLeagueFixtures = () => {
       if (
