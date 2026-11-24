@@ -234,7 +234,7 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
   assert.equal(await page.locator(".bt-match.bt-bye").count(), 0);
   assert.ok(
     new Set(await page.locator(".bt-match .bt-seed").allTextContents()).has(
-      "#1",
+      "1",
     ),
   );
   assert.equal(await page.locator(".bt-unresolved.bt-winner").count(), 0);

@@ -481,9 +481,10 @@ APP.run(async () => {
               return `<span class="fixture-side ${away ? "fixture-away" : "fixture-home"}">${
                 lineup(entry)
                   .map((p, i) => {
-                    const identity = `<span>${i === 0 && seed ? seedBadge(seed) + " " : ""}${esc(p.name)}</span>`;
+                    const identity = `<span>${esc(p.name)}</span>`;
                     const photo = UI.avatar(p.name, "avatar-xs", p.photo);
-                    return `<span class="fixture-person">${away ? identity + photo : photo + identity}</span>`;
+                    const badge = i === 0 && seed ? seedBadge(seed) : "";
+                    return `<span class="fixture-person">${away ? identity + photo + badge : badge + photo + identity}</span>`;
                   })
                   .join("") || esc(placeholder)
               }</span>`;

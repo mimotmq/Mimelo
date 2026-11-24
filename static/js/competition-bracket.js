@@ -4,7 +4,7 @@ const CARD_HEIGHT = 148,
   PITCH = 176,
   TOP = 52;
 export const seedBadge = (seed) =>
-  `<span class="bt-seed" aria-label="Seed ${seed}" title="Seed ${seed}">#${seed}</span>`;
+  `<span class="bt-seed" aria-label="Seed ${seed}" title="Seed ${seed}">${seed}</span>`;
 export function sourceRef(value) {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -342,7 +342,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
             .join("")
         : esc(entrant(f, side));
     return `<span class="bt-side ${won ? "bt-winner" : ""} ${entry ? "" : "bt-unresolved"}" data-entry="${f[side] || ""}">
-      <span class="bt-player"><span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span>${seeds.has(f[side]) ? seedBadge(seeds.get(f[side])) : ""}<span class="bt-player-name ${racket && entry ? "bt-racket-identity" : ""}" title="${esc(entrant(f, side))}">${identity}</span></span>
+      <span class="bt-player">${seeds.has(f[side]) ? seedBadge(seeds.get(f[side])) : ""}<span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : ""}" title="${esc(entrant(f, side))}">${identity}</span></span>
       ${fc ? `<span class="bt-team" title="${esc(team?.name || "Club not recorded")}" aria-label="${esc(team?.name || "Club not recorded")}">${team?.image ? `<img src="${esc(team.image)}" alt="" loading="lazy">` : `<span class="bt-club-code">${esc(team?.code || "—")}</span>`}</span>` : ""}
       ${games.length ? `<span class="bt-side-games" style="--bt-games:${games.length};--bt-game-width:${games.some((g) => g.a >= 100 || g.b >= 100) ? 3 : 2}ch">${games.map((game) => `<span${game.winner === n ? ' class="bt-game-won"' : ""}>${esc(game[side])}</span>`).join("")}</span>` : ""}
       ${shootout ? "" : `<span class="bt-score"${score === "" ? ' aria-hidden="true"' : ""}>${esc(score)}</span>`}</span>`;
