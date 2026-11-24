@@ -19,6 +19,7 @@ import { ratedRating, ratingProgress } from "./ratings.js";
 import { registerCatalogImages } from "./catalog-images.js";
 import { registerBadgeImport } from "./badge-import.js";
 import { deleteCompetition } from "./competition-deletion.js";
+import { replacePlayer, fixturePlayers } from "./competitions.js";
 import { competitionForecast } from "./competition-forecast.js";
 import { matchContext } from "./match-context.js";
 import {
@@ -1124,6 +1125,92 @@ export async function createApp(options = {}) {
       );
       const id = addEntry(db, c, ids, req.body.seed);
       return { id };
+    });
+  });
+  app.post("/api/fixtures/:id/substitute", async (req) => {
+    const user = participant(req);
+    return tx(() => {
+      const f = db
+        .prepare("SELECT * FROM fixtures WHERE id=?")
+        .get(integer(req.params.id, 1));
+      assert(f, "Fixture not found.", 404);
+      const c = getCompetition(db, f.competition_id);
+      assert(organizer(db, user, c), "Organizer access required.", 403);
+      assert(
+        f.status === "ready" &&
+          !db.prepare("SELECT 1 FROM matches WHERE fixture_id=?").get(f.id),
+        "This fixture already has a result or is not ready.",
+        409,
+      );
+      const entry = integer(req.body.entry, 1),
+        outgoing = integer(req.body.outgoing, 1),
+        incoming = integer(req.body.incoming, 1);
+      assert([f.a, f.b].includes(entry), "Choose an entry in this fixture.");
+      const roster = fixturePlayers(db, f.id, entry).map((p) => p.player_id);
+      const opposing = fixturePlayers(db, f.id, f.a === entry ? f.b : f.a);
+      assert(roster.includes(outgoing), "The original lineup changed.", 409);
+      assert(
+        !roster.includes(incoming) &&
+          !opposing.some((p) => p.player_id === incoming),
+        "This player is already in this match.",
+        409,
+      );
+      const target = db
+        .prepare("SELECT profile FROM players WHERE id=?")
+        .get(incoming);
+      assert(
+        target && !json(target.profile).merged_into,
+        "Choose an available substitute.",
+      );
+      db.prepare(
+        "DELETE FROM fixture_rosters WHERE fixture_id=? AND entry_id=?",
+      ).run(f.id, entry);
+      for (const player of roster)
+        db.prepare("INSERT INTO fixture_rosters VALUES(?,?,?)").run(
+          f.id,
+          entry,
+          player === outgoing ? incoming : player,
+        );
+      const previous = db
+        .prepare(
+          "SELECT original FROM fixture_substitutions WHERE fixture_id=? AND entry_id=? AND substitute=?",
+        )
+        .get(f.id, entry, outgoing);
+      const original = previous?.original ?? outgoing;
+      if (previous)
+        db.prepare(
+          "DELETE FROM fixture_substitutions WHERE fixture_id=? AND entry_id=? AND original=?",
+        ).run(f.id, entry, original);
+      if (incoming !== original)
+        db.prepare("INSERT INTO fixture_substitutions VALUES(?,?,?,?,?)").run(
+          f.id,
+          entry,
+          original,
+          incoming,
+          Date.now(),
+        );
+      audit(db, user, "fixture.substitute", f.id, {
+        entry,
+        outgoing,
+        incoming,
+      });
+      return { ok: true };
+    });
+  });
+  app.post("/api/competitions/:id/entries/:entry/replace", async (req) => {
+    const user = participant(req);
+    return tx(() => {
+      replacePlayer(
+        db,
+        getCompetition(db, req.params.id),
+        integer(req.params.entry, 1),
+        integer(req.body.outgoing, 1),
+        integer(req.body.incoming, 1),
+        user,
+        req.body.keep,
+        req.body.effective,
+      );
+      return { ok: true };
     });
   });
   app.delete("/api/competitions/:id/entries/:entry", async (req) => {

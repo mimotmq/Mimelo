@@ -127,10 +127,49 @@ function connector(e) {
   return `M ${e.x1} ${e.y1} H ${middle - dir * radius} Q ${middle} ${e.y1} ${middle} ${e.y1 + vertical * radius} V ${e.y2 - vertical * radius} Q ${middle} ${e.y2} ${middle + dir * radius} ${e.y2} H ${e.x2}`;
 }
 
+// Lower-bracket slots fed by an upper bye can never have a loser. Follow
+// the surviving feeder through those walkovers without changing the draw.
+export function visibleBracketFixtures(fixtures) {
+  const byId = new Map(fixtures.map((f) => [f.id, f]));
+  const bypass = new Map();
+  const visible = [];
+  for (const fixture of [...fixtures].sort((a, b) => a.id - b.id)) {
+    const f = { ...fixture };
+    const slots = ["a", "b"].map((side) => {
+      let ref = sourceRef(f["source_" + side]);
+      let entry = f[side];
+      if (ref && bypass.has(ref.fixture)) {
+        const prior = ref.outcome === "winner" && bypass.get(ref.fixture);
+        entry ??= prior?.entry ?? null;
+        ref = prior?.ref || null;
+      }
+      const source = ref && byId.get(ref.fixture);
+      if (source && ["completed", "bye", "cancelled"].includes(source.status)) {
+        entry ??= source[ref.outcome];
+        if (!entry) ref = null;
+      }
+      f[side] = entry ?? null;
+      f["source_" + side] = ref;
+      return entry || ref ? { entry, ref } : null;
+    });
+    if (
+      f.pool === "L" &&
+      !f.match_id &&
+      !f.no_contest &&
+      slots.includes(null)
+    ) {
+      bypass.set(f.id, slots[0] || slots[1]);
+    } else visible.push(f);
+  }
+  return visible;
+}
+
 export function renderBracket(container, c, { UI, APP }) {
   const esc = UI.esc;
-  const fixtures = c.fixtures.filter((f) =>
-    ["knockout", "semifinal", "final"].includes(f.stage),
+  const fixtures = visibleBracketFixtures(
+    c.fixtures.filter((f) =>
+      ["knockout", "semifinal", "final"].includes(f.stage),
+    ),
   );
   if (!fixtures.length) {
     container.innerHTML = UI.empty(

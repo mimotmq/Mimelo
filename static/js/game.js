@@ -436,14 +436,15 @@ APP.run(async () => {
         throw new Error("This fixture is not ready.");
       fixed = { c, f };
       recordFormat = c.format;
-      savedSides = [f.a, f.b].map((id) =>
-        c.entries
-          .find((e) => e.id === id)
-          .players.map((p) => {
-            APP.players.set(p.id, p);
-            return p.id;
-          }),
-      );
+      savedSides = [f.a, f.b].map((id) => {
+        const saved = f.priorLineups?.filter((p) => p.entry_id === id);
+        return (
+          saved?.length ? saved : c.entries.find((e) => e.id === id).players
+        ).map((p) => {
+          APP.players.set(p.id, p);
+          return p.id;
+        });
+      });
     }
     text("#record-title", editing ? "Correct result" : "Record a result");
     const setsGame = g.kind !== "fc";

@@ -790,6 +790,36 @@
         }),
     );
   }
+  document.addEventListener("click", (event) => {
+    const trigger = event.target.closest?.("button[data-seat-history]");
+    if (!trigger) return;
+    const content = trigger.nextElementSibling.content.cloneNode(true);
+    const d = dialog("Seat history", "");
+    d.querySelector(".dialog-body").append(content);
+    d.addEventListener("close", () => trigger.focus(), { once: true });
+  });
+  function seatHistory(row) {
+    if (!row.seatHistory?.length) return "";
+    const names = row.players.map((p) => p.name).join(" + ");
+    const items = row.seatHistory
+      .map((h) => {
+        const transfer = h.type === "transfer";
+        const label = transfer ? "Permanent transfer" : "One-match substitute";
+        const detail = transfer
+          ? h.incoming + " took over from " + h.outgoing
+          : h.incoming + " for " + h.outgoing + " · " + h.label;
+        const when = transfer
+          ? "Effective"
+          : h.played_at
+            ? "Played"
+            : h.scheduled
+              ? "Scheduled"
+              : "Assigned";
+        return `<li><strong>${label}</strong><div>${esc(detail)}</div><small>${when} ${esc(new Date(h.time).toLocaleString())}</small></li>`;
+      })
+      .join("");
+    return `<button type="button" class="seat-history-trigger" data-seat-history aria-haspopup="dialog" aria-label="Seat history for ${esc(names)}">*</button><template><p>Current seat holder · <strong>${esc(names)}</strong></p><ul class="seat-history-list">${items}</ul></template>`;
+  }
   function standingsTable(c, rows, highlight = []) {
     const kind = APP.games.find((g) => g.slug === c.game)?.kind;
     const progress = (row) => {
@@ -826,7 +856,7 @@
         const cells = columns
           .map((key) => `<td data-stat="${key}">${statText(row, key)}</td>`)
           .join("");
-        return `<tr${attrs}${row.players.some((p) => highlight.includes(p.id)) ? ' class="match-standings-highlight"' : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}${row.players.map((p) => (p.id || p.player_id ? playerLink(p) : esc(p.name))).join(" + ")}${badge(row)}</td>${cells}</tr>`;
+        return `<tr${attrs}${row.players.some((p) => highlight.includes(p.id)) ? ' class="match-standings-highlight"' : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}<span class="seat-identity">${row.players.map((p) => (p.id || p.player_id ? playerLink(p) : esc(p.name))).join(" + ")}${seatHistory(row)}</span>${badge(row)}</td>${cells}</tr>`;
       })
       .join("");
     return `<div class="table-wrap competition-standings-table stat-table"><table><thead><tr><th scope="col" class="standings-rank">#</th><th scope="col" class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th>${headings}</tr></thead><tbody>${body}</tbody></table></div>`;

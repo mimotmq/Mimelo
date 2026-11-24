@@ -289,13 +289,18 @@ APP.run(async () => {
             const breakdown = games.length
               ? `<span class="fixture-games">${games.map((game) => `${esc(game.a)}–${esc(game.b)}`).join(" · ")}</span>`
               : "";
-            const content = `<span class="fixture-side">${esc(name(f.a))}</span><strong class="fixture-result">${esc(result)}</strong><span class="fixture-side fixture-away">${esc(name(f.b))}</span>${breakdown}`;
+            const lineup = (entry) =>
+              f.priorLineups
+                ?.filter((p) => p.entry_id === entry)
+                .map((p) => p.name)
+                .join(" + ") || name(entry);
+            const content = `<span class="fixture-side">${esc(lineup(f.a))}</span><strong class="fixture-result">${esc(result)}</strong><span class="fixture-side fixture-away">${esc(lineup(f.b))}</span>${breakdown}`;
             const resultControl = f.match_id
               ? `<button type="button" class="fixture-match" data-match="${f.match_id}">${content}</button>`
               : f.status === "ready"
                 ? `<a class="fixture-match" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">${content}</a>`
                 : `<div class="fixture-match">${content}</div>`;
-            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span><span>${time ? esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })) : "Time not set"}</span>${f.no_contest ? "<span>No contest</span>" : ""}${c.canManage && (["ready", "waiting"].includes(f.status) || f.no_contest) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
+            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span><span>${time ? esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })) : "Time not set"}</span>${f.no_contest ? "<span>No contest</span>" : ""}${c.canManage && (["ready", "waiting"].includes(f.status) || f.no_contest) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Substitute", "substitute", `data-fixture="${f.id}"`) + button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
           })
           .join("")}</div>
       </details>`,
@@ -334,7 +339,31 @@ APP.run(async () => {
               await load();
             },
           );
-        else if (b.dataset.action === "no-contest") {
+        else if (b.dataset.action === "substitute") {
+          const options = [f.a, f.b].flatMap((id) => {
+            const saved = f.priorLineups.filter((p) => p.entry_id === id);
+            return (
+              saved.length ? saved : c.entries.find((e) => e.id === id).players
+            ).map((p) => [id + "/" + p.id, p.name]);
+          });
+          const d = UI.formDialog(
+            "One-match substitute",
+            select("Player sitting out", "side", options) +
+              select("Substitute", "incoming", []),
+            async (data) => {
+              const [entry, outgoing] = data.get("side").split("/").map(Number);
+              await APP.api("fixtures/" + f.id + "/substitute", {
+                entry,
+                outgoing,
+                incoming: Number(data.get("incoming")),
+              });
+              await load();
+            },
+          );
+          UI.picker(d.querySelector("[name=incoming]")).catch((e) =>
+            UI.toast(e.message),
+          );
+        } else if (b.dataset.action === "no-contest") {
           const knockout = !["league", "group", "tiebreak"].includes(f.stage);
           UI.formDialog(
             "Declare no contest",
@@ -467,6 +496,68 @@ APP.run(async () => {
         c.deadline > Date.now() &&
         c.enrollment !== "selected";
     panel.innerHTML = `<div class="panel-head"><h2>${mutable ? "Entrants & registration" : "Competition entrants"}</h2><span class="chip">${UI.count(c.entries.length, "entry", "entries")}</span></div><div class="panel-body"><div class="form-actions">${open && !userEntry() ? button("Register", "register") : ""}${c.canManage && mutable ? button("Add entrants", "add-entry") + button("Edit rules", "rules") + button("Set seeds", "seeds") + (c.state === "registration" ? button("Close registration", "close") : "") + button("Generate draw", "draw") : ""}</div><div class="table-wrap"><table><thead><tr><th>Seed</th><th>Entrant</th><th>Action</th></tr></thead><tbody>${c.entries.map((e) => `<tr><td>${e.seed || "—"}</td><td>${esc(name(e.id))}${c.format === "doubles" && e.players.length === 1 ? " · awaiting partner" : ""}</td><td>${mutable && (c.canManage || e.players.some((p) => p.id === APP.me?.player_id)) ? button("Withdraw", "withdraw", `data-entry="${e.id}"`) : ""}</td></tr>`).join("") || '<tr><td colspan="3">No entries yet.</td></tr>'}</tbody></table></div>${c.canManage && mutable && c.format === "doubles" ? button("Pair individual entries", "pair") : ""}</div>`;
+    for (const [i, e] of c.entries.entries()) {
+      const row = panel.querySelectorAll("tbody tr")[i];
+      for (const change of e.changes || []) {
+        const detail = document.createElement("small");
+        detail.style.display = "block";
+        detail.textContent = change.incoming + " replaced " + change.outgoing;
+        row.cells[1].append(detail);
+      }
+      if (
+        !c.canManage ||
+        c.kind !== "league" ||
+        c.state !== "active" ||
+        !c.fixtures.some(
+          (f) =>
+            [f.a, f.b].includes(e.id) && f.status === "ready" && !f.match_id,
+        )
+      )
+        continue;
+      row.cells[2].innerHTML = button("Replace player", "replace-player");
+      row.cells[2].querySelector("button").onclick = async () => {
+        const d = UI.formDialog(
+          "Replace a player",
+          select(
+            "Leaving player",
+            "outgoing",
+            e.players.map((p) => [p.id, p.name]),
+          ) +
+            select("Replacement", "incoming", []) +
+            field(
+              "Transfer effective (optional)",
+              "effective",
+              "",
+              "datetime-local",
+            ) +
+            "<p>The replacement takes this spot in unplayed fixtures. The entry keeps its standings. Earlier results and Elo stay with the players who played.</p>" +
+            `<details><summary>Keep earlier fixtures with the original lineup</summary>${c.fixtures
+              .filter(
+                (f) =>
+                  f.status === "ready" &&
+                  !f.match_id &&
+                  [f.a, f.b].includes(e.id),
+              )
+              .map(
+                (f) =>
+                  `<label class="check"><input type="checkbox" name="keep" value="${f.id}">${esc(f.label)} · vs ${esc(name(f.a === e.id ? f.b : f.a))}</label>`,
+              )
+              .join("")}</details>`,
+          async (data) => {
+            await APP.api(`competitions/${id}/entries/${e.id}/replace`, {
+              outgoing: Number(data.get("outgoing")),
+              incoming: Number(data.get("incoming")),
+              keep: data.getAll("keep").map(Number),
+              effective: data.get("effective")
+                ? new Date(data.get("effective")).getTime()
+                : undefined,
+            });
+            await load();
+          },
+        );
+        await UI.picker(d.querySelector("[name=incoming]"));
+      };
+    }
     panel.classList.toggle("competition-entrants-compact", !mutable);
     if (c.canManage && mutable && c.kind === "league") {
       const form = $(".form-actions", panel);

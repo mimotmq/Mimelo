@@ -1,3 +1,4 @@
+import { fixturePlayers } from "./competitions.js";
 import { admin, assert, json, audit, notify, integer } from "./db.js";
 import { validateScore, eloDelta, ratingK } from "./scoring.js";
 import { getCompetition, locked, progress, entries } from "./competitions.js";
@@ -346,12 +347,7 @@ function prepare(db, game, body, user) {
     );
     format = c.format;
     sides = [f.a, f.b].map((id) =>
-      db
-        .prepare(
-          "SELECT player_id FROM entrant_players WHERE entry_id=? ORDER BY player_id",
-        )
-        .all(id)
-        .map((p) => p.player_id),
+      fixturePlayers(db, f.id, id).map((p) => p.player_id),
     );
   }
   assert(
@@ -730,9 +726,7 @@ export function forfeit(db, fixtureId, winnerEntry, user) {
       ).lastInsertRowid,
   );
   for (let s = 0; s < 2; s++)
-    for (const p of db
-      .prepare("SELECT player_id FROM entrant_players WHERE entry_id=?")
-      .all(s === 0 ? f.a : f.b))
+    for (const p of fixturePlayers(db, f.id, s === 0 ? f.a : f.b))
       db.prepare("INSERT INTO match_players VALUES(?,?,?)").run(
         id,
         p.player_id,

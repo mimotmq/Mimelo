@@ -361,3 +361,20 @@ dialog.dialog.competition-settings-dialog {
     padding: 0 12px;
   }
 }
+
+.seat-history-trigger {
+  background: transparent;
+  color: inherit;
+  border: 0;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 1.25rem;
+  min-width: 30px;
+  min-height: 32px;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.seat-history-list { padding-inline-start: 1.25rem; }
+.seat-history-list li { margin-block: .85rem; }
+.seat-identity { display: inline-flex; align-items: center; max-width: 100%; }
+.seat-history-trigger { flex: none; }

@@ -291,3 +291,121 @@ test("new signups are spectators until a site admin approves participation", asy
   const me = (await request("GET", "me", spectator)).json();
   assert.equal(me.user.approved, true);
 });
+
+test("a league seat keeps its record across a midseason replacement", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  const db = app.db;
+  const owner = register(
+    db,
+    { name: "Organizer", handle: "ltowner" },
+    await passwordHash("TournamentSeatPassword!"),
+    null,
+    true,
+  );
+  const ids = ["Bannon", "Ali", "Lidl", "Trav"].map((name) =>
+    Number(
+      db.prepare("INSERT INTO players(name,created) VALUES(?,1)").run(name)
+        .lastInsertRowid,
+    ),
+  );
+  const [outgoing, incoming, opponent, other] = ids;
+  const {
+    getCompetition,
+    addEntry,
+    draw,
+    replacePlayer,
+    fixtureList,
+    fixturePlayers,
+    settings,
+    standings,
+  } = await import("../server/competitions.js");
+  const rules = {
+    ...settings({ bestOf: 3, target: 21 }, "tt", "singles"),
+    weights: { league: 1 },
+  };
+  db.prepare(
+    "INSERT INTO competitions(game,owner,name,kind,format,enrollment,settings,created) VALUES('tt',?,'Lunch League','league','singles','selected',?,1)",
+  ).run(owner.id, JSON.stringify(rules));
+  let c = getCompetition(db, 1);
+  const entry = addEntry(db, c, [outgoing], 1);
+  addEntry(db, c, [opponent], 2);
+  addEntry(db, c, [other], 3);
+  draw(db, c, owner);
+  c = getCompetition(db, 1);
+  const fixtures = fixtureList(db, 1).filter((f) => [f.a, f.b].includes(entry));
+  const { forfeit } = await import("../server/matches.js");
+  forfeit(db, fixtures[0].id, entry, owner);
+  const replace = (actor, from, to) =>
+    db.transaction(() => replacePlayer(db, c, entry, from, to, actor))();
+  assert.throws(() => replace(null, outgoing, incoming), /Organizer/);
+  assert.throws(() => replace(owner, outgoing, opponent), /already entered/);
+  replace({ ...owner, site_admin: 0 }, outgoing, incoming);
+  assert.throws(() => replace(owner, outgoing, incoming), /already left/);
+  assert.deepEqual(fixturePlayers(db, fixtures[0].id, entry), [
+    { player_id: outgoing },
+  ]);
+  assert.deepEqual(fixturePlayers(db, fixtures[1].id, entry), [
+    { player_id: incoming },
+  ]);
+  const row = standings(db, c).find((r) => r.entry === entry);
+  assert.equal(row.w, 1);
+  assert.equal(row.players[0].id, incoming);
+  assert.equal(row.seatHistory[0].outgoing, "Bannon");
+  assert.equal(row.seatHistory[0].incoming, "Ali");
+  const historical = standings(db, c, "", null, {
+    id: 1,
+    submitted: row.seatHistory[0].time - 1,
+  }).find((r) => r.entry === entry);
+  assert.equal(historical.players[0].id, outgoing);
+  assert.deepEqual(historical.seatHistory, []);
+  const fixture = fixtures[1];
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { "x-mimelo-request": "1" },
+    payload: { identity: "ltowner", password: "TournamentSeatPassword!" },
+  });
+  const headers = {
+    "x-mimelo-request": "1",
+    "x-csrf-token": login.json().csrf,
+    cookie: login.cookies.map((c) => c.name + "=" + c.value).join("; "),
+  };
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/fixtures/" + fixture.id + "/substitute",
+    headers,
+    payload: { entry, outgoing: incoming, incoming: outgoing },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  const { submit, accept, checkoff } = await import("../server/matches.js");
+  const played_at = Date.now();
+  const points = fixture.a === entry ? { a: 21, b: 9 } : { a: 9, b: 21 };
+  const m = submit(
+    db,
+    "tt",
+    { fixture: fixture.id, played_at, score: { games: [points, points] } },
+    owner,
+  );
+  accept(db, m.id, owner, 1);
+  checkoff(db, m.id, owner, 1);
+  const current = standings(db, c).find((r) => r.entry === entry);
+  assert.equal(current.w, 2);
+  assert.equal(current.players[0].id, incoming);
+  const sub = current.seatHistory.find((h) => h.type === "substitute");
+  assert.deepEqual(
+    [sub.outgoing, sub.incoming, sub.time],
+    ["Ali", "Bannon", played_at],
+  );
+  assert.ok(
+    db
+      .prepare("SELECT 1 FROM ledger WHERE match_id=? AND player_id=?")
+      .get(m.id, outgoing),
+  );
+  assert.equal(
+    db
+      .prepare("SELECT 1 FROM ledger WHERE match_id=? AND player_id=?")
+      .get(m.id, incoming),
+    undefined,
+  );
+});

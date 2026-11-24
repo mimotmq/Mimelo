@@ -25,6 +25,19 @@ export function entries(db, id) {
     .all(id)
     .map((e) => ({
       ...e,
+      substitutes: db
+        .prepare(
+          `SELECT o.name outgoing,s.name incoming,f.label,m.played_at,f.scheduled,x.assigned
+        FROM fixture_substitutions x JOIN players o ON o.id=x.original JOIN players s ON s.id=x.substitute
+        JOIN fixtures f ON f.id=x.fixture_id LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided'
+        WHERE x.entry_id=? ORDER BY x.assigned`,
+        )
+        .all(e.id),
+      changes: db
+        .prepare(
+          "SELECT old.name outgoing,old.id outgoing_id, new.name incoming,new.id incoming_id,r.changed FROM roster_changes r JOIN players old ON old.id=r.outgoing JOIN players new ON new.id=r.incoming WHERE entry_id=? ORDER BY r.id",
+        )
+        .all(e.id),
       players: db
         .prepare(
           "SELECT p.id,p.name,p.photo,p.profile FROM entrant_players ep JOIN players p ON p.id=ep.player_id WHERE ep.entry_id=? ORDER BY p.id",
@@ -35,6 +48,131 @@ export function entries(db, id) {
           nationalities: profileNationalities(json(profile)),
         })),
     }));
+}
+export function fixturePlayers(db, fixtureId, entryId) {
+  const saved = db
+    .prepare(
+      "SELECT player_id FROM fixture_rosters WHERE fixture_id=? AND entry_id=? ORDER BY player_id",
+    )
+    .all(fixtureId, entryId);
+  return saved.length
+    ? saved
+    : db
+        .prepare(
+          "SELECT player_id FROM entrant_players WHERE entry_id=? ORDER BY player_id",
+        )
+        .all(entryId);
+}
+
+export function replacePlayer(
+  db,
+  c,
+  entry,
+  outgoing,
+  incoming,
+  user,
+  keep = [],
+  effective = Date.now(),
+) {
+  assert(organizer(db, user, c), "Organizer access required.", 403);
+  assert(
+    c.kind === "league" && c.state === "active",
+    "Choose an active league.",
+    409,
+  );
+  assert(
+    Number.isSafeInteger(effective) && effective > 0 && effective <= Date.now(),
+    "Choose a past or current transfer time.",
+  );
+  const latest = db
+    .prepare("SELECT MAX(changed) AS at FROM roster_changes WHERE entry_id=?")
+    .get(entry);
+  assert(
+    !latest.at || effective >= latest.at,
+    "Transfer time must follow the previous handoff.",
+  );
+  const roster = db
+    .prepare(
+      "SELECT player_id FROM entrant_players WHERE competition_id=? AND entry_id=?",
+    )
+    .all(c.id, entry);
+  assert(
+    roster.some((p) => p.player_id === outgoing),
+    "This player has already left this entry.",
+    409,
+  );
+  const target = db
+    .prepare("SELECT profile FROM players WHERE id=?")
+    .get(incoming);
+  assert(
+    target && !json(target.profile).merged_into,
+    "Choose an available player.",
+  );
+  assert(
+    !db
+      .prepare(
+        "SELECT 1 FROM entrant_players WHERE competition_id=? AND player_id=?",
+      )
+      .get(c.id, incoming),
+    "This player is already entered.",
+    409,
+  );
+  assert(
+    !db
+      .prepare(
+        "SELECT 1 FROM roster_changes r JOIN entrants e ON e.id=r.entry_id WHERE e.competition_id=? AND r.outgoing=? AND e.id<>?",
+      )
+      .get(c.id, incoming, entry),
+    "This player represented another entry.",
+    409,
+  );
+  const fixtures = db
+    .prepare(
+      "SELECT f.id,f.status,m.id result FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id WHERE f.competition_id=? AND (f.a=? OR f.b=?)",
+    )
+    .all(c.id, entry, entry);
+  assert(
+    fixtures.some((f) => f.status === "ready" && !f.result),
+    "No unplayed fixtures remain for this entry.",
+    409,
+  );
+  assert(
+    Array.isArray(keep) &&
+      keep.every((id) =>
+        fixtures.some((f) => f.id === id && f.status === "ready" && !f.result),
+      ),
+    "Choose outstanding fixtures for this entry.",
+    409,
+  );
+  for (const f of fixtures.filter(
+    (f) =>
+      keep.includes(f.id) ||
+      f.result ||
+      f.status === "completed" ||
+      f.status === "bye",
+  )) {
+    if (
+      db
+        .prepare(
+          "SELECT 1 FROM fixture_rosters WHERE fixture_id=? AND entry_id=?",
+        )
+        .get(f.id, entry)
+    )
+      continue;
+    for (const p of roster)
+      db.prepare("INSERT INTO fixture_rosters VALUES(?,?,?)").run(
+        f.id,
+        entry,
+        p.player_id,
+      );
+  }
+  db.prepare(
+    "UPDATE entrant_players SET player_id=? WHERE entry_id=? AND player_id=?",
+  ).run(incoming, entry, outgoing);
+  db.prepare(
+    "INSERT INTO roster_changes(entry_id,outgoing,incoming,changed) VALUES(?,?,?,?)",
+  ).run(entry, outgoing, incoming, effective);
+  audit(db, user, "competition.replace", c.id, { entry, outgoing, incoming });
 }
 export function fixtureList(db, id) {
   const game = db
@@ -49,6 +187,11 @@ export function fixtureList(db, id) {
       const score = f.score ? json(f.score) : null;
       return {
         ...f,
+        priorLineups: db
+          .prepare(
+            "SELECT r.entry_id,p.id,p.name,p.photo FROM fixture_rosters r JOIN players p ON p.id=r.player_id WHERE fixture_id=? ORDER BY p.id",
+          )
+          .all(f.id),
         score,
         teams: [score?.teamA, score?.teamB].map((id) => {
           if (!id) return null;
@@ -550,24 +693,60 @@ export function standings(
       onlyFixtures ? onlyFixtures.includes(f.id) : f.stage !== "tiebreak",
     );
   const ids = new Set(fs.flatMap((f) => [f.a, f.b]).filter(Boolean));
-  const rows = [...ids].map((id) => ({
-    entry: id,
-    players: entries(db, c.id).find((e) => e.id === id)?.players || [],
-    played: 0,
-    w: 0,
-    d: 0,
-    l: 0,
-    for: 0,
-    against: 0,
-    sets_difference: 0,
-    points_difference: 0,
-    points_for: 0,
-    points_against: 0,
-    head_to_head: 0,
-    points: 0,
-  }));
-  const by = new Map(rows.map((r) => [r.entry, r]));
+  const rosters = new Map(entries(db, c.id).map((e) => [e.id, e]));
   const cutoff = before && (before.played_at ?? before.submitted);
+  const rows = [...ids].map((id) => {
+    const roster = rosters.get(id);
+    const players = roster.players.slice();
+    if (before) {
+      for (const change of [...roster.changes].reverse()) {
+        if (change.changed <= cutoff) continue;
+        const i = players.findIndex((p) => p.id === change.incoming_id);
+        if (i < 0) continue;
+        const prior = db
+          .prepare("SELECT id,name,photo,profile FROM players WHERE id=?")
+          .get(change.outgoing_id);
+        players[i] = {
+          id: prior.id,
+          name: prior.name,
+          photo: prior.photo,
+          nationalities: profileNationalities(json(prior.profile)),
+        };
+      }
+    }
+    const seatHistory = [
+      ...roster.changes.map((h) => ({
+        ...h,
+        type: "transfer",
+        time: h.changed,
+      })),
+      ...roster.substitutes.map((h) => ({
+        ...h,
+        type: "substitute",
+        time: h.played_at || h.scheduled || h.assigned,
+      })),
+    ]
+      .filter((h) => !before || h.time < cutoff)
+      .sort((a, b) => b.time - a.time);
+    return {
+      entry: id,
+      players,
+      seatHistory,
+      played: 0,
+      w: 0,
+      d: 0,
+      l: 0,
+      for: 0,
+      against: 0,
+      sets_difference: 0,
+      points_difference: 0,
+      points_for: 0,
+      points_against: 0,
+      head_to_head: 0,
+      points: 0,
+    };
+  });
+  const by = new Map(rows.map((r) => [r.entry, r]));
   const completed = fs.filter((f) => {
     if (f.status !== "completed") return false;
     if (f.no_contest)
