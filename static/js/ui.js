@@ -830,18 +830,50 @@
   }
   function standingsTable(c, rows, highlight = []) {
     const kind = APP.games.find((g) => g.slug === c.game)?.kind;
+    const withdrawn = new Set(
+      (c.entries || [])
+        .filter((entry) => entry.withdrawn)
+        .map((entry) => entry.id),
+    );
+    const regularSeasonQualifiers = new Set(c.regularSeasonQualifiers || []);
     const progress = (row) => {
       const state = c.projection?.rows.find((item) => item.entry === row.entry);
-      if (c.kind === "league" && !c.settings.playoffs) {
-        if (state?.status === "eliminated") return null;
-        if (state) return { ...state, group_winner: false };
+      if (c.kind === "league") {
+        const status = withdrawn.has(row.entry)
+          ? "withdrawn"
+          : c.settings.playoffs
+            ? regularSeasonQualifiers.has(row.entry) ||
+              (c.regularSeasonQualifiers == null &&
+                !c.settings.conferenceLayout?.playoffSeeds &&
+                state?.status === "qualified")
+              ? "qualified"
+              : "contending"
+            : state?.status === "champion"
+              ? "champion"
+              : "contending";
+        return { status, group_winner: false };
       }
       return state;
     };
-    const badge = (row) => {
-      const state = progress(row);
-      return state
-        ? `<span class="progression-badges">${state.status !== "contending" ? `<span class="progression-badge" data-status="${state.status}">${{ qualified: "Qualified", eliminated: "Eliminated", champion: "Champion" }[state.status]}</span>` : ""}${state.group_winner ? '<span class="progression-badge" data-status="winner">Group winner</span>' : ""}</span>`
+    const statusLabels = {
+      qualified: "Qualified",
+      eliminated: "Eliminated",
+      champion: "Champion",
+      withdrawn: "Withdrawn",
+    };
+    const badge = (row, state) => {
+      const items = [];
+      if (row.divisionWinner) items.push(["winner", "Division winner"]);
+      if (state?.group_winner) items.push(["winner", "Group winner"]);
+      if (statusLabels[state?.status])
+        items.push([state.status, statusLabels[state.status]]);
+      return items.length
+        ? `<span class="progression-badges">${items
+            .map(
+              ([status, label]) =>
+                `<span class="progression-badge" data-status="${status}">${label}</span>`,
+            )
+            .join("")}</span>`
         : "";
     };
     const { statCatalog, defaultColumns, statText } = UI.standingsStats;
@@ -858,13 +890,13 @@
     const body = rows
       .map((row) => {
         const state = progress(row);
-        const attrs = state
+        const progressAttrs = state
           ? ` data-progress="${state.status}" data-group-winner="${state.group_winner && state.status !== "eliminated"}"`
           : "";
         const cells = columns
           .map((key) => `<td data-stat="${key}">${statText(row, key)}</td>`)
           .join("");
-        return `<tr${attrs}${row.players.some((p) => highlight.includes(p.id)) ? ' class="match-standings-highlight"' : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}<span class="seat-identity">${row.players.map((p) => (p.id || p.player_id ? playerLink(p) : esc(p.name))).join(" + ")}${seatHistory(row)}</span>${badge(row)}</td>${cells}</tr>`;
+        return `<tr${progressAttrs}${row.divisionWinner ? ' data-division-winner="true"' : ""}${row.players.some((p) => highlight.includes(p.id)) ? ' class="match-standings-highlight"' : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}<span class="seat-identity">${row.players.map((p) => (p.id || p.player_id ? playerLink(p) : esc(p.name))).join(" + ")}${seatHistory(row)}</span>${badge(row, state)}</td>${cells}</tr>`;
       })
       .join("");
     return `<div class="table-wrap competition-standings-table stat-table"><table><thead><tr><th scope="col" class="standings-rank">#</th><th scope="col" class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th>${headings}</tr></thead><tbody>${body}</tbody></table></div>`;

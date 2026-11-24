@@ -180,6 +180,7 @@ APP.run(async () => {
       APP.api(`competitions/${id}/projection`),
     ]);
     c = { ...details, projection };
+    $("main").classList.toggle("league-page", c.kind === "league");
     if (c.game !== APP.slug) {
       location.replace("competition.html?game=" + c.game + "&id=" + id);
       return;
@@ -289,7 +290,7 @@ APP.run(async () => {
     text(
       "#table-sub",
       c.settings.countNoContestForPct
-        ? "A no contest counts as played and half a win for PCT. It awards no win, loss or Elo."
+        ? "A no contest counts as half a win for PCT only."
         : "Accepted results · organizer-selected tiebreak rules",
     );
     text("#table-chip", c.format);
@@ -319,6 +320,7 @@ APP.run(async () => {
         divisions = [];
       const overall = c.standings[""];
       const rowIndex = new Map(overall.map((row, i) => [row.entry, i]));
+      const regularSeason = c.fixtures.filter((f) => f.stage === "league");
       const ranked = (entries) => {
         const eligible = new Set(entries);
         const rows = overall.filter((row) => eligible.has(row.entry));
@@ -336,19 +338,44 @@ APP.run(async () => {
         }));
       };
       for (const conf of c.settings.conferenceLayout.conferences) {
-        const items = conf.divisions.map((division) => ({
-          label:
-            division.name === conf.name
-              ? conf.name
-              : `${conf.name} · ${division.name}`,
-          rows: ranked(division.entries),
-        }));
+        const items = conf.divisions.map((division) => {
+          const rows = ranked(division.entries);
+          const members = new Set(division.entries);
+          const fixtures = regularSeason.filter(
+            (f) => members.has(f.a) || members.has(f.b),
+          );
+          if (
+            rows.length &&
+            !rows[1]?.tiedWithPrevious &&
+            fixtures.length &&
+            fixtures.every((f) => f.status === "completed")
+          )
+            rows[0].divisionWinner = true;
+          return {
+            label:
+              division.name === conf.name
+                ? conf.name
+                : `${conf.name} · ${division.name}`,
+            rows,
+          };
+        });
         divisions.push(...items);
-        if (items.length > 1)
+        if (items.length > 1) {
+          const winners = new Set(
+            items.flatMap(({ rows }) =>
+              rows.filter((r) => r.divisionWinner).map((r) => r.entry),
+            ),
+          );
           views.push({
             label: conf.name,
-            rows: ranked(conf.divisions.flatMap((d) => d.entries)),
+            rows: ranked(conf.divisions.flatMap((d) => d.entries)).map(
+              (row) => ({
+                ...row,
+                divisionWinner: winners.has(row.entry),
+              }),
+            ),
           });
+        }
         views.push(...items);
       }
       const current =
@@ -366,10 +393,12 @@ APP.run(async () => {
           current,
         ) + "<div data-division-table></div>";
       const chooser = $("#field-division-table", wrap);
+      const divisionTables = $("[data-division-table]", wrap);
       chooser.onchange = () => {
-        const tables =
-          chooser.value === "all" ? divisions : [views[Number(chooser.value)]];
-        $("[data-division-table]", wrap).innerHTML = tables
+        const showAll = chooser.value === "all";
+        const tables = showAll ? divisions : [views[Number(chooser.value)]];
+        divisionTables.dataset.allDivisions = String(showAll);
+        divisionTables.innerHTML = tables
           .filter(Boolean)
           .map(
             ({ label, rows }) =>

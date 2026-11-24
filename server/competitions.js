@@ -1067,6 +1067,15 @@ export function serializeCompetition(db, c) {
   );
   const prelim = fs.filter((f) => ["league", "group"].includes(f.stage));
   const plan = qualificationPlan(c, tables, decisions);
+  const prelimComplete =
+    prelim.length > 0 && prelim.every((f) => f.status === "completed");
+  const regularSeasonQualifiers =
+    c.kind === "league" && c.settings.playoffs && prelimComplete
+      ? (c.settings.conferenceLayout?.playoffSeeds
+          ? qualificationPlan(c, tables, decisions, { useFixedSeeds: false })
+          : plan
+        ).selected
+      : null;
   return {
     ...c,
     organizers: db
@@ -1087,10 +1096,8 @@ export function serializeCompetition(db, c) {
         .filter(Boolean),
       { extraTieBreaks: c.settings.extraTieBreaks || ["difference", "for"] },
     ),
-    qualificationPending:
-      prelim.length && prelim.every((f) => f.status === "completed")
-        ? plan.pending
-        : [],
+    qualificationPending: prelimComplete ? plan.pending : [],
+    regularSeasonQualifiers,
     entries: es,
     fixtures: fs,
     standings: tables,

@@ -141,14 +141,19 @@ function conferencePlan(c, rows, decisions) {
     conferenceSeeds: seeds,
   };
 }
-export function qualificationPlan(c, tables, decisions = {}) {
+export function qualificationPlan(
+  c,
+  tables,
+  decisions = {},
+  { useFixedSeeds = true } = {},
+) {
   if (
     c.kind === "league" &&
     c.settings.conferenceLayout &&
     tables[""]?.length
   ) {
     const seeds = c.settings.conferenceLayout.playoffSeeds;
-    if (seeds)
+    if (seeds && useFixedSeeds)
       return {
         direct: seeds,
         extra: [],
