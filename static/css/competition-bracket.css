@@ -168,36 +168,16 @@
 .bt-with-series .bt-match-bottom {
   border-top: 0;
 }
-.bt-series {
+.bt-shootout {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   padding: 0 9px;
   font-family: var(--font-mono);
   font-size: 0.63rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   border-top: 1px solid var(--line);
-}
-.bt-series-games {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 1px 6px;
-  color: var(--muted);
-}
-.bt-series-games > span,
-.bt-series-total {
-  white-space: nowrap;
-}
-.bt-shootout {
-  justify-content: center;
-  gap: 0;
-}
-.bt-series-total {
-  padding-left: 6px;
-  border-left: 1px solid var(--line);
-  color: var(--ink);
 }
 button.bt-match,
 a.bt-match {
@@ -263,6 +243,15 @@ a.bt-match:hover {
   align-items: center;
   gap: 7px;
   min-width: 0;
+}
+.bt-seed {
+  flex: none;
+  color: var(--muted);
+  opacity: 0.82;
+  font-size: 0.6rem;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
 }
 .bt-avatars {
   display: flex;
@@ -387,6 +376,49 @@ a.bt-match:hover {
 .bt-right .bt-side:not(:has(.bt-team)) .bt-player {
   grid-column: 2;
 }
+.bt-row-scores {
+  container-type: inline-size;
+}
+.bt-row-scores .bt-side:not(:has(.bt-team)) {
+  grid-template-columns: minmax(0, 1fr) auto 25px;
+}
+.bt-side-games {
+  display: grid;
+  grid-template-columns: repeat(var(--bt-games), var(--bt-game-width));
+  gap: 2px;
+  justify-items: center;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+.bt-game-won {
+  color: var(--ink);
+  font-weight: 700;
+}
+.bt-row-scores .bt-score {
+  border-inline-start: 1px solid var(--line);
+}
+.bt-row-scores.bt-right .bt-side:not(:has(.bt-team)) {
+  grid-template-columns: 25px auto minmax(0, 1fr);
+}
+.bt-row-scores.bt-right .bt-side:not(:has(.bt-team)) .bt-player {
+  grid-column: 3;
+}
+.bt-row-scores.bt-right .bt-side-games {
+  grid-column: 2;
+  grid-row: 1;
+}
+.bt-row-scores.bt-right .bt-score {
+  border-inline-start: 0;
+  border-inline-end: 1px solid var(--line);
+}
+@container (max-width: 245px) {
+  .bt-long-series .bt-side-games {
+    grid-template-columns: repeat(4, var(--bt-game-width));
+  }
+}
 .competition-entrants-compact {
   padding: 0 !important;
   margin-top: 16px;
@@ -451,7 +483,7 @@ a.bt-match:hover {
 }
 .bt-racket-name {
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

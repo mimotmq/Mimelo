@@ -1,6 +1,10 @@
+import { bracketSeeds } from "./bracket-picks.js";
+
 const CARD_HEIGHT = 148,
   PITCH = 176,
   TOP = 52;
+export const seedBadge = (seed) =>
+  `<span class="bt-seed" aria-label="Seed ${seed}" title="Seed ${seed}">#${seed}</span>`;
 export function sourceRef(value) {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -126,10 +130,7 @@ function bracketEdges(nodes, full = false) {
             target.y +
             (full && target.f.pool === "G"
               ? 25 +
-                (side === "a" ? 0.5 : 1.5) *
-                  (target.f.score?.games?.length || target.f.score?.pens
-                    ? 38
-                    : 48)
+                (side === "a" ? 0.5 : 1.5) * (target.f.score?.pens ? 38 : 48)
               : CARD_HEIGHT / 2),
         },
       ];
@@ -274,6 +275,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     return () => {};
   }
   const entries = new Map(c.entries.map((e) => [e.id, e]));
+  const seeds = bracketSeeds(c);
   const doubles = c.format === "doubles",
     fc = APP.game.kind === "fc",
     racket = ["tennis", "tt", "pickleball"].includes(APP.game.kind);
@@ -294,16 +296,21 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     for (const n of bracketLayout(fs, { pool }).nodes)
       labels.set(n.f.id, n.label);
   }
-  function entrant(f, side) {
+  function entrant(f, side, includeSeed = false) {
     const id = f[side],
       entry = entries.get(id),
       ref = sourceRef(f["source_" + side]);
-    if (entry) return entry.players.map((p) => p.name).join(" + ");
+    if (entry) {
+      const names = entry.players.map((p) => p.name).join(" + ");
+      return includeSeed && seeds.has(id)
+        ? `${names}, seed ${seeds.get(id)}`
+        : names;
+    }
     if (ref)
       return `${ref.outcome === "loser" ? "Loser" : "Winner"} of ${labels.get(ref.fixture) || "match " + ref.fixture}`;
     return f.status === "bye" ? "Bye" : "To be decided";
   }
-  function sideMarkup(f, side, showScore) {
+  function sideMarkup(f, side, games, shootout) {
     const n = side === "a" ? 0 : 1,
       entry = entries.get(f[side]);
     const won = f.winner != null && f[side] != null && f.winner === f[side];
@@ -317,7 +324,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
             ? won
               ? "W"
               : "L"
-            : "—";
+            : "";
     const photos = entry
       ? entry.players
           .map((p) => UI.avatar(p.name, "avatar-sm", p.photo))
@@ -335,9 +342,10 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
             .join("")
         : esc(entrant(f, side));
     return `<span class="bt-side ${won ? "bt-winner" : ""} ${entry ? "" : "bt-unresolved"}" data-entry="${f[side] || ""}">
-      <span class="bt-player"><span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : ""}" title="${esc(entrant(f, side))}">${identity}</span></span>
+      <span class="bt-player"><span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span>${seeds.has(f[side]) ? seedBadge(seeds.get(f[side])) : ""}<span class="bt-player-name ${racket && entry ? "bt-racket-identity" : ""}" title="${esc(entrant(f, side))}">${identity}</span></span>
       ${fc ? `<span class="bt-team" title="${esc(team?.name || "Club not recorded")}" aria-label="${esc(team?.name || "Club not recorded")}">${team?.image ? `<img src="${esc(team.image)}" alt="" loading="lazy">` : `<span class="bt-club-code">${esc(team?.code || "—")}</span>`}</span>` : ""}
-      ${showScore ? `<span class="bt-score" aria-label="${esc(f.forfeit ? (won ? "Walkover winner" : "Forfeit") : "Score " + score)}">${esc(score)}</span>` : ""}</span>`;
+      ${games.length ? `<span class="bt-side-games" style="--bt-games:${games.length};--bt-game-width:${games.some((g) => g.a >= 100 || g.b >= 100) ? 3 : 2}ch">${games.map((game) => `<span${game.winner === n ? ' class="bt-game-won"' : ""}>${esc(game[side])}</span>`).join("")}</span>` : ""}
+      ${shootout ? "" : `<span class="bt-score"${score === "" ? ' aria-hidden="true"' : ""}>${esc(score)}</span>`}</span>`;
   }
   function card(n, stacked = false) {
     const f = n.f;
@@ -372,9 +380,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         ? `href="${esc(APP.url("game", { view: "record", fixture: f.id, competition: c.id }))}"`
         : "";
     const games =
-      f.match_id && !f.forfeit && !f.no_contest
-        ? (f.score?.games || []).map((g) => `${g.a}–${g.b}`)
-        : [];
+      f.match_id && !f.forfeit && !f.no_contest ? f.score?.games || [] : [];
     const scoreType =
       APP.game.kind === "tennis"
         ? "Set scores"
@@ -383,26 +389,24 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           : "Game scores";
     const total = fixtureScoreText(f);
     const pens = f.score?.pens;
-    const scoreStrip = games.length
-      ? `<span class="bt-series"><span class="bt-series-games">${games.map((score) => `<span>${esc(score)}</span>`).join("")}</span><strong class="bt-series-total">${esc(total)}</strong></span>`
-      : pens
-        ? `<strong class="bt-series bt-shootout"><span>${f.a_score}<small class="bt-penalty">(${pens[0]})</small>–<small class="bt-penalty">(${pens[1]})</small>${f.b_score}</span></strong>`
-        : "";
+    const scoreStrip = pens
+      ? `<strong class="bt-shootout"><span>${f.a_score}<small class="bt-penalty">(${pens[0]})</small>–<small class="bt-penalty">(${pens[1]})</small>${f.b_score}</span></strong>`
+      : "";
     const scoreLabel = pens
       ? `Match score ${f.a_score} to ${f.b_score}. Penalties ${pens[0]} to ${pens[1]}`
       : games.length
-        ? `${scoreType}: ${games.join(", ")}. Series result: ${total}`
+        ? `${scoreType}: ${games.map((g) => `${g.a}–${g.b}`).join(", ")}. Series result: ${total}`
         : total;
-    const aria = `${n.label}: ${entrant(f, "a")} versus ${entrant(f, "b")}. ${scoreLabel}. ${state}${f.match_id ? ". View result" : record ? ". Record result" : ""}`;
+    const aria = `${n.label}: ${entrant(f, "a", true)} versus ${entrant(f, "b", true)}. ${scoreLabel}. ${state}${f.match_id ? ". View result" : record ? ". Record result" : ""}`;
     const position = stacked
       ? ""
       : `left:${n.x}px;top:${n.y}px;width:${n.width}px;`;
     const forfeitPosition = stacked
       ? ""
       : `style="left:${n.x + n.width - 10}px;top:${n.y + n.height - 4}px"`;
-    return `<${tag} class="bt-match ${scoreStrip ? "bt-with-series" : ""} ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" aria-label="${esc(aria)}" style="${position}height:${n.height}px">
+    return `<${tag} class="bt-match ${pens ? "bt-with-series" : ""} ${games.length ? "bt-row-scores" : ""} ${games.length > 4 ? "bt-long-series" : ""} ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" aria-label="${esc(aria)}" style="${position}height:${n.height}px">
       <span class="bt-match-top"><span>${esc(n.label)}</span>${f.match_id || record ? '<span class="bt-open" aria-hidden="true">↗</span>' : ""}</span>
-      ${sideMarkup(f, "a", !scoreStrip)}${sideMarkup(f, "b", !scoreStrip)}
+      ${sideMarkup(f, "a", games, !!pens)}${sideMarkup(f, "b", games, !!pens)}
       ${scoreStrip}
       <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && !f.forfeit ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" ${forfeitPosition} data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
   }
@@ -429,13 +433,20 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
   const scrollTimers = new Set();
   const roundNav = (headings, title) =>
     `<nav class="bt-round-nav" aria-label="${title} rounds">${headings.map((n) => `<button type="button" data-bracket-round="${n.round}">${esc(n.navLabel || n.heading)}</button>`).join("")}</nav>`;
-  const canvas = (layout, headings = layout.headings) =>
-    `<div class="bt-canvas" style="width:${layout.width}px;height:${layout.height}px">
-      <svg class="bt-connections" width="${layout.width}" height="${layout.height}" aria-hidden="true">${layout.edges.map((e) => `<path d="${connector(e)}" data-source="${e.source}" data-target="${e.target}" class="${e.active ? "bt-path-active" : ""} ${e.outcome === "loser" ? "bt-path-loser" : ""}"/>`).join("")}</svg>
+  const rendered = (node) => node.f.status !== "bye";
+  const canvas = (layout, headings = layout.headings) => {
+    const nodes = layout.nodes.filter(rendered);
+    const ids = new Set(nodes.map((n) => n.f.id));
+    const edges = layout.edges.filter(
+      (e) => ids.has(e.source) && ids.has(e.target),
+    );
+    return `<div class="bt-canvas" style="width:${layout.width}px;height:${layout.height}px">
+      <svg class="bt-connections" width="${layout.width}" height="${layout.height}" aria-hidden="true">${edges.map((e) => `<path d="${connector(e)}" data-source="${e.source}" data-target="${e.target}" class="${e.active ? "bt-path-active" : ""} ${e.outcome === "loser" ? "bt-path-loser" : ""}"/>`).join("")}</svg>
       ${(layout.lanes || []).map((lane) => `<h3 class="bt-lane-title" style="left:${lane.x}px;top:${lane.y}px;width:${lane.width}px">${lane.pool === "W" ? "Winners bracket" : "Losers bracket"}</h3>`).join("")}
       ${headings.map((n) => `<div class="bt-round" data-round-index="${n.round}" style="left:${n.x}px;top:${n.y || 0}px;width:${n.width}px"><h4>${esc(n.heading)}</h4></div>`).join("")}
-      ${layout.nodes.map((n) => card(n)).join("")}
+      ${nodes.map((n) => card(n)).join("")}
     </div>`;
+  };
   function draw() {
     const width = container.clientWidth;
     if (!width || (width === previousWidth && selectedView === previousView))
@@ -450,7 +461,12 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     if (connected) {
       const layout = connectedLayout(fixtures, width);
       sections.innerHTML = `<section class="bt-section" data-layout="connected">
-        ${roundNav(layout.headings, "Full bracket")}
+        ${roundNav(
+          layout.headings.filter((heading) =>
+            layout.nodes.some((n) => n.round === heading.round && rendered(n)),
+          ),
+          "Full bracket",
+        )}
         <div class="bt-viewport" tabindex="0" role="region" aria-label="Full bracket. Scroll across rounds.">${canvas(layout)}</div>
       </section>`;
     } else
@@ -485,10 +501,14 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           const headings = [
             ...new Map(layout.nodes.map((n) => [n.x, { ...n, y: 0 }])).values(),
           ];
-          const nav = layout.groups.map((g, i) => ({
-            round: i,
-            heading: roundTitle(i, layout.groups.length, pool, g[0].round),
-          }));
+          const nav = layout.groups
+            .map((g, i) => ({
+              round: i,
+              heading: roundTitle(i, layout.groups.length, pool, g[0].round),
+            }))
+            .filter(({ round }) =>
+              layout.groups[round].some((f) => f.status !== "bye"),
+            );
           const view = stacked
             ? "stacked"
             : focused
@@ -505,7 +525,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
                   .map(
                     ({ round, heading }) =>
                       `<section><h4>${esc(heading)}</h4><div>${layout.nodes
-                        .filter((n) => n.round === round)
+                        .filter((n) => n.round === round && rendered(n))
                         .map(
                           (n) =>
                             `<div class="bt-stack-slot">${card(n, true)}</div>`,
@@ -533,7 +553,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           else button.removeAttribute("aria-current");
         }
       }
-      selectRound(0);
+      if (buttons.length) selectRound(Number(buttons[0].dataset.bracketRound));
       let lastLeft = 0;
       for (const button of buttons)
         button.onclick = () => {
@@ -543,6 +563,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           const matches = [
             ...section.querySelectorAll(`[data-match-round="${index}"]`),
           ];
+          if (!matches.length) return;
           const match = matches.reduce((first, candidate) =>
             candidate.offsetTop < first.offsetTop ? candidate : first,
           );
@@ -567,17 +588,23 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           match.focus({ preventScroll: true });
         };
       if (section.dataset.layout !== "linear") continue;
+      const visibleColumns = columns.filter((col) =>
+        buttons.some((b) => b.dataset.bracketRound === col.dataset.roundIndex),
+      );
+      if (!visibleColumns.length) continue;
       viewport.addEventListener("scroll", () => {
         if (lastLeft === viewport.scrollLeft) return;
         lastLeft = viewport.scrollLeft;
         const maxLeft = viewport.scrollWidth - viewport.clientWidth;
         const distance = (col) =>
           Math.abs(Math.min(col.offsetLeft, maxLeft) - lastLeft);
-        const next = columns.reduce(
-          (best, col, i) =>
-            distance(col) < distance(columns[best]) ? i : best,
-          roundIndex,
+        const column = visibleColumns.reduce(
+          (best, col) => (distance(col) < distance(best) ? col : best),
+          visibleColumns.find(
+            (col) => Number(col.dataset.roundIndex) === roundIndex,
+          ) || visibleColumns[0],
         );
+        const next = Number(column.dataset.roundIndex);
         if (next === roundIndex) {
           clearTimeout(timer);
           scrollTimers.delete(timer);
@@ -588,9 +615,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         timer = setTimeout(() => {
           scrollTimers.delete(timer);
           selectRound(next);
-          const match = section.querySelector(
-            `[data-match-round="${columns[next].dataset.roundIndex}"]`,
-          );
+          const match = section.querySelector(`[data-match-round="${next}"]`);
           // A later round can be far down a large draw. Bring its first match
           // into view after a horizontal swipe, preserving manual vertical pans.
           viewport.scrollTo({

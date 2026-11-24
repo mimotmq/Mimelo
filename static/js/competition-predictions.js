@@ -73,7 +73,7 @@ export function renderPredictions(container, competition, data, { APP, UI }) {
       if (waiting || (needsPick && winner === undefined)) complete = false;
       if (draft[f.id] !== saved[f.id]) changed = true;
       if (f.conditional && f.status === "cancelled") continue;
-      if (!waiting && !skipped && !a && !b) continue;
+      if (!waiting && !skipped && !needsPick) continue;
       if (f.pool === "L" && (a === null || b === null)) continue;
       const layout = roundNames.get(f.id);
       const heading = layout?.heading || f.label;

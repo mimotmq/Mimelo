@@ -1,6 +1,36 @@
 export const isBracketFixture = (f) =>
   ["knockout", "semifinal", "final"].includes(f.stage);
 
+export function bracketSeedOrder(size) {
+  let positions = [1, 2];
+  for (let n = 4; n <= size; n *= 2)
+    positions = positions.flatMap((seed) => [seed, n + 1 - seed]);
+  return positions;
+}
+
+export function bracketSeeds(competition) {
+  const seeds = new Map();
+  if (
+    competition.kind === "knockout" &&
+    competition.settings.seeding === "random"
+  )
+    return seeds;
+  const winners = competition.fixtures.filter(
+    (f) => f.pool === "W" && isBracketFixture(f),
+  );
+  const round = Math.min(...winners.map((f) => f.round));
+  const first = winners
+    .filter((f) => f.round === round)
+    .sort((a, b) => a.id - b.id);
+  const order = bracketSeedOrder(first.length * 2);
+  first
+    .flatMap((f) => [f.a, f.b])
+    .forEach((entry, index) => {
+      if (entry && order[index]) seeds.set(entry, order[index]);
+    });
+  return seeds;
+}
+
 // Replay the published draw using predicted winners and losers as feeders.
 export function predictionRows(fixtures, picks = {}) {
   const outcomes = new Map();

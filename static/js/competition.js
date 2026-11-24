@@ -8,9 +8,14 @@ APP.run(async () => {
     bestOfLengths,
     tiebreakLabels,
   } = await import("./competition-settings.js");
-  const { renderBracket, fixtureScoreText, visibleBracketFixtures, sourceRef } =
-    await import("./competition-bracket.js");
-  const { isBracketFixture } = await import("./bracket-picks.js");
+  const {
+    renderBracket,
+    fixtureScoreText,
+    visibleBracketFixtures,
+    sourceRef,
+    seedBadge,
+  } = await import("./competition-bracket.js");
+  const { isBracketFixture, bracketSeeds } = await import("./bracket-picks.js");
   const bracketStyles = document.createElement("link");
   bracketStyles.rel = "stylesheet";
   bracketStyles.href = "css/competition-bracket.css";
@@ -400,23 +405,24 @@ APP.run(async () => {
     const bracketFixtures = visibleBracketFixtures(
       c.fixtures.filter(isKnockout),
     );
+    const seeds = bracketSeeds(c);
     const fixtureLabels = new Map(bracketFixtures.map((f) => [f.id, f.label]));
     const orderedFixtures = [
       ...c.fixtures.filter((f) => !isKnockout(f)),
-      ...bracketFixtures.filter(
-        (f) => f.status !== "cancelled" && (f.a || f.b || f.status !== "bye"),
-      ),
-    ].sort((a, b) => {
-      const first = a.played_at || a.scheduled;
-      const second = b.played_at || b.scheduled;
-      return first && second
-        ? first - second
-        : first
-          ? -1
-          : second
-            ? 1
-            : a.round - b.round || a.id - b.id;
-    });
+      ...bracketFixtures,
+    ]
+      .filter((f) => !["bye", "cancelled"].includes(f.status))
+      .sort((a, b) => {
+        const first = a.played_at || a.scheduled;
+        const second = b.played_at || b.scheduled;
+        return first && second
+          ? first - second
+          : first
+            ? -1
+            : second
+              ? 1
+              : a.round - b.round || a.id - b.id;
+      });
     for (const f of orderedFixtures) {
       const date = f.played_at || f.scheduled;
       const key = date
@@ -441,17 +447,7 @@ APP.run(async () => {
         .map(
           ([label, fixtures]) => `
       <details class="fixture-day">
-        <summary><strong>${esc(label)}</strong><span>${[
-          [
-            "match",
-            "matches",
-            fixtures.filter((f) => f.status !== "bye").length,
-          ],
-          ["bye", "byes", fixtures.filter((f) => f.status === "bye").length],
-        ]
-          .filter(([, , count]) => count)
-          .map(([one, many, count]) => UI.count(count, one, many))
-          .join(" · ")}</span></summary>
+        <summary><strong>${esc(label)}</strong><span>${UI.count(fixtures.length, "match", "matches")}</span></summary>
         <div class="fixture-day-matches">${fixtures
           .map((f) => {
             const time = f.played_at || f.scheduled;
@@ -459,9 +455,7 @@ APP.run(async () => {
               ? "No contest"
               : f.match_id || f.forfeit
                 ? fixtureScoreText(f)
-                : f.status === "bye"
-                  ? "Bye"
-                  : "vs";
+                : "vs";
             const games = ["tt", "tennis", "pickleball"].includes(APP.game.kind)
               ? f.score?.games || []
               : [];
@@ -483,13 +477,14 @@ APP.run(async () => {
                 ref && fixtureLabels.has(ref.fixture)
                   ? `${ref.outcome === "loser" ? "Loser" : "Winner"} of ${fixtureLabels.get(ref.fixture)}`
                   : "To be decided";
-              if (f.status === "bye" && !entry) return "<span></span>";
+              const seed = isKnockout(f) ? seeds.get(entry) : null;
               return `<span class="fixture-side ${away ? "fixture-away" : "fixture-home"}">${
                 lineup(entry)
-                  .map(
-                    (p) =>
-                      `<span class="fixture-person">${away ? `<span>${esc(p.name)}</span>${UI.avatar(p.name, "avatar-xs", p.photo)}` : `${UI.avatar(p.name, "avatar-xs", p.photo)}<span>${esc(p.name)}</span>`}</span>`,
-                  )
+                  .map((p, i) => {
+                    const identity = `<span>${i === 0 && seed ? seedBadge(seed) + " " : ""}${esc(p.name)}</span>`;
+                    const photo = UI.avatar(p.name, "avatar-xs", p.photo);
+                    return `<span class="fixture-person">${away ? identity + photo : photo + identity}</span>`;
+                  })
                   .join("") || esc(placeholder)
               }</span>`;
             };
@@ -500,7 +495,7 @@ APP.run(async () => {
                 ? `<a class="fixture-match" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">${content}</a>`
                 : `<div class="fixture-match">${content}</div>`;
             const outcome =
-              f.status === "bye" || (f.forfeit && isKnockout(f))
+              f.forfeit && isKnockout(f)
                 ? `<span>${esc(name(f.winner))} advances</span>`
                 : f.forfeit
                   ? `<span>${esc(name(f.winner))} wins</span>`

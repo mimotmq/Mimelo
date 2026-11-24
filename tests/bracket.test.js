@@ -229,9 +229,14 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
       .getAttribute("open"),
     null,
   );
-  assert.equal(await page.locator(".bt-match").count(), 7);
-  assert.equal(await page.locator(".bt-connections path").count(), 6);
-  assert.equal(await page.locator(".bt-match.bt-bye").count(), 3);
+  assert.equal(await page.locator(".bt-match").count(), 4);
+  assert.equal(await page.locator(".bt-connections path").count(), 3);
+  assert.equal(await page.locator(".bt-match.bt-bye").count(), 0);
+  assert.ok(
+    new Set(await page.locator(".bt-match .bt-seed").allTextContents()).has(
+      "#1",
+    ),
+  );
   assert.equal(await page.locator(".bt-unresolved.bt-winner").count(), 0);
   assert.equal(await page.locator(".bt-penalty").count(), 2);
   assert.equal(await page.locator(".bt-shootout").innerText(), "2(5)–(4)2");
@@ -273,8 +278,8 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
   await page.setViewportSize({ width: 390, height: 844 });
   await page.locator('[data-layout="linear"] .bt-match').first().waitFor();
   const firstRound = await page
-    .locator(".bt-match")
-    .evaluateAll((cards) => cards.slice(0, 4).map((card) => card.offsetLeft));
+    .locator('.bt-match[data-match-round="0"]')
+    .evaluateAll((cards) => cards.map((card) => card.offsetLeft));
   assert.equal(new Set(firstRound).size, 1);
   assert.equal(
     await page.evaluate(
@@ -438,8 +443,8 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
   const byeCard = byeGroup
     .locator(".fixture-card")
     .filter({ hasText: bye.label });
-  assert.match(await byeCard.innerText(), /Bye[\s\S]*advances/);
-  assert.equal(await byeCard.locator("a,button").count(), 0);
+  assert.equal(await byeCard.count(), 0);
+  assert.ok((await byeGroup.locator(".fixture-card .bt-seed").count()) > 0);
   await page.getByRole("tab", { name: "Bracket" }).click();
   assert.equal(
     await page.getByRole("tab", { name: "Table", exact: true }).count(),
@@ -562,11 +567,19 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
     await page.locator(`[data-bracket-fixture="${reset.id}"]`).count(),
     0,
   );
+  const finalists = finals.locator(".bt-side");
   assert.deepEqual(
-    await finals.locator(".bt-series-games > span").allTextContents(),
-    ["21–12", "12–21", "21–9"],
+    await finalists.nth(0).locator(".bt-side-games > span").allTextContents(),
+    ["21", "12", "21"],
   );
-  assert.equal(await finals.locator(".bt-series-total").innerText(), "2–1");
+  assert.deepEqual(
+    await finalists.nth(1).locator(".bt-side-games > span").allTextContents(),
+    ["12", "21", "9"],
+  );
+  assert.deepEqual(await finals.locator(".bt-score").allTextContents(), [
+    "2",
+    "1",
+  ]);
   await page.locator("#cp-bracket").screenshot({
     path: "/tmp/mimelo-connected-bracket.png",
     style: ".app-header, .skip-link { visibility: hidden !important; }",

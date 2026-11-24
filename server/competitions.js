@@ -14,6 +14,7 @@ import {
   crossGroupTable,
 } from "./competition-table.js";
 import { validatePickleballFormat } from "./scoring.js";
+import { bracketSeedOrder } from "../static/js/bracket-picks.js";
 export function getCompetition(db, id) {
   const c = db.prepare("SELECT * FROM competitions WHERE id=?").get(Number(id));
   assert(c, "Competition not found.", 404);
@@ -467,9 +468,7 @@ export function avoidGroupRematches(ids, tables, c) {
 function bracket(db, c, ids) {
   let size = 2;
   while (size < ids.length) size *= 2;
-  let positions = [1, 2];
-  for (let n = 4; n <= size; n *= 2)
-    positions = positions.flatMap((x) => [x, n + 1 - x]);
+  const positions = bracketSeedOrder(size);
   let round = 1,
     prev = [],
     winners = [];
