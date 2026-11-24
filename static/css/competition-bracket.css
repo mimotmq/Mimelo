@@ -376,48 +376,19 @@ a.bt-match:hover {
 .bt-right .bt-side:not(:has(.bt-team)) .bt-player {
   grid-column: 2;
 }
-.bt-row-scores {
-  container-type: inline-size;
+.bt-score-preview-button {
+  position: absolute;
+  z-index: 1;
+  transform: translate(-100%, -100%);
+  inline-size: max-content;
+  white-space: nowrap;
+  padding: 1px 4px;
+  min-height: 24px;
 }
-.bt-row-scores .bt-side:not(:has(.bt-team)) {
-  grid-template-columns: minmax(0, 1fr) auto 25px;
-}
-.bt-side-games {
-  display: grid;
-  grid-template-columns: repeat(var(--bt-games), var(--bt-game-width));
-  gap: 2px;
-  justify-items: center;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.25;
-}
-.bt-game-won {
-  color: var(--ink);
-  font-weight: 700;
-}
-.bt-row-scores .bt-score {
-  border-inline-start: 1px solid var(--line);
-}
-.bt-row-scores.bt-right .bt-side:not(:has(.bt-team)) {
-  grid-template-columns: 25px auto minmax(0, 1fr);
-}
-.bt-row-scores.bt-right .bt-side:not(:has(.bt-team)) .bt-player {
-  grid-column: 3;
-}
-.bt-row-scores.bt-right .bt-side-games {
-  grid-column: 2;
-  grid-row: 1;
-}
-.bt-row-scores.bt-right .bt-score {
-  border-inline-start: 0;
-  border-inline-end: 1px solid var(--line);
-}
-@container (max-width: 245px) {
-  .bt-long-series .bt-side-games {
-    grid-template-columns: repeat(4, var(--bt-game-width));
-  }
+.bt-stack-slot .bt-score-preview-button {
+  right: 10px;
+  bottom: 4px;
+  transform: none;
 }
 .competition-entrants-compact {
   padding: 0 !important;

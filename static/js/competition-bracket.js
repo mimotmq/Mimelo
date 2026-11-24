@@ -1,4 +1,6 @@
 import { bracketSeeds } from "./bracket-picks.js";
+import { bindFixtureScorePopover } from "./fixture-score-popover.js";
+import { watchFixtureNames } from "./fixture-names.js";
 
 const CARD_HEIGHT = 148,
   PITCH = 176,
@@ -310,7 +312,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
       return `${ref.outcome === "loser" ? "Loser" : "Winner"} of ${labels.get(ref.fixture) || "match " + ref.fixture}`;
     return f.status === "bye" ? "Bye" : "To be decided";
   }
-  function sideMarkup(f, side, games, shootout) {
+  function sideMarkup(f, side, shootout) {
     const n = side === "a" ? 0 : 1,
       entry = entries.get(f[side]);
     const won = f.winner != null && f[side] != null && f.winner === f[side];
@@ -337,14 +339,13 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         ? entry.players
             .map(
               (player) =>
-                `<span class="bt-racket-person"><span class="bt-racket-name">${esc(player.name)}</span>${UI.nationalityFlags(player)}</span>`,
+                `<span class="bt-racket-person"><span class="bt-racket-name fixture-name-frame" data-scroll-name><span class="fixture-name-text">${esc(player.name)}</span></span>${UI.nationalityFlags(player)}</span>`,
             )
             .join("")
-        : esc(entrant(f, side));
+        : `<span class="fixture-name-text">${esc(entrant(f, side))}</span>`;
     return `<span class="bt-side ${won ? "bt-winner" : ""} ${entry ? "" : "bt-unresolved"}" data-entry="${f[side] || ""}">
-      <span class="bt-player">${seeds.has(f[side]) ? seedBadge(seeds.get(f[side])) : ""}<span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : ""}" title="${esc(entrant(f, side))}">${identity}</span></span>
+      <span class="bt-player">${seeds.has(f[side]) ? seedBadge(seeds.get(f[side])) : ""}<span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : "fixture-name-frame"}" ${racket && entry ? "" : "data-scroll-name"} title="${esc(entrant(f, side))}">${identity}</span></span>
       ${fc ? `<span class="bt-team" title="${esc(team?.name || "Club not recorded")}" aria-label="${esc(team?.name || "Club not recorded")}">${team?.image ? `<img src="${esc(team.image)}" alt="" loading="lazy">` : `<span class="bt-club-code">${esc(team?.code || "—")}</span>`}</span>` : ""}
-      ${games.length ? `<span class="bt-side-games" style="--bt-games:${games.length};--bt-game-width:${games.some((g) => g.a >= 100 || g.b >= 100) ? 3 : 2}ch">${games.map((game) => `<span${game.winner === n ? ' class="bt-game-won"' : ""}>${esc(game[side])}</span>`).join("")}</span>` : ""}
       ${shootout ? "" : `<span class="bt-score"${score === "" ? ' aria-hidden="true"' : ""}>${esc(score)}</span>`}</span>`;
   }
   function card(n, stacked = false) {
@@ -404,11 +405,14 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     const forfeitPosition = stacked
       ? ""
       : `style="left:${n.x + n.width - 10}px;top:${n.y + n.height - 4}px"`;
-    return `<${tag} class="bt-match ${pens ? "bt-with-series" : ""} ${games.length ? "bt-row-scores" : ""} ${games.length > 4 ? "bt-long-series" : ""} ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" aria-label="${esc(aria)}" style="${position}height:${n.height}px">
+    const scoresButton = games.length
+      ? `<button type="button" class="bt-score-preview-button" ${forfeitPosition} data-score-button="${f.id}" aria-expanded="false" aria-controls="${container.id}-score-popover" aria-label="${esc(scoreType + " for " + entrant(f, "a") + " versus " + entrant(f, "b"))}">${scoreType}</button>`
+      : "";
+    return `<${tag} class="bt-match ${pens ? "bt-with-series" : ""} ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" ${games.length ? `data-score-preview="${f.id}"` : ""} aria-label="${esc(aria)}" style="${position}height:${n.height}px">
       <span class="bt-match-top"><span>${esc(n.label)}</span>${f.match_id || record ? '<span class="bt-open" aria-hidden="true">↗</span>' : ""}</span>
-      ${sideMarkup(f, "a", games, !!pens)}${sideMarkup(f, "b", games, !!pens)}
+      ${sideMarkup(f, "a", !!pens)}${sideMarkup(f, "b", !!pens)}
       ${scoreStrip}
-      <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && !f.forfeit ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" ${forfeitPosition} data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
+      <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && !f.forfeit ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${scoresButton}${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" ${forfeitPosition} data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
   }
   container.classList.add("bt-root");
   const views = [
@@ -419,6 +423,13 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
   const showViews = c.settings.elimination === "double" && views.length > 1;
   container.innerHTML = `${showViews ? `<nav class="bt-round-nav bt-view-nav" aria-label="Bracket view">${views.map(([pool, label]) => `<button type="button" data-bracket-view="${pool}" aria-pressed="${pool === "all"}">${label}</button>`).join("")}</nav>` : ""}<div class="bt-sections"></div>`;
   const sections = container.querySelector(".bt-sections");
+  const names = watchFixtureNames(container);
+  const scorePreview = bindFixtureScorePopover(container, {
+    findFixture: (id) => fixtures.find((f) => f.id === id),
+    names: entrant,
+    kind: APP.game.kind,
+    esc,
+  });
   let selectedView = "all";
   function updateView() {
     for (const button of container.querySelectorAll("[data-bracket-view]"))
@@ -453,6 +464,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
       return;
     previousWidth = width;
     previousView = selectedView;
+    scorePreview.close();
     scrollTimers.forEach(clearTimeout);
     scrollTimers.clear();
     const active = document.activeElement?.dataset?.bracketFixture;
@@ -539,6 +551,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         })
         .join("");
     updateView();
+    names.refresh();
     for (const section of sections.querySelectorAll(".bt-section")) {
       const viewport = section.querySelector(".bt-viewport"),
         columns = [...section.querySelectorAll(".bt-round")];
@@ -656,6 +669,8 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
   observer.observe(container);
   draw();
   return () => {
+    names.destroy();
+    scorePreview.destroy();
     observer.disconnect();
     cancelAnimationFrame(frame);
     container.removeEventListener("click", click);

@@ -338,13 +338,6 @@ a.fixture-match {
     padding: 15px 16px;
   }
 }
-.fixture-games {
-  grid-column: 1 / -1;
-  text-align: center;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-}
 .stat-table {
   overflow-x: auto;
 }
@@ -452,10 +445,6 @@ a.fixture-match {
   flex-direction: column;
   gap: 3px;
 }
-.fixture-games {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
 
 /* Give each game day a compact block of side-by-side fixture cards. */
 #fixture-groups .fixture-day-matches {
@@ -505,9 +494,6 @@ a.fixture-match {
 }
 #fixture-groups .fixture-away .fixture-person {
   justify-content: flex-end;
-}
-#fixture-groups .fixture-games {
-  grid-column: 1 / -1;
 }
 .competition-banner {
   display: block;
@@ -607,3 +593,123 @@ label.prediction-choice { cursor: pointer; }
 .prediction-result { margin: 4px 6px 0; }
 .prediction-result[data-correct="true"] { font-weight: 600; }
 .prediction-leaderboard { margin-top: 24px; }
+.division-standings {
+  margin-block: 20px 28px;
+}
+.division-standings > h3 {
+  margin: 0 0 8px;
+}
+.fixture-score-popover {
+  position: fixed;
+  inset: auto;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 5px 20px rgb(16 30 50 / 0.18);
+}
+.fixture-score-popover::before {
+  position: absolute;
+  z-index: -1;
+  width: 10px;
+  height: 10px;
+  border-top: 1px solid var(--line-strong);
+  border-left: 1px solid var(--line-strong);
+  background: var(--surface);
+  content: "";
+  pointer-events: none;
+}
+.fixture-score-popover[data-placement="right"]::before {
+  left: -6px;
+  top: 18px;
+  transform: rotate(-45deg);
+}
+.fixture-score-popover[data-placement="left"]::before {
+  right: -6px;
+  top: 18px;
+  transform: rotate(135deg);
+}
+.fixture-score-popover[data-placement="below"]::before,
+.fixture-score-popover[data-placement="above"]::before {
+  left: calc(var(--score-tip-offset) - 5px);
+}
+.fixture-score-popover[data-placement="below"]::before {
+  top: -6px;
+  transform: rotate(45deg);
+}
+.fixture-score-popover[data-placement="above"]::before {
+  bottom: -6px;
+  transform: rotate(225deg);
+}
+.fixture-score-popover .fixture-score-title {
+  margin: 0 0 6px;
+  font-weight: 650;
+}
+.fixture-score-popover table {
+  width: auto;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.fixture-score-popover :is(th, td) {
+  padding: 5px clamp(3px, 1vw, 8px);
+  text-align: center;
+}
+.fixture-score-popover th[scope="row"] {
+  text-align: start;
+  max-width: 16ch;
+  overflow-wrap: anywhere;
+}
+.fixture-score-popover .fixture-game-winner,
+.fixture-score-popover .fixture-score-total {
+  color: var(--ink);
+  font-weight: 700;
+}
+.fixture-score-popover .fixture-score-total {
+  border-inline-start: 1px solid var(--line);
+}
+.bt-score-preview-button,
+.fixture-score-button {
+  border: 0;
+  border-radius: 4px;
+  color: var(--ink-2);
+  background: transparent;
+  font: inherit;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+.bt-score-preview-button:hover,
+.fixture-score-button:hover,
+.bt-score-preview-button[aria-expanded="true"],
+.fixture-score-button[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+.fixture-name-frame,
+.bt-player-name.fixture-name-frame {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fixture-name-frame[data-name-overflow] {
+    text-align: start;
+    text-overflow: clip;
+  }
+  .fixture-name-frame[data-name-overflow] > .fixture-name-text {
+    display: inline-block;
+    animation: fixture-name-scroll var(--name-duration) ease-in-out infinite;
+  }
+  @keyframes fixture-name-scroll {
+    0%, 20% { transform: translateX(0); }
+    55%, 80% { transform: translateX(var(--name-scroll)); }
+    100% { transform: translateX(0); }
+  }
+}

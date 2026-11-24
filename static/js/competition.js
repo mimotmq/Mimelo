@@ -16,6 +16,9 @@ APP.run(async () => {
     seedBadge,
   } = await import("./competition-bracket.js");
   const { isBracketFixture, bracketSeeds } = await import("./bracket-picks.js");
+  const { bindFixtureScorePopover } =
+    await import("./fixture-score-popover.js");
+  const { watchFixtureNames } = await import("./fixture-names.js");
   const bracketStyles = document.createElement("link");
   bracketStyles.rel = "stylesheet";
   bracketStyles.href = "css/competition-bracket.css";
@@ -27,6 +30,8 @@ APP.run(async () => {
   });
   let c,
     clearBracket,
+    fixtureScorePreview,
+    fixtureNames,
     initialView = true;
   const predictionTab = $("#ct-predictions");
   const predictionPanel = $("#prediction-content");
@@ -294,6 +299,7 @@ APP.run(async () => {
     predictionTab.hidden = !c.fixtures.some(isBracketFixture);
     $("#record-link").href = APP.url("game", { view: "record" });
     $("#record-link").hidden = true;
+    const selectedDivision = $("#field-division-table")?.value || "all";
     $("#comp-table-wrap").innerHTML =
       Object.entries(c.standings)
         .map(
@@ -309,35 +315,67 @@ APP.run(async () => {
       );
     if (c.settings.conferenceLayout && c.standings[""]?.length) {
       const wrap = $("#comp-table-wrap");
-      const views = [["Overall", c.standings[""]]];
+      const views = [],
+        divisions = [];
+      const overall = c.standings[""];
+      const rowIndex = new Map(overall.map((row, i) => [row.entry, i]));
+      const ranked = (entries) => {
+        const eligible = new Set(entries);
+        const rows = overall.filter((row) => eligible.has(row.entry));
+        return rows.map((row, i) => ({
+          ...row,
+          position: i + 1,
+          tiedWithPrevious:
+            i > 0 &&
+            overall
+              .slice(
+                rowIndex.get(rows[i - 1].entry) + 1,
+                rowIndex.get(row.entry) + 1,
+              )
+              .every((r) => r.tiedWithPrevious),
+        }));
+      };
       for (const conf of c.settings.conferenceLayout.conferences) {
-        const all = conf.divisions.flatMap((d) => d.entries);
-        views.push([
-          conf.name,
-          c.standings[""].filter((r) => all.includes(r.entry)),
-        ]);
-        for (const div of conf.divisions.filter(
-          (d) => conf.divisions.length > 1 || d.name !== conf.name,
-        ))
-          views.push([
-            conf.name + " · " + div.name,
-            c.standings[""].filter((r) => div.entries.includes(r.entry)),
-          ]);
+        const items = conf.divisions.map((division) => ({
+          label:
+            division.name === conf.name
+              ? conf.name
+              : `${conf.name} · ${division.name}`,
+          rows: ranked(division.entries),
+        }));
+        divisions.push(...items);
+        if (items.length > 1)
+          views.push({
+            label: conf.name,
+            rows: ranked(conf.divisions.flatMap((d) => d.entries)),
+          });
+        views.push(...items);
       }
+      const current =
+        selectedDivision !== "all" && views[Number(selectedDivision)]
+          ? selectedDivision
+          : "all";
       wrap.innerHTML =
         select(
           "Standings",
           "division-table",
-          views.map(([label], i) => [i, label]),
-          0,
+          [
+            ["all", "All divisions"],
+            ...views.map(({ label }, i) => [i, label]),
+          ],
+          current,
         ) + "<div data-division-table></div>";
       const chooser = $("#field-division-table", wrap);
       chooser.onchange = () => {
-        const rows = views[Number(chooser.value)][1].map((row, i) => ({
-          ...row,
-          position: i + 1,
-        }));
-        $("[data-division-table]", wrap).innerHTML = UI.standingsTable(c, rows);
+        const tables =
+          chooser.value === "all" ? divisions : [views[Number(chooser.value)]];
+        $("[data-division-table]", wrap).innerHTML = tables
+          .filter(Boolean)
+          .map(
+            ({ label, rows }) =>
+              `<section class="division-standings"><h3>${esc(label)}</h3>${UI.standingsTable(c, rows)}</section>`,
+          )
+          .join("");
       };
       chooser.onchange();
     }
@@ -400,6 +438,8 @@ APP.run(async () => {
       fixtureGroups.id = "fixture-groups";
       $("#fixtures-body").closest(".table-wrap").replaceWith(fixtureGroups);
     }
+    fixtureScorePreview?.destroy();
+    fixtureNames?.destroy();
     const groups = new Map();
     const isKnockout = isBracketFixture;
     const bracketFixtures = visibleBracketFixtures(
@@ -459,9 +499,6 @@ APP.run(async () => {
             const games = ["tt", "tennis", "pickleball"].includes(APP.game.kind)
               ? f.score?.games || []
               : [];
-            const breakdown = games.length
-              ? `<span class="fixture-games">${games.map((game) => `${esc(game.a)}–${esc(game.b)}`).join(" · ")}</span>`
-              : "";
             const lineup = (entry) => {
               const players = f.priorLineups?.filter(
                 (p) => p.entry_id === entry,
@@ -481,7 +518,7 @@ APP.run(async () => {
               return `<span class="fixture-side ${away ? "fixture-away" : "fixture-home"}">${
                 lineup(entry)
                   .map((p, i) => {
-                    const identity = `<span>${esc(p.name)}</span>`;
+                    const identity = `<span class="fixture-name-frame" data-scroll-name title="${esc(p.name)}"><span class="fixture-name-text">${esc(p.name)}</span></span>`;
                     const photo = UI.avatar(p.name, "avatar-xs", p.photo);
                     const badge = i === 0 && seed ? seedBadge(seed) : "";
                     return `<span class="fixture-person">${away ? identity + photo + badge : badge + photo + identity}</span>`;
@@ -489,9 +526,13 @@ APP.run(async () => {
                   .join("") || esc(placeholder)
               }</span>`;
             };
-            const content = `${playerSide("a", false)}<strong class="fixture-result">${esc(result)}</strong>${playerSide("b", true)}${breakdown}`;
+            const content = `${playerSide("a", false)}<strong class="fixture-result">${esc(result)}</strong>${playerSide("b", true)}`;
+            const preview = games.length ? `data-score-preview="${f.id}"` : "";
+            const scoresButton = games.length
+              ? `<button type="button" class="fixture-score-button" data-score-button="${f.id}" aria-expanded="false" aria-controls="fixture-groups-score-popover">Game scores</button>`
+              : "";
             const resultControl = f.match_id
-              ? `<button type="button" class="fixture-match" data-match="${f.match_id}">${content}</button>`
+              ? `<button type="button" class="fixture-match" data-match="${f.match_id}" ${preview}>${content}</button>`
               : f.status === "ready"
                 ? `<a class="fixture-match" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">${content}</a>`
                 : `<div class="fixture-match">${content}</div>`;
@@ -501,13 +542,25 @@ APP.run(async () => {
                 : f.forfeit
                   ? `<span>${esc(name(f.winner))} wins</span>`
                   : "";
-            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span>${outcome}${!outcome && !f.no_contest && APP.game.kind !== "fc" && f.bestOf && f.bestOf !== c.settings.bestOf ? `<span>Best of ${f.bestOf}</span>` : ""}${time && !outcome ? `<span>${esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }))}</span>` : ""}${c.canManage && (["ready", "waiting"].includes(f.status) || f.no_contest) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Substitute", "substitute", `data-fixture="${f.id}"`) + button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
+            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span>${outcome}${!outcome && !f.no_contest && APP.game.kind !== "fc" && f.bestOf && f.bestOf !== c.settings.bestOf ? `<span>Best of ${f.bestOf}</span>` : ""}${time && !outcome ? `<span>${esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }))}</span>` : ""}${scoresButton}${c.canManage && (["ready", "waiting"].includes(f.status) || f.no_contest) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Substitute", "substitute", `data-fixture="${f.id}"`) + button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
           })
           .join("")}</div>
       </details>`,
         )
         .join("") ||
       '<p class="panel-body">Registration precedes the draw.</p>';
+    fixtureScorePreview = bindFixtureScorePopover(fixtureGroups, {
+      findFixture: (id) => orderedFixtures.find((f) => f.id === id),
+      names: (f, side) => {
+        const past = f.priorLineups?.filter((p) => p.entry_id === f[side]);
+        return past?.length
+          ? past.map((p) => p.name).join(" + ")
+          : name(f[side]);
+      },
+      kind: APP.game.kind,
+      esc,
+    });
+    fixtureNames = watchFixtureNames(fixtureGroups);
     const latestFixtures = orderedFixtures.filter((f) => f.played_at);
     const dayLabel = (time) =>
       new Date(time).toLocaleDateString(undefined, {

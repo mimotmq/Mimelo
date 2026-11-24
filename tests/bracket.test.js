@@ -567,19 +567,28 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
     await page.locator(`[data-bracket-fixture="${reset.id}"]`).count(),
     0,
   );
-  const finalists = finals.locator(".bt-side");
-  assert.deepEqual(
-    await finalists.nth(0).locator(".bt-side-games > span").allTextContents(),
-    ["21", "12", "21"],
-  );
-  assert.deepEqual(
-    await finalists.nth(1).locator(".bt-side-games > span").allTextContents(),
-    ["12", "21", "9"],
-  );
+  await finals.hover();
+  const scorePreview = page.locator("#bracket-wrap-score-popover");
+  await scorePreview.waitFor();
+  const finalists = scorePreview.locator("tbody tr");
+  assert.deepEqual(await finalists.nth(0).locator("td").allTextContents(), [
+    "21",
+    "12",
+    "21",
+    "2",
+  ]);
+  assert.deepEqual(await finalists.nth(1).locator("td").allTextContents(), [
+    "12",
+    "21",
+    "9",
+    "1",
+  ]);
   assert.deepEqual(await finals.locator(".bt-score").allTextContents(), [
     "2",
     "1",
   ]);
+  await page.keyboard.press("Escape");
+  await scorePreview.waitFor({ state: "hidden" });
   await page.locator("#cp-bracket").screenshot({
     path: "/tmp/mimelo-connected-bracket.png",
     style: ".app-header, .skip-link { visibility: hidden !important; }",
