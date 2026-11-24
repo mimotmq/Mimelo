@@ -215,12 +215,29 @@ export function conferenceSchedule(layout) {
     }
   }
   for (const conf of layout.conferences) {
-    for (const d of conf.divisions)
+    for (const d of conf.divisions) {
+      // Schedule each complete division round robin before adding partial rounds.
+      // A quota of N−1 must pair every opponent once.
+      const perCycle = d.entries.length - 1;
+      const cycles = Math.floor(quotas.division / perCycle);
+      for (let cycle = 0; cycle < cycles; cycle++) {
+        const order = [...d.entries];
+        if (order.length % 2) order.push(null);
+        for (let round = 1; round < order.length; round++) {
+          for (let i = 0; i < order.length / 2; i++) {
+            const a = order[i],
+              b = order[order.length - 1 - i];
+            if (a && b) add(a, b, null, "Division");
+          }
+          order.splice(1, 0, order.pop());
+        }
+      }
       fill(
         d.entries.map((id) => [id]),
-        quotas.division,
+        quotas.division % perCycle,
         "Division",
       );
+    }
     fill(
       conf.divisions.map((d) => d.entries),
       quotas.conference,

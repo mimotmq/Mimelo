@@ -47,6 +47,19 @@ test("32 entrants get exact conference schedule quotas, conflict-free rounds and
   const odd = structuredClone(layout);
   odd.conferences[0].divisions[0].entries.pop();
   assert.throws(() => conferenceSchedule(odd), /cannot be paired/);
+  const lunch = conferenceSchedule({
+    conferences: ["Wasp", "Vespa"].map((name, i) => ({
+      name,
+      divisions: [{ name, entries: ids.slice(i * 10, i * 10 + 10) }],
+    })),
+    games: { division: 9, conference: 0, cross: 0 },
+    crossovers: [],
+  });
+  assert.equal(lunch.length, 90);
+  assert.equal(
+    new Set(lunch.map(({ a, b }) => [a, b].sort().join("/"))).size,
+    90,
+  );
 });
 test("division winners qualify ahead of conference wild cards and the halves meet only in the final", () => {
   const rows = ids.map((entry, i) => ({
