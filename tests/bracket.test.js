@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import sharp from "sharp";
 import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
+import { locked } from "../server/competitions.js";
 import {
   bracketLayout,
   fixtureScoreText,
@@ -365,6 +366,95 @@ test("swiping a large mobile draw brings the chosen round's matches into view", 
   );
 });
 
+test("double bracket views, round navigation, byes, and scoreless forfeits", async (t) => {
+  const h = await setup(t, { count: 6, elimination: "double", game: "tt" });
+  const draw = await h.state();
+  const bye = draw.fixtures.find((f) => f.pool === "W" && f.status === "bye");
+  const ready = draw.fixtures.find(
+    (f) => f.pool === "W" && f.status === "ready",
+  );
+  await h.app.listen({ host: "127.0.0.1", port: 0 });
+  const base = `http://127.0.0.1:${h.app.server.address().port}`;
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await page.request.post(base + "/api/login", {
+    headers: { "x-mimelo-request": "1" },
+    data: { identity: h.users[0].handle, password: "BracketPassword!" },
+  });
+  await page.goto(
+    `${base}/competition.html?game=tt&id=${h.comp.id}&view=fixtures`,
+  );
+  const byeGroup = page
+    .locator(".fixture-day")
+    .filter({ hasText: "Winners round 1" });
+  await byeGroup.locator("summary").click();
+  const byeCard = byeGroup
+    .locator(".fixture-card")
+    .filter({ hasText: bye.label });
+  assert.match(await byeCard.innerText(), /Bye[\s\S]*advances/);
+  assert.equal(await byeCard.locator("a,button").count(), 0);
+  await page.getByRole("tab", { name: "Bracket" }).click();
+  const winners = page.locator('[data-bracket-pool="W"]');
+  const losers = page.locator('[data-bracket-pool="L"]');
+  const finals = page.locator('[data-bracket-pool="G"]');
+  await page.getByRole("button", { name: "Losers only" }).click();
+  assert.equal(await losers.isVisible(), true);
+  assert.equal(await winners.isVisible(), false);
+  assert.equal(await finals.isVisible(), false);
+  await page.getByRole("button", { name: "Winners only" }).click();
+  assert.equal(await winners.isVisible(), true);
+  assert.equal(await losers.isVisible(), false);
+  const finalRound = winners.getByRole("button", {
+    name: "Final",
+    exact: true,
+  });
+  await finalRound.click();
+  assert.equal(await finalRound.getAttribute("aria-current"), "step");
+  assert.ok(
+    (await winners.locator(".bt-viewport").evaluate((v) => v.scrollLeft)) > 0,
+  );
+  await page.getByRole("button", { name: "Full bracket" }).click();
+  assert.equal(await finals.isVisible(), true);
+  await page.locator(`[data-bracket-forfeit="${ready.id}"]`).click();
+  const dialog = page.getByRole("dialog", { name: "Declare forfeit" });
+  await dialog.locator('[name="winner"]').selectOption(String(ready.b));
+  await dialog.getByRole("button", { name: "Save" }).click();
+  const card = page.locator(`[data-bracket-fixture="${ready.id}"]`);
+  await card.getByText("Forfeit", { exact: true }).waitFor();
+  assert.equal(await card.getAttribute("data-result-id"), null);
+  const updated = await h.state();
+  const result = updated.fixtures.find((f) => f.id === ready.id);
+  assert.equal(result.match_id, null);
+  assert.equal(result.winner, ready.b);
+  assert.equal(result.loser, ready.a);
+  assert.equal(result.status, "completed");
+  const next = updated.fixtures.find((f) =>
+    ["a", "b"].some(
+      (side) =>
+        sourceRef(f["source_" + side])?.fixture === ready.id &&
+        sourceRef(f["source_" + side]).outcome === "winner",
+    ),
+  );
+  assert.ok([next.a, next.b].includes(ready.b));
+  await page
+    .locator("#cp-bracket")
+    .screenshot({ path: "/tmp/mimelo-bracket-mobile.png" });
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.getByRole("button", { name: "Winners only" }).click();
+  await finalRound.click();
+  assert.equal(await finalRound.getAttribute("aria-current"), "step");
+  assert.equal(
+    await winners.locator('[data-round-target][data-match-round="2"]').count(),
+    1,
+  );
+  await page
+    .locator("#cp-bracket")
+    .screenshot({ path: "/tmp/mimelo-bracket-desktop.png" });
+  await h.call("POST", `/api/fixtures/${next.id}/forfeit`, { winner: ready.b });
+  assert.equal(locked(h.app.db, ready.id), true);
+});
+
 test("racket-sport bracket cards include nationality flags beside names and photos, including doubles", async (t) => {
   const browser = await chromium.launch();
   t.after(() => browser.close());
@@ -433,4 +523,102 @@ test("racket-sport bracket cards include nationality flags beside names and phot
     }
   }
   assert.deepEqual(errors, []);
+});
+
+test("spectators can save a double elimination prediction until the draw starts", async (t) => {
+  const h = await setup(t, { count: 6, elimination: "double", game: "tt" });
+  const draw = await h.state();
+  const initial = draw.fixtures.find(
+    (f) => f.pool === "W" && f.status === "ready",
+  );
+  const endpoint = `/api/competitions/${h.comp.id}/predictions`;
+  const viewer = h.users.at(-1);
+  const viewerName = h.app.db
+    .prepare("SELECT name FROM players WHERE id=?")
+    .get(viewer.player_id).name;
+  h.app.db
+    .prepare("UPDATE accounts SET approved=0 WHERE player_id=?")
+    .run(viewer.player_id);
+  await h.app.listen({ host: "127.0.0.1", port: 0 });
+  const base = `http://127.0.0.1:${h.app.server.address().port}`;
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 1000 },
+  });
+  const session = await page.request.post(base + "/api/login", {
+    headers: { "x-mimelo-request": "1" },
+    data: { identity: viewer.handle, password: "BracketPassword!" },
+  });
+  assert.equal(session.status(), 200);
+  const url = `${base}/competition.html?game=tt&id=${h.comp.id}&view=predictions`;
+  await page.goto(url);
+  const save = page.getByRole("button", { name: "Save bracket" });
+  await save.waitFor();
+  assert.equal(await save.isDisabled(), true);
+  const choice = (id) => page.locator(`[data-prediction-fixture="${id}"]`);
+  await choice(initial.id).first().check();
+  const requiredReset = () =>
+    page
+      .locator(".prediction-match")
+      .filter({
+        has: page.getByText("Final reset", { exact: true }),
+      })
+      .locator("input");
+  const grandFinal = draw.fixtures.find((f) => f.label === "Grand final");
+  for (const f of draw.fixtures) {
+    if (f.id === initial.id || f.conditional || !(await choice(f.id).count()))
+      continue;
+    // Picking the lower-bracket finalist forces a reset.
+    await choice(f.id)
+      .nth(f.id === grandFinal.id ? 1 : 0)
+      .check();
+  }
+  assert.equal(await requiredReset().count(), 2);
+  assert.equal(await save.isDisabled(), true);
+  await requiredReset().first().check();
+  await save.click();
+  await page.getByText("Bracket saved.", { exact: true }).waitFor();
+  const own = await (await page.request.get(base + endpoint)).json();
+  assert.equal(own.mine[initial.id], initial.a);
+  const publicState = await h.call("GET", endpoint);
+  assert.equal(publicState.mine, null);
+  assert.deepEqual(publicState.leaderboard, []);
+  const capture = (size) =>
+    page.locator("#cp-predictions").screenshot({
+      path: `/tmp/mimelo-predictions-${size}.png`,
+      style: ".app-header, .skip-link { visibility: hidden !important; }",
+    });
+  await capture("desktop");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  assert.equal(await choice(initial.id).first().isChecked(), true);
+  await capture("mobile");
+
+  await h.call("PATCH", `/api/fixtures/${initial.id}/schedule`, {
+    scheduled: Date.now() - 5000,
+  });
+  assert.equal((await h.call("GET", endpoint)).open, false);
+  await h.call("PATCH", `/api/fixtures/${initial.id}/schedule`, {
+    scheduled: null,
+  });
+  await h.call("POST", `/api/fixtures/${initial.id}/forfeit`, {
+    winner: initial.a,
+  });
+  const closed = await h.call("GET", endpoint);
+  assert.equal(closed.open, false);
+  assert.deepEqual(closed.leaderboard, [
+    { name: viewerName, mine: false, points: 1, rank: 1 },
+  ]);
+  const late = await page.request.put(base + endpoint, {
+    headers: {
+      "x-mimelo-request": "1",
+      "x-csrf-token": (await session.json()).csrf,
+    },
+    data: { picks: own.mine },
+  });
+  assert.equal(late.status(), 409);
+  await page.reload();
+  await page.getByRole("heading", { name: "Leaderboard" }).waitFor();
+  assert.equal(await save.count(), 0);
 });

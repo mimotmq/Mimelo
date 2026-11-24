@@ -21,6 +21,7 @@ import { registerBadgeImport } from "./badge-import.js";
 import { deleteCompetition } from "./competition-deletion.js";
 import { replacePlayer, fixturePlayers } from "./competitions.js";
 import { competitionForecast } from "./competition-forecast.js";
+import { bracketPredictions, saveBracketPrediction, lockBracketPredictions } from "./bracket-predictions.js";
 import { matchContext } from "./match-context.js";
 import {
   openDb,
@@ -835,7 +836,7 @@ export async function createApp(options = {}) {
             .get(c.id).n,
           fixture_count: db
             .prepare(
-              "SELECT COUNT(*) n FROM fixtures WHERE competition_id=? AND status<>'cancelled'",
+              "SELECT COUNT(*) n FROM fixtures WHERE competition_id=? AND status NOT IN('cancelled','bye')",
             )
             .get(c.id).n,
         })),
@@ -934,6 +935,15 @@ export async function createApp(options = {}) {
       canManage: organizer(db, req.user, c),
       canAdmin: admin(db, req.user, c.game),
     };
+  });
+  app.get("/api/competitions/:id/predictions", async (req) =>
+    bracketPredictions(db, getCompetition(db, req.params.id), req.user),
+  );
+  app.put("/api/competitions/:id/predictions", async (req) => {
+    const user = signed(req);
+    return tx(() => saveBracketPrediction(
+      db, getCompetition(db, req.params.id), user, req.body?.picks,
+    ));
   });
   app.post("/api/competitions/:id/media/:kind", async (req) => {
     const user = signed(req);
@@ -1709,6 +1719,7 @@ export async function createApp(options = {}) {
       db.prepare(
         "UPDATE fixtures SET status='completed', no_contest=1, winner=?, loser=NULL WHERE id=?",
       ).run(replacement, fixture.id);
+      lockBracketPredictions(db, fixture);
       audit(db, user, "fixture.no-contest", fixture.id, { replacement });
       progress(db, competition);
       return { ok: true };

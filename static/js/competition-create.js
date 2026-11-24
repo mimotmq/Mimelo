@@ -4,7 +4,7 @@ APP.run(async () => {
   if (!d) return;
   const pickleball =
     APP.game.kind === "pickleball" ? await import("./pickleball.js") : null;
-  const { mountTiebreakEditor, mountColumnEditor } =
+  const { mountTiebreakEditor, mountColumnEditor, mountBestOfEditor } =
     await import("./competition-settings.js");
   let selected = new Map(),
     order = [],
@@ -172,6 +172,10 @@ APP.run(async () => {
   }
   if ($("#competition-match-tb"))
     scoring.append($("#competition-match-tb").closest("label"));
+  const bestOfStagesRoot = document.createElement("div");
+  bestOfStagesRoot.dataset.bestOfStageEditor = "";
+  scoring.append(bestOfStagesRoot);
+  const bestOfStages = mountBestOfEditor(bestOfStagesRoot);
   scoring.insertAdjacentHTML(
     "beforeend",
     '<p class="hint">Results count after acceptance. Elo needs a separate admin checkoff.</p>',
@@ -283,6 +287,14 @@ APP.run(async () => {
       legs = $("#comp-legs").checked ? 2 : 1,
       de = $("#comp-elimination").value === "double",
       ko = (k) => (k < 2 ? 0 : de ? 2 * k - 1 : k - 1);
+    bestOfStages.update({
+      gameKind: APP.game.kind,
+      kind: kind(),
+      playoffs: $("#comp-playoffs").checked,
+      elimination: $("#comp-elimination").value,
+      format: $("#field-competition-format").value,
+      defaultBestOf: Number($("#field-competition-best").value),
+    });
     let fixtures = 0,
       days = 0;
     if (kind() === "knockout") {
@@ -428,6 +440,7 @@ APP.run(async () => {
     }
     preview();
   };
+  $("#field-competition-best").addEventListener("change", preview);
   $("#field-enrollment").onchange = preview;
   for (const selector of ["#field-extra-count", "#field-extra-place"]) {
     $(selector).oninput = preview;
@@ -487,6 +500,7 @@ APP.run(async () => {
           playoffCount: Number($("#comp-playoff-count").value),
           seeding: $("#comp-seeding").value,
           bestOf: Number($("#field-competition-best").value),
+          bestOfByStage: bestOfStages.read(),
           target: Number($("#field-competition-target")?.value || 11),
           matchTiebreak:
             $("#field-competition-format").value === "doubles" &&

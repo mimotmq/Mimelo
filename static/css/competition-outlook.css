@@ -530,3 +530,80 @@ a.fixture-match {
   gap: 8px;
   margin: 4px 12px 4px 0;
 }
+.competition-best-of-editor > details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.competition-best-of-editor summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.competition-best-of-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+.competition-best-of-grid .field {
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .competition-best-of-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.prediction-rounds {
+  display: grid;
+  gap: 24px;
+  margin-block: 20px;
+}
+.prediction-round :is(h3, h4),
+.prediction-pool > h3 {
+  margin: 0 0 8px;
+}
+.prediction-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 12px;
+}
+.prediction-match {
+  min-width: 0;
+  margin: 0;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.prediction-match + .prediction-match {
+  margin-top: 8px;
+}
+.prediction-match legend {
+  padding-inline: 4px;
+}
+.prediction-choice,
+.prediction-person {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.prediction-choice {
+  min-height: 44px;
+  padding: 4px 6px;
+  border-radius: 7px;
+}
+.prediction-choice input {
+  flex: none;
+}
+.prediction-team {
+  min-width: 0;
+  flex: 1;
+}
+label.prediction-choice { cursor: pointer; }
+.prediction-choice:has(:checked),
+.prediction-choice[data-picked="true"] {
+  background: var(--accent-soft);
+}
+.prediction-person > span:last-child { overflow-wrap: anywhere; }
+.prediction-result { margin: 4px 6px 0; }
+.prediction-result[data-correct="true"] { font-weight: 600; }
+.prediction-leaderboard { margin-top: 24px; }

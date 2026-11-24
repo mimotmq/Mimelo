@@ -47,6 +47,8 @@ export function openDb(path) {
  CREATE TABLE IF NOT EXISTS fixture_rosters(fixture_id INTEGER NOT NULL REFERENCES fixtures(id) ON DELETE CASCADE,entry_id INTEGER NOT NULL REFERENCES entrants(id) ON DELETE CASCADE,player_id INTEGER NOT NULL REFERENCES players(id),PRIMARY KEY(fixture_id,entry_id,player_id));
  CREATE INDEX IF NOT EXISTS fixtures_comp ON fixtures(competition_id,stage,round);
  CREATE TABLE IF NOT EXISTS dependencies(parent INTEGER NOT NULL REFERENCES fixtures(id) ON DELETE CASCADE,child INTEGER NOT NULL REFERENCES fixtures(id) ON DELETE CASCADE,PRIMARY KEY(parent,child));
+ CREATE TABLE IF NOT EXISTS bracket_predictions(competition_id INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,picks TEXT NOT NULL,updated INTEGER NOT NULL,PRIMARY KEY(competition_id,account_id));
+ CREATE TABLE IF NOT EXISTS bracket_prediction_locks(competition_id INTEGER PRIMARY KEY REFERENCES competitions(id) ON DELETE CASCADE,created INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS qualifications(id INTEGER PRIMARY KEY,competition_id INTEGER NOT NULL REFERENCES competitions(id),pool TEXT NOT NULL,entries TEXT NOT NULL,reason TEXT NOT NULL,actor INTEGER NOT NULL REFERENCES accounts(id),created INTEGER NOT NULL,UNIQUE(competition_id,pool));
  CREATE TABLE IF NOT EXISTS matches(id INTEGER PRIMARY KEY,game TEXT NOT NULL REFERENCES games(slug),competition_id INTEGER REFERENCES competitions(id),fixture_id INTEGER UNIQUE REFERENCES fixtures(id),format TEXT NOT NULL,score TEXT NOT NULL,a_score REAL NOT NULL,b_score REAL NOT NULL,outcome REAL NOT NULL,winner INTEGER,status TEXT NOT NULL DEFAULT 'submitted',revision INTEGER NOT NULL DEFAULT 1,submitted INTEGER NOT NULL,submitter INTEGER NOT NULL REFERENCES accounts(id),accepted INTEGER,acceptor INTEGER REFERENCES accounts(id),elo_enabled INTEGER NOT NULL DEFAULT 1,elo_checked INTEGER,elo_checker INTEGER REFERENCES accounts(id),rules TEXT NOT NULL,team_snapshot TEXT,forfeit INTEGER NOT NULL DEFAULT 0);
  CREATE INDEX IF NOT EXISTS matches_timeline ON matches(game,format,submitted,id);
@@ -128,6 +130,13 @@ export function openDb(path) {
       "CREATE TABLE IF NOT EXISTS withdrawal_awards(fixture_id INTEGER PRIMARY KEY REFERENCES fixtures(id) ON DELETE CASCADE, created INTEGER NOT NULL)",
     );
     db.prepare("INSERT INTO migrations VALUES(9)").run();
+  })();
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=10").get()) return;
+    db.exec(
+      "ALTER TABLE fixtures ADD COLUMN forfeited INTEGER NOT NULL DEFAULT 0",
+    );
+    db.prepare("INSERT INTO migrations VALUES(10)").run();
   })();
   return db;
 }

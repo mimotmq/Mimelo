@@ -1,21 +1,6 @@
 .bt-root {
   min-width: 0;
 }
-.bt-intro {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin: 0 0 20px;
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-weight: 650;
-}
-.bt-hint {
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 400;
-}
 .bt-sections {
   display: grid;
   gap: 32px;
@@ -49,13 +34,11 @@
   border-color: var(--accent);
   background: var(--accent-soft);
 }
-.bt-round-nav button[aria-current] {
+.bt-round-nav button[aria-current],
+.bt-view-nav button[aria-pressed="true"] {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--ink);
-}
-.bt-root:has([data-layout="mirrored"]) .bt-hint {
-  display: none;
 }
 .bt-viewport {
   overflow: auto;
@@ -134,6 +117,7 @@ a.bt-match:hover {
   box-shadow: 0 4px 14px rgb(16 30 50 / 0.09);
 }
 .bt-match:focus-visible,
+.bt-match[data-round-target],
 .bt-round-nav button:focus-visible,
 .bt-viewport:focus-visible {
   outline: 3px solid var(--accent);
@@ -309,12 +293,6 @@ a.bt-match:hover {
 .bt-right .bt-side:not(:has(.bt-team)) .bt-player {
   grid-column: 2;
 }
-.bt-legend {
-  font-size: 0.7rem;
-  line-height: 1.5;
-  color: var(--muted);
-  margin-top: 18px;
-}
 .competition-entrants-compact {
   padding: 0 !important;
   margin-top: 16px;
@@ -328,19 +306,27 @@ a.bt-match:hover {
 .competition-entrants-compact .table-wrap {
   padding: 0 18px 14px;
 }
-@media (min-width: 1100px) {
-  [data-layout="mirrored"] .bt-round-nav {
-    display: none;
-  }
+.bt-forfeit {
+  position: absolute;
+  z-index: 1;
+  transform: translate(-100%, -100%);
+  height: 19px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 0.72rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--pill);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.bt-forfeit:focus-visible,
+.bt-forfeit:hover {
+  border-color: var(--accent);
 }
 @media (max-width: 640px) {
   #cp-bracket > .panel-body {
     padding: 16px 12px;
-  }
-  .bt-intro {
-    display: grid;
-    gap: 5px;
-    margin-bottom: 16px;
   }
   .bt-viewport {
     max-height: 72vh;

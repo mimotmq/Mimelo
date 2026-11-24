@@ -58,6 +58,14 @@ export function mountColumnEditor(root, c, rows = []) {
   return { read };
 }
 
+export function bestOfLengths(gameKind, format = "singles") {
+  return gameKind === "tt"
+    ? [1, 3, 5, 7]
+    : gameKind === "tennis" && format === "doubles"
+      ? [1, 3]
+      : [1, 3, 5];
+}
+
 export function mountTiebreakEditor(
   root,
   { kind, values = defaultTiebreaks(kind), crossGroup = false },
@@ -123,4 +131,112 @@ export function mountTiebreakEditor(
   });
   render();
   return { read: () => [...order] };
+}
+
+export function mountBestOfEditor(root, { values = {} } = {}) {
+  const labels = {
+    league: "League rounds",
+    group: "Group stage",
+    knockout: "Knockout rounds · default",
+    knockoutRound1: "Knockout round 1",
+    knockoutRound2: "Knockout round 2",
+    knockoutRound3: "Knockout round 3",
+    knockoutRound4: "Knockout round 4",
+    semifinal: "Semifinals",
+    final: "Final",
+    grandFinal: "Grand final and reset",
+  };
+  const overrides = { ...values };
+  let active = [],
+    options = [],
+    fallback = 3,
+    visible = true,
+    signature = "";
+  root.classList.add("competition-best-of-editor");
+  function sync() {
+    for (const control of root.querySelectorAll("[data-best-of-stage]")) {
+      const key = control.dataset.bestOfStage;
+      if (control.value) overrides[key] = Number(control.value);
+      else delete overrides[key];
+    }
+  }
+  function render() {
+    root.hidden = !visible;
+    root.innerHTML = `<details><summary>Different best-of lengths by stage</summary><p class="hint">Blank stages use the competition default. Specific knockout rounds override the general knockout setting.</p><div class="competition-best-of-grid">${active
+      .map(
+        (key) =>
+          `<label class="field"><span>${labels[key]}</span><select class="select" data-best-of-stage="${key}" aria-label="${labels[key]}"><option value="">Competition default (${fallback})</option>${options
+            .map(
+              (length) =>
+                `<option value="${length}" ${Number(overrides[key]) === length ? "selected" : ""}>Best of ${length}</option>`,
+            )
+            .join("")}</select></label>`,
+      )
+      .join("")}</div></details>`;
+  }
+  root.addEventListener("change", (event) => {
+    const control = event.target.closest("[data-best-of-stage]");
+    if (!control) return;
+    const key = control.dataset.bestOfStage;
+    if (control.value) overrides[key] = Number(control.value);
+    else delete overrides[key];
+  });
+  function update({
+    gameKind,
+    kind = "league",
+    playoffs = false,
+    elimination = "single",
+    format = "singles",
+    defaultBestOf = 3,
+  }) {
+    sync();
+    const nextOptions = bestOfLengths(gameKind, format);
+    const hasKnockout =
+      kind === "groups" ||
+      kind === "knockout" ||
+      (kind === "league" && playoffs);
+    const nextActive = [];
+    if (kind === "league") nextActive.push("league");
+    if (kind === "groups") nextActive.push("group");
+    if (hasKnockout)
+      nextActive.push(
+        "knockout",
+        "knockoutRound1",
+        "knockoutRound2",
+        "knockoutRound3",
+        "knockoutRound4",
+        "semifinal",
+        "final",
+      );
+    if (hasKnockout && elimination === "double") nextActive.push("grandFinal");
+    const nextVisible = gameKind !== "fc";
+    const nextSignature = JSON.stringify([
+      nextActive,
+      nextOptions,
+      Number(defaultBestOf) || 3,
+      nextVisible,
+    ]);
+    active = nextActive;
+    options = nextOptions;
+    fallback = Number(defaultBestOf) || 3;
+    visible = nextVisible;
+    if (signature !== nextSignature) {
+      signature = nextSignature;
+      for (const key of Object.keys(overrides))
+        if (!options.includes(Number(overrides[key]))) delete overrides[key];
+      render();
+    }
+  }
+  return {
+    read() {
+      sync();
+      return Object.fromEntries(
+        Object.entries(overrides).filter(
+          ([key, value]) =>
+            active.includes(key) && options.includes(Number(value)),
+        ),
+      );
+    },
+    update,
+  };
 }

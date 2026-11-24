@@ -492,3 +492,92 @@ test("withdrawal awards become no contests if both seats withdraw, while ordinar
     0,
   );
 });
+
+test("stage best-of overrides flow to fixtures and score validation", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  const password = "StageBestOfPassword!";
+  const admin = register(
+    app.db,
+    { name: "Admin", handle: "stagebestofadmin" },
+    await passwordHash(password),
+    null,
+    true,
+  );
+  const players = Array.from({ length: 8 }, (_, index) =>
+    Number(
+      app.db
+        .prepare("INSERT INTO players(name,created) VALUES(?,1)")
+        .run("Stage Player " + index).lastInsertRowid,
+    ),
+  );
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { "x-mimelo-request": "1" },
+    payload: { identity: admin.handle, password },
+  });
+  const headers = {
+    "x-mimelo-request": "1",
+    "x-csrf-token": login.json().csrf,
+    cookie: login.cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+  };
+  async function call(method, path, payload, expected = 200) {
+    const result = await app.inject({
+      method,
+      url: "/api/" + path,
+      headers,
+      ...(payload === undefined ? {} : { payload }),
+    });
+    assert.equal(result.statusCode, expected, result.body);
+    return result.json();
+  }
+  const competition = await call("POST", "competitions", {
+    game: "tt",
+    kind: "knockout",
+    name: "Best-of test",
+    entries: players.map((id) => [id]),
+    settings: {
+      bestOf: 3,
+      target: 21,
+      bestOfByStage: {
+        knockout: 3,
+        knockoutRound1: 5,
+        semifinal: 7,
+        final: 1,
+      },
+    },
+  });
+  const draw = await call("POST", `competitions/${competition.id}/draw`, {});
+  const firstRound = draw.fixtures.find((f) => f.stage === "knockout");
+  const semifinal = draw.fixtures.find((f) => f.stage === "semifinal");
+  const final = draw.fixtures.find((f) => f.stage === "final");
+  assert.equal(firstRound.bestOf, 5);
+  assert.equal(semifinal.bestOf, 7);
+  assert.equal(final.bestOf, 1);
+  await call(
+    "POST",
+    "games/tt/matches",
+    {
+      fixture: firstRound.id,
+      score: {
+        games: [
+          { a: 21, b: 2 },
+          { a: 21, b: 5 },
+        ],
+      },
+    },
+    400,
+  );
+  const result = await call("POST", "games/tt/matches", {
+    fixture: firstRound.id,
+    score: {
+      games: [
+        { a: 21, b: 2 },
+        { a: 21, b: 5 },
+        { a: 21, b: 6 },
+      ],
+    },
+  });
+  assert.equal(result.score.bestOf, 5);
+});

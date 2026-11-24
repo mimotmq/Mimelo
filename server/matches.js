@@ -1,4 +1,5 @@
-import { fixturePlayers } from "./competitions.js";
+import { fixturePlayers, fixtureBestOf } from "./competitions.js";
+import { lockBracketPredictions } from "./bracket-predictions.js";
 import { admin, assert, json, audit, notify, integer } from "./db.js";
 import { validateScore, eloDelta, ratingK } from "./scoring.js";
 import { getCompetition, locked, progress, entries } from "./competitions.js";
@@ -375,7 +376,7 @@ function prepare(db, game, body, user) {
     );
   const input = { ...body.score };
   if (c) {
-    input.bestOf = c.settings.bestOf;
+    input.bestOf = fixtureBestOf(c.settings, f);
     input.target = c.settings.target;
     input.matchTiebreak = c.settings.matchTiebreak;
   }
@@ -512,6 +513,7 @@ export function submit(db, game, body, user) {
   const m = getMatch(db, id);
   remember(db, m, user);
   const side = sideOf(db, m, user);
+  lockBracketPredictions(db, f);
   if (side !== undefined)
     db.prepare("INSERT INTO confirmations VALUES(?,?,?,?)").run(
       id,
@@ -609,17 +611,17 @@ export function edit(db, id, body, user, voided = false) {
   );
   assert(m.status !== "voided", "This result has been voided.");
   const c = m.competition_id ? getCompetition(db, m.competition_id) : null;
+  const f = m.fixture_id
+    ? db.prepare("SELECT * FROM fixtures WHERE id=?").get(m.fixture_id)
+    : null;
   let score = body.score || json(m.score);
   if (c)
     score = {
       ...score,
-      bestOf: c.settings.bestOf,
+      bestOf: fixtureBestOf(c.settings, f),
       target: c.settings.target,
       matchTiebreak: c.settings.matchTiebreak,
     };
-  const f = m.fixture_id
-    ? db.prepare("SELECT * FROM fixtures WHERE id=?").get(m.fixture_id)
-    : null;
   if (json(m.rules).kind === "smash") {
     score.fighterPlayers =
       body.sides?.flat() ||
@@ -701,6 +703,16 @@ export function forfeit(db, fixtureId, winnerEntry, user) {
     "A submitted result already exists.",
   );
   const side = Number(winnerEntry) === f.a ? 0 : 1;
+  if (["knockout", "semifinal", "final"].includes(f.stage)) {
+    const [winner, loser] = side === 0 ? [f.a, f.b] : [f.b, f.a];
+    lockBracketPredictions(db, f);
+    db.prepare(
+      "UPDATE fixtures SET status='completed',winner=?,loser=?,forfeited=1 WHERE id=?",
+    ).run(winner, loser, f.id);
+    progress(db, c);
+    audit(db, user, "fixture.forfeit", f.id, { winnerEntry: winner });
+    return { fixture_id: f.id, winner, forfeit: true, elo_enabled: 0 };
+  }
   const id = Number(
     db
       .prepare(

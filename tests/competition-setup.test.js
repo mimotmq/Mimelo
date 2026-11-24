@@ -74,6 +74,17 @@ test("compact tournament setup and editing save ordered tiebreak rules without d
       await dialog.locator("#comp-group-count").fill("2");
       await dialog.locator("#comp-advance").fill("1");
       await dialog.locator("#comp-legs").check();
+      if (game === "tt" && width === 1440) {
+        await dialog.locator("[data-best-of-stage-editor] summary").click();
+        await dialog.locator('[data-best-of-stage="group"]').selectOption("5");
+        await dialog
+          .locator('[data-best-of-stage="knockoutRound1"]')
+          .selectOption("7");
+        await dialog
+          .locator('[data-best-of-stage="semifinal"]')
+          .selectOption("5");
+        await dialog.locator('[data-best-of-stage="final"]').selectOption("7");
+      }
       for (const input of await dialog
         .locator('input[type="number"]:visible')
         .all())
@@ -164,6 +175,13 @@ test("compact tournament setup and editing save ordered tiebreak rules without d
       assert.equal(saved.legs, 2);
       assert.equal(saved.groupCount, 2);
       assert.equal(saved.advance, 1);
+      if (game === "tt" && width === 1440)
+        assert.deepEqual(saved.bestOfByStage, {
+          group: 5,
+          knockoutRound1: 7,
+          semifinal: 5,
+          final: 7,
+        });
       if (game === "tennis") assert.equal(saved.matchTiebreak, true);
       if (game === "tt") {
         await page

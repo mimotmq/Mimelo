@@ -175,9 +175,11 @@ export function replacePlayer(
   audit(db, user, "competition.replace", c.id, { entry, outgoing, incoming });
 }
 export function fixtureList(db, id) {
-  const game = db
-    .prepare("SELECT game FROM competitions WHERE id=?")
-    .get(id)?.game;
+  const competition = db
+    .prepare("SELECT game,settings FROM competitions WHERE id=?")
+    .get(id);
+  const game = competition?.game,
+    rules = json(competition?.settings);
   return db
     .prepare(
       "SELECT f.*,m.id AS match_id,m.a_score,m.b_score,m.score,m.forfeit,m.played_at,m.submitted,m.status AS result_status FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided' WHERE f.competition_id=? ORDER BY f.id",
@@ -187,6 +189,8 @@ export function fixtureList(db, id) {
       const score = f.score ? json(f.score) : null;
       return {
         ...f,
+        forfeit: f.forfeited || f.forfeit,
+        bestOf: fixtureBestOf(rules, f),
         priorLineups: db
           .prepare(
             "SELECT r.entry_id,p.id,p.name,p.photo,p.profile FROM fixture_rosters r JOIN players p ON p.id=r.player_id WHERE fixture_id=? ORDER BY p.id",
@@ -209,6 +213,25 @@ export function fixtureList(db, id) {
       };
     });
 }
+export function fixtureBestOf(settings, fixture) {
+  if (!fixture) return Number(settings.bestOf);
+  const overrides = settings.bestOfByStage || {};
+  const key =
+    fixture.stage === "final" && /grand final/i.test(fixture.label)
+      ? "grandFinal"
+      : fixture.stage;
+  const stageFallback = key === "grandFinal" ? "final" : key;
+  const roundKey =
+    fixture.stage === "knockout" && fixture.round
+      ? `knockoutRound${fixture.round}`
+      : null;
+  return Number(
+    (roundKey && overrides[roundKey]) ??
+      overrides[key] ??
+      overrides[stageFallback] ??
+      settings.bestOf,
+  );
+}
 export function settings(body, kind, format) {
   const s = {
     legs: Number(body.legs) || 1,
@@ -226,6 +249,7 @@ export function settings(body, kind, format) {
     countNoContestForPct: body.countNoContestForPct === true,
     tieResolution: body.tieResolution || "admin",
     bestOf: Number(body.bestOf) || 3,
+    bestOfByStage: body.bestOfByStage || {},
     target: Number(body.target) || 11,
     matchTiebreak: !!body.matchTiebreak,
   };
@@ -288,6 +312,33 @@ export function settings(body, kind, format) {
         ? [1, 3]
         : [1, 3, 5];
   assert(lengths.includes(s.bestOf), "Unsupported best-of length.");
+  const stageKeys = new Set([
+    "league",
+    "group",
+    "knockout",
+    "knockoutRound1",
+    "knockoutRound2",
+    "knockoutRound3",
+    "knockoutRound4",
+    "semifinal",
+    "final",
+    "grandFinal",
+  ]);
+  assert(
+    s.bestOfByStage &&
+      typeof s.bestOfByStage === "object" &&
+      !Array.isArray(s.bestOfByStage) &&
+      Object.keys(s.bestOfByStage).every((key) => stageKeys.has(key)),
+    "Choose valid tournament stages for best-of overrides.",
+  );
+  s.bestOfByStage = Object.fromEntries(
+    Object.entries(s.bestOfByStage).map(([key, value]) => {
+      const length = Number(value);
+      assert(lengths.includes(length), "Unsupported stage best-of length.");
+      if (kind === "pickleball") validatePickleballFormat(length, s.target);
+      return [key, length];
+    }),
+  );
   if (kind === "pickleball") validatePickleballFormat(s.bestOf, s.target);
   else assert([11, 21].includes(s.target), "Choose games to 11 or 21.");
   return s;
@@ -971,7 +1022,14 @@ export function locked(db, fixtureId) {
   if (!fixtureId) return false;
   return !!db
     .prepare(
-      `WITH RECURSIVE descendants(id) AS (SELECT child FROM dependencies WHERE parent=? UNION SELECT d.child FROM dependencies d JOIN descendants s ON d.parent=s.id) SELECT 1 FROM matches WHERE fixture_id IN(SELECT id FROM descendants) AND status<>'voided' LIMIT 1`,
+      `WITH RECURSIVE descendants(id) AS (
+        SELECT child FROM dependencies WHERE parent=?
+        UNION SELECT d.child FROM dependencies d JOIN descendants s ON d.parent=s.id
+      )
+      SELECT 1 FROM descendants d JOIN fixtures f ON f.id=d.id
+      WHERE f.forfeited=1 OR EXISTS(
+        SELECT 1 FROM matches m WHERE m.fixture_id=d.id AND m.status<>'voided'
+      ) LIMIT 1`,
     )
     .get(fixtureId);
 }

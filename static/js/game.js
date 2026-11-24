@@ -2,16 +2,6 @@ APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     g = APP.game;
   document.body.classList.add("game-page");
-  const descriptions = [
-    "Everyone plays everyone. Results build the table; eligible matches count for Elo after admin checkoff.",
-    "Group tables seed a bracket. Eligible results count for Elo after admin checkoff; knockout rounds can be weighted.",
-    g.kind === "fc"
-      ? "A knockout bracket with one champion. Tied knockout matches need a winner after extra time or penalties."
-      : "A knockout bracket with one champion. Each completed match sends its winner to the next round.",
-  ];
-  $$(".format-card p").forEach((paragraph, i) => {
-    if (descriptions[i]) paragraph.textContent = descriptions[i];
-  });
   const mobileNav = document.createElement("nav");
   mobileNav.className = "game-mobile-nav";
   mobileNav.setAttribute("aria-label", "Game views");
@@ -50,15 +40,11 @@ APP.run(async () => {
   text("#stat-leader .label", "Rating leader");
   text(
     "#rankings-title + .sub",
-    "Continuous ratings. ? = provisional until 8 rated matches in this game and format.",
+    "? = provisional until 8 rated matches in this game and format.",
   );
   text(
     "[data-view-panel=matches] .page-head .sub",
     "Accepted results count toward competitions. Elo requires a separate admin checkoff.",
-  );
-  text(
-    "[data-view-panel=matches] .table-note",
-    "Browse results and their approval status.",
   );
   text(
     "[data-view-panel=record] .page-head .sub",
@@ -275,7 +261,7 @@ APP.run(async () => {
       result.rows
         .map(
           (c) =>
-            `<a class="competition-card panel" href="${APP.url("competition", { id: c.id })}"><div class="panel-body"><div class="tag-row"><span class="chip">${esc(c.kind)}</span><span class="status status-live">${esc(c.state)}</span><span class="chip">${esc(c.format)}</span></div><h2 style="margin:16px 0">${esc(c.name)}</h2><p class="sub">${UI.count(c.entry_count, "entry", "entries")} · ${c.played} of ${UI.count(c.fixture_count, "fixture")} accepted</p><span class="link-arrow">Open competition ${UI.icon("arrow", 16)}</span></div></a>`,
+            `<a class="competition-card panel" href="${APP.url("competition", { id: c.id })}"><div class="panel-body"><div class="tag-row"><span class="chip">${esc(c.kind)}</span><span class="status status-live">${esc(c.state)}</span><span class="chip">${esc(c.format)}</span></div><h2 style="margin:16px 0">${esc(c.name)}</h2><p class="sub">${UI.count(c.entry_count, "entry", "entries")} · ${c.played} of ${UI.count(c.fixture_count, "fixture")} complete</p><span class="link-arrow">Open competition ${UI.icon("arrow", 16)}</span></div></a>`,
         )
         .join("") || UI.empty("No competitions yet. Create the first one.");
     UI.pager($("[data-view-panel=competitions]"), result, competitions);
@@ -459,13 +445,20 @@ APP.run(async () => {
       );
     }
     const config = () =>
-      fixed?.c.settings || {
-        bestOf: Number($("#field-bestOf")?.value || editing?.score.bestOf || 3),
-        target: Number(
-          $("#field-target")?.value || editing?.score.target || 11,
-        ),
-        matchTiebreak: $("#field-matchTiebreak")?.checked || false,
-      };
+      fixed
+        ? {
+            ...fixed.c.settings,
+            bestOf: fixed.f.bestOf ?? fixed.c.settings.bestOf,
+          }
+        : {
+            bestOf: Number(
+              $("#field-bestOf")?.value || editing?.score.bestOf || 3,
+            ),
+            target: Number(
+              $("#field-target")?.value || editing?.score.target || 11,
+            ),
+            matchTiebreak: $("#field-matchTiebreak")?.checked || false,
+          };
     if (setsGame) {
       form.className =
         g.kind === "tennis"
@@ -693,7 +686,12 @@ APP.run(async () => {
     }
     $("#r-note").value = editing?.score.note || "";
     $("#r-elo").checked = editing ? !!editing.elo_enabled : true;
-    text("#sum-comp", fixed?.c.name || "Friendly");
+    text(
+      "#sum-comp",
+      fixed
+        ? `${fixed.c.name} · ${fixed.f.label} · Best of ${config().bestOf}`
+        : "Friendly",
+    );
     text("#sum-by", APP.me.name);
     text("#sum-elo-note", "Complete the score to estimate the rating change.");
     text(
@@ -926,6 +924,18 @@ APP.run(async () => {
               "PATCH",
             )
           : await APP.api(`games/${APP.slug}/matches`, body);
+        if (fixed?.c && fixed?.f) {
+          const view = ["knockout", "semifinal", "final"].includes(
+            fixed.f.stage,
+          )
+            ? "bracket"
+            : "table";
+          location.href = APP.url("competition", {
+            id: fixed.c.id,
+            view,
+          });
+          return;
+        }
         location.href = APP.url("game", { view: "matches", match: m.id });
       } catch (x) {
         text("#record-error", x.message);

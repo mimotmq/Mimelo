@@ -125,6 +125,7 @@
   function dialog(title, body) {
     const d = document.createElement("dialog");
     d.className = "dialog";
+    d.setAttribute("aria-label", title);
     d.innerHTML = `<div class="dialog-head"><h2>${esc(title)}</h2><button class="dialog-close" type="button" aria-label="Close">${icon("close")}</button></div><div class="dialog-body">${body}</div>`;
     document.body.append(d);
     $(".dialog-close", d).onclick = () => d.close();
@@ -1159,10 +1160,6 @@
       )
     ) {
       $$(".game-badge.live").forEach((badge) => badge.remove());
-      text(
-        ".gateway-note",
-        UI.count(APP.games.length, "game") + " in the book.",
-      );
       if (pickleball) {
         $(".games-grid").insertAdjacentHTML(
           "beforeend",

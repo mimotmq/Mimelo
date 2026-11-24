@@ -236,7 +236,20 @@ test("template screens and live workflows at desktop and mobile widths", async (
   await page.locator("[data-action=draw]").click();
   await page.locator("#ct-fixtures").click();
   await page.locator("#fixture-groups summary").first().click();
-  await page.locator("#fixture-groups a.fixture-match").first().waitFor();
+  const knockoutFixture = page
+    .locator("#fixture-groups a.fixture-match")
+    .first();
+  await knockoutFixture.waitFor();
+  await knockoutFixture.click();
+  await ready();
+  await page.locator("#field-score0a").fill("6");
+  await page.locator("#field-score0b").fill("0");
+  await page.locator("#field-score1a").fill("6");
+  await page.locator("#field-score1b").fill("0");
+  await page.locator("#record-form button[type=submit]").click();
+  await page.waitForURL(/competition\.html.*view=bracket/);
+  await ready();
+  assert.equal(new URL(page.url()).searchParams.get("view"), "bracket");
   await noOverflow();
   await page.screenshot({
     path: "artifacts/competition-desktop.png",

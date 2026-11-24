@@ -1,10 +1,16 @@
 APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     id = Number(APP.params.get("id"));
-  const { mountTiebreakEditor, mountColumnEditor, tiebreakLabels } =
-    await import("./competition-settings.js");
-  const { renderBracket, fixtureScoreText } =
+  const {
+    mountTiebreakEditor,
+    mountColumnEditor,
+    mountBestOfEditor,
+    bestOfLengths,
+    tiebreakLabels,
+  } = await import("./competition-settings.js");
+  const { renderBracket, fixtureScoreText, visibleBracketFixtures, sourceRef } =
     await import("./competition-bracket.js");
+  const { isBracketFixture } = await import("./bracket-picks.js");
   const bracketStyles = document.createElement("link");
   bracketStyles.rel = "stylesheet";
   bracketStyles.href = "css/competition-bracket.css";
@@ -17,6 +23,34 @@ APP.run(async () => {
   let c,
     clearBracket,
     initialView = true;
+  const predictionTab = $("#ct-predictions");
+  const predictionPanel = $("#prediction-content");
+  let predictionVersion = 0;
+  async function showPredictions() {
+    if (!c || predictionTab.getAttribute("aria-selected") !== "true") return;
+    if (predictionPanel.dataset.loaded) return;
+    const version = ++predictionVersion;
+    predictionPanel.dataset.loaded = "true";
+    predictionPanel.innerHTML =
+      '<p class="panel-body">Loading predictions…</p>';
+    try {
+      const [{ renderPredictions }, data] = await Promise.all([
+        import("./competition-predictions.js"),
+        APP.api(`competitions/${id}/predictions`),
+      ]);
+      if (version === predictionVersion)
+        renderPredictions(predictionPanel, c, data, { APP, UI });
+    } catch (error) {
+      if (version !== predictionVersion) return;
+      delete predictionPanel.dataset.loaded;
+      predictionPanel.innerHTML = `<p class="panel-body" role="alert">${esc(error.message)}</p>`;
+    }
+  }
+  const competitionTabs = predictionTab.closest("[role=tablist]");
+  for (const event of ["click", "keydown"])
+    competitionTabs.addEventListener(event, () =>
+      queueMicrotask(() => showPredictions()),
+    );
   const name = (e) =>
     c.entries
       .find((x) => x.id === e)
@@ -24,6 +58,28 @@ APP.run(async () => {
       .join(" + ") || "To be decided";
   const userEntry = () =>
     c.entries.find((e) => e.players.some((p) => p.id === APP.me?.player_id));
+  function declareForfeit(f) {
+    UI.formDialog(
+      "Declare forfeit",
+      select(
+        "Advancing side",
+        "winner",
+        [
+          ["", "Choose the winner"],
+          [f.a, name(f.a)],
+          [f.b, name(f.b)],
+        ],
+        "",
+      ) + "<p>No Elo is awarded for a forfeit.</p>",
+      async (data) => {
+        if (!data.get("winner")) throw new Error("Choose the advancing side.");
+        await APP.api("fixtures/" + f.id + "/forfeit", {
+          winner: Number(data.get("winner")),
+        });
+        await load();
+      },
+    );
+  }
   function bindMatches() {
     $$("[data-match]").forEach(
       (b) =>
@@ -103,7 +159,7 @@ APP.run(async () => {
     const trophy = $("#comp-trophy");
     trophy.innerHTML = c.trophy
       ? `<h3>Trophy</h3><img class="competition-trophy" src="${esc(c.trophy)}" alt="Competition trophy">`
-      : "<p>No trophy assigned.</p>";
+      : "";
     const editDetails = $("#edit-comp-details");
     editDetails.hidden = !c.canManage;
     editDetails.onclick = () => editCompetitionDetails();
@@ -191,15 +247,8 @@ APP.run(async () => {
         : "Accepted results · organizer-selected tiebreak rules",
     );
     text("#table-chip", c.format);
-    text("#fixtures-sub", "Scheduled fixtures and accepted results");
     $("#ct-bracket").hidden = c.kind === "league" && !c.settings.playoffs;
-    text("#fixtures-order", "By day and round");
-    text(
-      "#bracket-sub",
-      c.settings.elimination === "double"
-        ? "Upper bracket, lower bracket, and grand finals"
-        : "Follow each match through to the final",
-    );
+    predictionTab.hidden = !c.fixtures.some(isBracketFixture);
     $("#record-link").href = APP.url("game", { view: "record" });
     $("#record-link").hidden = true;
     $("#comp-table-wrap").innerHTML =
@@ -307,7 +356,17 @@ APP.run(async () => {
       $("#fixtures-body").closest(".table-wrap").replaceWith(fixtureGroups);
     }
     const groups = new Map();
-    const orderedFixtures = [...c.fixtures].sort((a, b) => {
+    const isKnockout = isBracketFixture;
+    const bracketFixtures = visibleBracketFixtures(
+      c.fixtures.filter(isKnockout),
+    );
+    const fixtureLabels = new Map(bracketFixtures.map((f) => [f.id, f.label]));
+    const orderedFixtures = [
+      ...c.fixtures.filter((f) => !isKnockout(f)),
+      ...bracketFixtures.filter(
+        (f) => f.status !== "cancelled" && (f.a || f.b || f.status !== "bye"),
+      ),
+    ].sort((a, b) => {
       const first = a.played_at || a.scheduled;
       const second = b.played_at || b.scheduled;
       return first && second
@@ -327,7 +386,11 @@ APP.run(async () => {
             month: "long",
             day: "numeric",
           })
-        : (f.pool ? `Group ${f.pool} · ` : "") + f.label;
+        : isKnockout(f)
+          ? f.pool === "G"
+            ? "Grand finals"
+            : `${f.pool === "L" ? "Losers" : "Winners"} round ${f.round}`
+          : (f.pool ? `Group ${f.pool} · ` : "") + f.label;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(f);
     }
@@ -336,13 +399,23 @@ APP.run(async () => {
         .map(
           ([label, fixtures]) => `
       <details class="fixture-day">
-        <summary><strong>${esc(label)}</strong><span>${UI.count(fixtures.length, "match", "matches")}</span></summary>
+        <summary><strong>${esc(label)}</strong><span>${[
+          [
+            "match",
+            "matches",
+            fixtures.filter((f) => f.status !== "bye").length,
+          ],
+          ["bye", "byes", fixtures.filter((f) => f.status === "bye").length],
+        ]
+          .filter(([, , count]) => count)
+          .map(([one, many, count]) => UI.count(count, one, many))
+          .join(" · ")}</span></summary>
         <div class="fixture-day-matches">${fixtures
           .map((f) => {
             const time = f.played_at || f.scheduled;
             const result = f.no_contest
               ? "No contest"
-              : f.match_id
+              : f.match_id || f.forfeit
                 ? fixtureScoreText(f)
                 : f.status === "bye"
                   ? "Bye"
@@ -361,22 +434,36 @@ APP.run(async () => {
                 ? players
                 : c.entries.find((e) => e.id === entry)?.players || [];
             };
-            const playerSide = (entry, away) =>
-              `<span class="fixture-side ${away ? "fixture-away" : "fixture-home"}">${lineup(
-                entry,
-              )
-                .map(
-                  (p) =>
-                    `<span class="fixture-person">${away ? `<span>${esc(p.name)}</span>${UI.avatar(p.name, "avatar-xs", p.photo)}` : `${UI.avatar(p.name, "avatar-xs", p.photo)}<span>${esc(p.name)}</span>`}</span>`,
-                )
-                .join("")}</span>`;
-            const content = `${playerSide(f.a, false)}<strong class="fixture-result">${esc(result)}</strong>${playerSide(f.b, true)}${breakdown}`;
+            const playerSide = (side, away) => {
+              const entry = f[side];
+              const ref = sourceRef(f["source_" + side]);
+              const placeholder =
+                ref && fixtureLabels.has(ref.fixture)
+                  ? `${ref.outcome === "loser" ? "Loser" : "Winner"} of ${fixtureLabels.get(ref.fixture)}`
+                  : "To be decided";
+              if (f.status === "bye" && !entry) return "<span></span>";
+              return `<span class="fixture-side ${away ? "fixture-away" : "fixture-home"}">${
+                lineup(entry)
+                  .map(
+                    (p) =>
+                      `<span class="fixture-person">${away ? `<span>${esc(p.name)}</span>${UI.avatar(p.name, "avatar-xs", p.photo)}` : `${UI.avatar(p.name, "avatar-xs", p.photo)}<span>${esc(p.name)}</span>`}</span>`,
+                  )
+                  .join("") || esc(placeholder)
+              }</span>`;
+            };
+            const content = `${playerSide("a", false)}<strong class="fixture-result">${esc(result)}</strong>${playerSide("b", true)}${breakdown}`;
             const resultControl = f.match_id
               ? `<button type="button" class="fixture-match" data-match="${f.match_id}">${content}</button>`
               : f.status === "ready"
                 ? `<a class="fixture-match" href="${APP.url("game", { view: "record", fixture: f.id, competition: c.id })}">${content}</a>`
                 : `<div class="fixture-match">${content}</div>`;
-            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span><span>${time ? esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })) : "Time not set"}</span>${f.no_contest ? "<span>No contest</span>" : ""}${c.canManage && (["ready", "waiting"].includes(f.status) || f.no_contest) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Substitute", "substitute", `data-fixture="${f.id}"`) + button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
+            const outcome =
+              f.status === "bye" || (f.forfeit && isKnockout(f))
+                ? `<span>${esc(name(f.winner))} advances</span>`
+                : f.forfeit
+                  ? `<span>${esc(name(f.winner))} wins</span>`
+                  : "";
+            return `<article class="fixture-card">${resultControl}<div class="fixture-meta"><span>${esc(f.label)}</span>${outcome}${!outcome && !f.no_contest && APP.game.kind !== "fc" && f.bestOf && f.bestOf !== c.settings.bestOf ? `<span>Best of ${f.bestOf}</span>` : ""}${time && !outcome ? `<span>${esc(new Date(time).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }))}</span>` : ""}${c.canManage && (["ready", "waiting"].includes(f.status) || f.no_contest) ? button("Schedule", "schedule", `data-fixture="${f.id}"`) : ""}${c.canManage && f.status === "ready" && !f.match_id ? button("Substitute", "substitute", `data-fixture="${f.id}"`) + button("Forfeit", "forfeit", `data-fixture="${f.id}"`) + button("No contest", "no-contest", `data-fixture="${f.id}"`) : ""}</div></article>`;
           })
           .join("")}</div>
       </details>`,
@@ -508,25 +595,7 @@ APP.run(async () => {
               await load();
             },
           );
-        } else
-          UI.formDialog(
-            "Declare forfeit",
-            select(
-              "Advancing side",
-              "winner",
-              [
-                [f.a, name(f.a)],
-                [f.b, name(f.b)],
-              ],
-              f.a,
-            ) + "<p>No Elo is awarded for a forfeit.</p>",
-            async (data) => {
-              await APP.api("fixtures/" + f.id + "/forfeit", {
-                winner: Number(data.get("winner")),
-              });
-              await load();
-            },
-          );
+        } else declareForfeit(f);
       };
     if (initialView) {
       const view = APP.params.get("view");
@@ -535,13 +604,21 @@ APP.run(async () => {
         (!view && c.kind === "knockout")
       )
         $("#ct-bracket").click();
+      else if (view === "predictions" && !predictionTab.hidden)
+        predictionTab.click();
       else if (["fixtures", "table", "rules", "about"].includes(view))
         $("#ct-" + view).click();
       initialView = false;
     }
+    delete predictionPanel.dataset.loaded;
+    if (!predictionTab.hidden) await showPredictions();
     // The bracket measures its panel to lay out the first round.
     clearBracket?.();
-    clearBracket = renderBracket($("#bracket-wrap"), c, { UI, APP });
+    clearBracket = renderBracket($("#bracket-wrap"), c, {
+      UI,
+      APP,
+      declareForfeit,
+    });
     bindMatches();
     const showLeagueFixtures = () => {
       if (
@@ -560,6 +637,8 @@ APP.run(async () => {
       }
     });
     showLeagueFixtures();
+    $("#rules-points-title").closest(".format-card").hidden =
+      c.kind === "knockout";
     text(
       "#rules-points-title",
       APP.game.kind === "fc" ? "Points" : "Win / loss",
@@ -603,7 +682,7 @@ APP.run(async () => {
     );
     const cards = $$("#cp-rules .format-card p");
     cards.at(-1).textContent =
-      "An organizer, admin, or representative from each side may accept results. Only an admin can check off Elo. A downstream submission locks earlier dependent results.";
+      "An organizer or admin can accept a result, or both sides can confirm it. Recording a later bracket match locks any earlier results it depends on.";
     const { renderCompetitionOutlook } =
       await import("./competition-outlook.js");
     renderCompetitionOutlook(c);
@@ -847,7 +926,7 @@ APP.run(async () => {
     $("[data-action=rules]", panel)?.addEventListener("click", async () => {
       const pickleball =
         APP.game.kind === "pickleball" ? await import("./pickleball.js") : null;
-      let tieEditor, extraTieEditor;
+      let tieEditor, extraTieEditor, bestOfEditor;
       const ruleDialog = UI.formDialog(
         "Competition rules",
         field("Name", "name", c.name) +
@@ -930,16 +1009,16 @@ APP.run(async () => {
             ? select(
                 "Best of",
                 "bestOf",
-                [1, 3, 5].map((n) => [n, n]),
+                bestOfLengths(APP.game.kind, c.format).map((n) => [n, n]),
                 c.settings.bestOf,
               )
-            : field(
+            : select(
                 "Best of",
                 "bestOf",
+                bestOfLengths(APP.game.kind, c.format).map((n) => [n, n]),
                 c.settings.bestOf,
-                "number",
-                'min="1" max="7"',
               )) +
+          "<div data-best-of-stage-editor></div>" +
           field(
             "Group count",
             "groupCount",
@@ -1017,6 +1096,7 @@ APP.run(async () => {
                 matchTiebreak: f.has("matchTiebreak"),
                 seeding: f.get("seeding"),
                 bestOf: Number(f.get("bestOf")),
+                bestOfByStage: bestOfEditor.read(),
                 groupCount: Number(f.get("groupCount")),
                 advance: Number(f.get("advance")),
                 extraCount:
@@ -1037,6 +1117,10 @@ APP.run(async () => {
         "competition-settings-dialog",
         "competition-rules-dialog",
       );
+      bestOfEditor = mountBestOfEditor(
+        $("[data-best-of-stage-editor]", ruleDialog),
+        { values: c.settings.bestOfByStage || {} },
+      );
       tieEditor = mountTiebreakEditor($("[data-tiebreak-editor]", ruleDialog), {
         kind: APP.game.kind,
         values: c.settings.tieBreaks,
@@ -1051,6 +1135,14 @@ APP.run(async () => {
       );
       function updateRuleFields() {
         const kind = $("#field-kind", ruleDialog).value;
+        bestOfEditor.update({
+          gameKind: APP.game.kind,
+          kind,
+          playoffs: $('[name="playoffs"]', ruleDialog).checked,
+          elimination: $("#field-elimination", ruleDialog).value,
+          format: $("#field-format", ruleDialog).value,
+          defaultBestOf: Number($("#field-bestOf", ruleDialog).value),
+        });
         const playoffs = $('[name="playoffs"]', ruleDialog);
         for (const key of ["groupCount", "advance", "extraCount", "extraPlace"])
           $("#field-" + key, ruleDialog).closest(".field").hidden =

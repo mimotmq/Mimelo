@@ -68,6 +68,7 @@
       <button type="button" role="tab" id="ct-table" aria-controls="cp-table" aria-selected="true">Table</button>
       <button type="button" role="tab" id="ct-fixtures" aria-controls="cp-fixtures" aria-selected="false" tabindex="-1">Fixtures</button>
       <button type="button" role="tab" id="ct-bracket" aria-controls="cp-bracket" aria-selected="false" tabindex="-1">Bracket</button>
+      <button type="button" role="tab" id="ct-predictions" aria-controls="cp-predictions" aria-selected="false" tabindex="-1" hidden>Predictions</button>
       <button type="button" role="tab" id="ct-rules" aria-controls="cp-rules" aria-selected="false" tabindex="-1">Rules</button>
       <button type="button" role="tab" id="ct-about" aria-controls="cp-about" aria-selected="false" tabindex="-1">About</button>
     </div>
@@ -83,7 +84,7 @@
   </div>
 
   <div class="panel" id="cp-fixtures" role="tabpanel" aria-labelledby="ct-fixtures" hidden>
-    <div class="panel-head"><div><h2>Fixtures &amp; results</h2><p class="sub" id="fixtures-sub">Every match in the competition · sample</p></div><div class="comp-actions"><button type="button" class="btn btn-outline btn-sm" id="latest-matchday" hidden>Latest played matchday</button><button type="button" class="btn btn-outline btn-sm" id="schedule-rounds" hidden>Schedule rounds</button><span class="chip" id="fixtures-order">Newest first</span></div></div>
+    <div class="panel-head"><div><h2>Fixtures &amp; results</h2></div><div class="comp-actions"><button type="button" class="btn btn-outline btn-sm" id="latest-matchday" hidden>Latest played matchday</button><button type="button" class="btn btn-outline btn-sm" id="schedule-rounds" hidden>Schedule rounds</button></div></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Date</th><th>Stage</th><th>Home</th><th class="c">Score</th><th>Away</th><th>Status</th></tr></thead>
@@ -93,14 +94,19 @@
   </div>
 
   <div class="panel" id="cp-bracket" role="tabpanel" aria-labelledby="ct-bracket" hidden>
-    <div class="panel-head"><div><h2 id="bracket-heading">Knockout stage</h2><p class="sub" id="bracket-sub">Semifinals and final · sample</p></div><span class="chip">Bracket</span></div>
+    <div class="panel-head"><div><h2 id="bracket-heading">Knockout stage</h2></div></div>
     <div class="panel-body">
       <div id="bracket-wrap"></div>
     </div>
   </div>
 
+  <div class="panel" id="cp-predictions" role="tabpanel" aria-labelledby="ct-predictions" hidden>
+    <div class="panel-head"><h2>Bracket predictions</h2></div>
+    <div id="prediction-content"></div>
+  </div>
+
   <div class="panel" id="cp-rules" role="tabpanel" aria-labelledby="ct-rules" hidden>
-    <div class="panel-head"><div><h2>Competition rules</h2><p class="sub">How this competition decides its winner.</p></div></div>
+    <div class="panel-head"><div><h2>Competition rules</h2></div></div>
     <div class="panel-body">
       <div class="formats">
         <div class="format-card card"><span class="monogram" data-tone="navy" id="rules-points-mono">PTS</span><h3 style="margin-top:14px;" id="rules-points-title">Points</h3><p id="rules-points-copy">Three points for a win, one for a draw. Ties are broken by goal difference, then goals scored.</p></div>

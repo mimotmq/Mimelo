@@ -10,10 +10,10 @@ export function sourceRef(value) {
     return null;
   }
 }
-export function roundTitle(index, total, pool = "W") {
+export function roundTitle(index, total, pool = "W", round = index + 1) {
   if (pool === "G") return index ? "Final reset" : "Grand final";
   if (pool === "L")
-    return index === total - 1 ? "Lower final" : `Lower round ${index + 1}`;
+    return index === total - 1 ? "Losers final" : `Losers round ${round}`;
   const remaining = total - index;
   return remaining === 1
     ? "Final"
@@ -28,7 +28,7 @@ export function fixtureScoreText(f) {
   return f.no_contest
     ? "No contest"
     : f.forfeit
-      ? "Walkover"
+      ? "Forfeit"
       : f.match_id
         ? `${f.a_score}–${f.b_score}${s?.pens ? ` (${s.pens.join("–")} pens)` : ""}${s?.aet ? " a.e.t." : ""}`
         : f.status === "bye"
@@ -71,16 +71,16 @@ export function bracketLayout(
         height: CARD_HEIGHT,
         right,
         round: ri,
-        heading: roundTitle(ri, groups.length, pool),
+        heading: roundTitle(ri, groups.length, pool, f.round),
         label:
           pool === "G"
-            ? roundTitle(ri, groups.length, pool)
-            : `${roundTitle(ri, groups.length, pool)
+            ? roundTitle(ri, groups.length, pool, f.round)
+            : `${roundTitle(ri, groups.length, pool, f.round)
                 .replace(/-finals$/, "-final")
                 .replace(
                   /finals$/,
                   "final",
-                )} ${group.length > 1 ? i + 1 : ""}`.trim(),
+                )} ${group.length > 1 ? (pool === "L" ? `· Match ${i + 1}` : i + 1) : ""}`.trim(),
       };
     }),
   );
@@ -155,6 +155,7 @@ export function visibleBracketFixtures(fixtures) {
     if (
       f.pool === "L" &&
       !f.match_id &&
+      !f.forfeit &&
       !f.no_contest &&
       slots.includes(null)
     ) {
@@ -164,7 +165,7 @@ export function visibleBracketFixtures(fixtures) {
   return visible;
 }
 
-export function renderBracket(container, c, { UI, APP }) {
+export function renderBracket(container, c, { UI, APP, declareForfeit }) {
   const esc = UI.esc;
   const fixtures = visibleBracketFixtures(
     c.fixtures.filter((f) =>
@@ -186,8 +187,8 @@ export function renderBracket(container, c, { UI, APP }) {
   const groups =
     c.settings.elimination === "double"
       ? [
-          ["W", "Upper bracket"],
-          ["L", "Lower bracket"],
+          ["W", "Winners bracket"],
+          ["L", "Losers bracket"],
           ["G", "Grand finals"],
         ]
       : [["W", ""]];
@@ -251,7 +252,7 @@ export function renderBracket(container, c, { UI, APP }) {
           ? "No contest"
           : f.status === "completed"
             ? f.forfeit
-              ? "Walkover"
+              ? "Forfeit"
               : "Final score"
             : f.status === "cancelled"
               ? "Not required"
@@ -275,14 +276,31 @@ export function renderBracket(container, c, { UI, APP }) {
         ? `href="${esc(APP.url("game", { view: "record", fixture: f.id, competition: c.id }))}"`
         : "";
     const aria = `${n.label}: ${entrant(f, "a")} versus ${entrant(f, "b")}. ${fixtureScoreText(f)}. ${state}${f.match_id ? ". View result" : record ? ". Record result" : ""}`;
-    return `<${tag} class="bt-match ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} data-bracket-fixture="${f.id}" data-match-round="${n.round}" aria-label="${esc(aria)}" style="left:${n.x}px;top:${n.y}px;width:${n.width}px;height:${n.height}px">
+    return `<${tag} class="bt-match ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" aria-label="${esc(aria)}" style="left:${n.x}px;top:${n.y}px;width:${n.width}px;height:${n.height}px">
       <span class="bt-match-top"><span>${esc(n.label)}</span>${f.match_id || record ? '<span class="bt-open" aria-hidden="true">↗</span>' : ""}</span>
       ${sideMarkup(f, "a")}${sideMarkup(f, "b")}
-      <span class="bt-match-bottom"><span>${esc(detail || state)}</span>${detail ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>`;
+      <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && !f.forfeit ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" style="left:${n.x + n.width - 10}px;top:${n.y + n.height - 4}px" data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
   }
   container.classList.add("bt-root");
-  container.innerHTML = `<div class="bt-intro"><span>${c.settings.elimination === "double" ? "Two paths. One champion." : "The road to the final"}</span><span class="bt-hint">Swipe to follow each round <span aria-hidden="true">→</span></span></div><div class="bt-sections"></div>${fc ? '<p class="bt-legend">Club crests show the teams used in each recorded match. Small score numbers show penalties.</p>' : ""}`;
+  const views = [
+    ["all", "Full bracket"],
+    ["W", "Winners only"],
+    ["L", "Losers only"],
+  ].filter(([pool]) => pool === "all" || fixtures.some((f) => f.pool === pool));
+  const showViews = c.settings.elimination === "double" && views.length > 1;
+  container.innerHTML = `${showViews ? `<nav class="bt-round-nav bt-view-nav" aria-label="Bracket view">${views.map(([pool, label]) => `<button type="button" data-bracket-view="${pool}" aria-pressed="${pool === "all"}">${label}</button>`).join("")}</nav>` : ""}<div class="bt-sections"></div>`;
   const sections = container.querySelector(".bt-sections");
+  let selectedView = "all";
+  function updateView() {
+    for (const button of container.querySelectorAll("[data-bracket-view]"))
+      button.setAttribute(
+        "aria-pressed",
+        String(button.dataset.bracketView === selectedView),
+      );
+    for (const section of sections.querySelectorAll("[data-bracket-pool]"))
+      section.hidden =
+        selectedView !== "all" && section.dataset.bracketPool !== selectedView;
+  }
   let previousWidth = -1,
     frame;
   const scrollTimers = new Set();
@@ -318,7 +336,7 @@ export function renderBracket(container, c, { UI, APP }) {
           ...new Map(layout.nodes.map((n) => [n.x, n])).values(),
         ];
         return `<section class="bt-section" data-bracket-pool="${pool}" data-layout="${layout.mirrored ? "mirrored" : "linear"}">${title ? `<h3 class="bt-section-title">${title}</h3>` : ""}
-        <nav class="bt-round-nav" aria-label="${title || "Bracket"} rounds">${layout.groups.map((g, i) => `<button type="button" data-bracket-round="${i}">${esc(roundTitle(i, layout.groups.length, pool))}</button>`).join("")}</nav>
+        <nav class="bt-round-nav" aria-label="${title || "Bracket"} rounds">${layout.groups.map((g, i) => `<button type="button" data-bracket-round="${i}">${esc(roundTitle(i, layout.groups.length, pool, g[0].round))}</button>`).join("")}</nav>
         <div class="bt-viewport" tabindex="0" role="region" aria-label="${title || "Tournament"} bracket. Scroll across rounds." style="--bt-stride:${cardWidth + 44}px">
         <div class="bt-canvas" style="width:${layout.width}px;height:${layout.height}px">
           <svg class="bt-connections" width="${layout.width}" height="${layout.height}" aria-hidden="true">${layout.edges.map((e) => `<path d="${connector(e)}" data-source="${e.source}" data-target="${e.target}" class="${e.active ? "bt-path-active" : ""} ${e.outcome === "loser" ? "bt-path-loser" : ""}"/>`).join("")}</svg>
@@ -327,24 +345,58 @@ export function renderBracket(container, c, { UI, APP }) {
         </div></div></section>`;
       })
       .join("");
-    for (const section of sections.querySelectorAll(
-      '.bt-section[data-layout="linear"]',
-    )) {
+    updateView();
+    for (const section of sections.querySelectorAll(".bt-section")) {
       const viewport = section.querySelector(".bt-viewport"),
         columns = [...section.querySelectorAll(".bt-round")];
       let roundIndex = 0,
         timer;
-      section
-        .querySelector('[data-bracket-round="0"]')
-        ?.setAttribute("aria-current", "step");
+      const buttons = [...section.querySelectorAll("[data-bracket-round]")];
+      function selectRound(index) {
+        roundIndex = index;
+        for (const button of buttons) {
+          if (Number(button.dataset.bracketRound) === index)
+            button.setAttribute("aria-current", "step");
+          else button.removeAttribute("aria-current");
+        }
+      }
+      selectRound(0);
+      let lastLeft = 0;
+      for (const button of buttons)
+        button.onclick = () => {
+          clearTimeout(timer);
+          scrollTimers.delete(timer);
+          const index = Number(button.dataset.bracketRound);
+          const matches = [
+            ...section.querySelectorAll(`[data-match-round="${index}"]`),
+          ];
+          const match = matches.reduce((first, candidate) =>
+            candidate.offsetTop < first.offsetTop ? candidate : first,
+          );
+          viewport.scrollTo({
+            left: match.offsetLeft,
+            top: Math.max(0, match.offsetTop - TOP),
+            behavior: "instant",
+          });
+          lastLeft = viewport.scrollLeft;
+          selectRound(index);
+          section
+            .querySelector("[data-round-target]")
+            ?.removeAttribute("data-round-target");
+          match.setAttribute("data-round-target", "");
+          match.focus({ preventScroll: true });
+        };
+      if (section.dataset.layout !== "linear") continue;
       viewport.addEventListener("scroll", () => {
+        if (lastLeft === viewport.scrollLeft) return;
+        lastLeft = viewport.scrollLeft;
+        const maxLeft = viewport.scrollWidth - viewport.clientWidth;
+        const distance = (col) =>
+          Math.abs(Math.min(col.offsetLeft, maxLeft) - lastLeft);
         const next = columns.reduce(
           (best, col, i) =>
-            Math.abs(col.offsetLeft - viewport.scrollLeft) <
-            Math.abs(columns[best].offsetLeft - viewport.scrollLeft)
-              ? i
-              : best,
-          0,
+            distance(col) < distance(columns[best]) ? i : best,
+          roundIndex,
         );
         if (next === roundIndex) {
           clearTimeout(timer);
@@ -355,7 +407,7 @@ export function renderBracket(container, c, { UI, APP }) {
         scrollTimers.delete(timer);
         timer = setTimeout(() => {
           scrollTimers.delete(timer);
-          roundIndex = next;
+          selectRound(next);
           const match = section.querySelector(
             `[data-match-round="${columns[next].dataset.roundIndex}"]`,
           );
@@ -365,15 +417,6 @@ export function renderBracket(container, c, { UI, APP }) {
             top: Math.max(0, match.offsetTop - TOP),
             behavior: "instant",
           });
-          for (const button of section.querySelectorAll(
-            "[data-bracket-round]",
-          )) {
-            if (
-              button.dataset.bracketRound === columns[next].dataset.roundIndex
-            )
-              button.setAttribute("aria-current", "step");
-            else button.removeAttribute("aria-current");
-          }
         }, 160);
         scrollTimers.add(timer);
       });
@@ -384,24 +427,21 @@ export function renderBracket(container, c, { UI, APP }) {
         ?.focus({ preventScroll: true });
   }
   function click(e) {
+    const view = e.target.closest("[data-bracket-view]");
+    if (view) {
+      selectedView = view.dataset.bracketView;
+      updateView();
+    }
+    const forfeit = e.target.closest("[data-bracket-forfeit]");
+    if (forfeit)
+      declareForfeit(
+        fixtures.find((f) => f.id === Number(forfeit.dataset.bracketForfeit)),
+      );
     const result = e.target.closest("[data-result-id]");
     if (result)
       UI.matchDialog(result.dataset.resultId).catch((error) =>
         UI.toast(error.message),
       );
-    const round = e.target.closest("[data-bracket-round]");
-    if (round) {
-      const section = round.closest(".bt-section"),
-        column = section.querySelector(
-          `[data-round-index="${round.dataset.bracketRound}"]`,
-        );
-      section.querySelector(".bt-viewport").scrollTo({
-        left: column.offsetLeft,
-        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "instant"
-          : "smooth",
-      });
-    }
   }
   container.addEventListener("click", click);
   const observer = new ResizeObserver(() => {
