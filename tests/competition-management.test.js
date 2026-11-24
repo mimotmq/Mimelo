@@ -409,3 +409,86 @@ test("a league seat keeps its record across a midseason replacement", async (t) 
     undefined,
   );
 });
+
+test("withdrawal awards become no contests if both seats withdraw, while ordinary forfeits stay intact", async (t) => {
+  const app = await createApp({ database: ":memory:" });
+  t.after(() => app.close());
+  const password = "WithdrawalManagementPassword!";
+  const owner = register(
+    app.db,
+    { name: "Organizer", handle: "withdrawalorganizer" },
+    await passwordHash(password),
+    null,
+    true,
+  );
+  const players = ["A", "B", "C", "D"].map((name) =>
+    Number(
+      app.db.prepare("INSERT INTO players(name,created) VALUES(?,1)").run(name)
+        .lastInsertRowid,
+    ),
+  );
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { "x-mimelo-request": "1" },
+    payload: { identity: owner.handle, password },
+  });
+  const headers = {
+    "x-mimelo-request": "1",
+    "x-csrf-token": login.json().csrf,
+    cookie: login.cookies.map((c) => `${c.name}=${c.value}`).join("; "),
+  };
+  async function call(method, path, payload) {
+    const result = await app.inject({
+      method,
+      url: "/api/" + path,
+      headers,
+      ...(payload === undefined ? {} : { payload }),
+    });
+    assert.equal(result.statusCode, 200, result.body);
+    return result.json();
+  }
+  const competition = await call("POST", "competitions", {
+    game: "tt",
+    kind: "league",
+    format: "singles",
+    name: "Withdrawals",
+    entries: players.map((player) => [player]),
+    settings: { bestOf: 3, target: 21 },
+  });
+  const draw = await call("POST", `competitions/${competition.id}/draw`, {});
+  const [a, b, c, d] = draw.entries.map((entry) => entry.id);
+  const ab = draw.fixtures.find(
+    (f) => [f.a, f.b].includes(a) && [f.a, f.b].includes(b),
+  );
+  const cd = draw.fixtures.find(
+    (f) => [f.a, f.b].includes(c) && [f.a, f.b].includes(d),
+  );
+  const pending = (entry, overrides = {}) =>
+    Object.fromEntries(
+      draw.fixtures
+        .filter((f) => f.status === "ready" && [f.a, f.b].includes(entry))
+        .map((f) => [String(f.id), overrides[f.id] || "hold"]),
+    );
+  await call("POST", `fixtures/${cd.id}/forfeit`, { winner: c });
+  await call("POST", `competitions/${competition.id}/entries/${c}/withdraw`, {
+    fixtures: pending(c),
+  });
+  await call("POST", `competitions/${competition.id}/entries/${d}/withdraw`, {
+    fixtures: pending(d),
+  });
+  let state = await call("GET", `competitions/${competition.id}`);
+  assert.equal(state.fixtures.find((f) => f.id === cd.id).no_contest, 0);
+  await call("POST", `competitions/${competition.id}/entries/${a}/withdraw`, {
+    fixtures: pending(a, { [ab.id]: "forfeit" }),
+  });
+  await call("POST", `competitions/${competition.id}/entries/${b}/withdraw`, {
+    fixtures: pending(b),
+  });
+  state = await call("GET", `competitions/${competition.id}`);
+  assert.equal(state.fixtures.find((f) => f.id === ab.id).no_contest, 1);
+  assert.equal(
+    app.db.prepare("SELECT COUNT(*) count FROM ledger").get().count,
+    0,
+  );
+});

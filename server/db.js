@@ -115,6 +115,20 @@ export function openDb(path) {
     );
     db.prepare("INSERT INTO migrations VALUES(7)").run();
   })();
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=8").get()) return;
+    db.exec(
+      "ALTER TABLE competitions ADD COLUMN description TEXT NOT NULL DEFAULT ''; ALTER TABLE competitions ADD COLUMN banner TEXT; ALTER TABLE competitions ADD COLUMN trophy TEXT",
+    );
+    db.prepare("INSERT INTO migrations VALUES(8)").run();
+  })();
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=9").get()) return;
+    db.exec(
+      "CREATE TABLE IF NOT EXISTS withdrawal_awards(fixture_id INTEGER PRIMARY KEY REFERENCES fixtures(id) ON DELETE CASCADE, created INTEGER NOT NULL)",
+    );
+    db.prepare("INSERT INTO migrations VALUES(9)").run();
+  })();
   return db;
 }
 export const json = (v, fallback = {}) => {

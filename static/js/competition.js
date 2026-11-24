@@ -31,6 +31,47 @@ APP.run(async () => {
           UI.matchDialog(b.dataset.match).catch((e) => UI.toast(e.message))),
     );
   }
+  async function editCompetitionDetails() {
+    const d = UI.formDialog(
+      "Tournament details",
+      field("Tournament name", "name", c.name) +
+        field("Description", "description", c.description || "") +
+        field("Banner image", "banner", "", "file") +
+        (c.banner
+          ? '<label class="check"><input type="checkbox" name="removeBanner"> Remove current banner</label>'
+          : "") +
+        field("Trophy image", "trophy", "", "file") +
+        (c.trophy
+          ? '<label class="check"><input type="checkbox" name="removeTrophy"> Remove current trophy image</label>'
+          : "") +
+        '<p class="sub">Images are resized and converted to WebP on upload. Maximum upload size: 5 MB.</p>',
+      async (data, dialog) => {
+        await APP.api(
+          "competitions/" + id,
+          { name: data.get("name"), description: data.get("description") },
+          "PATCH",
+        );
+        for (const kind of ["banner", "trophy"]) {
+          const file = data.get(kind);
+          if (!file?.size) {
+            if (data.get("remove" + kind[0].toUpperCase() + kind.slice(1)))
+              await APP.api(
+                "competitions/" + id + "/media/" + kind,
+                undefined,
+                "DELETE",
+              );
+            continue;
+          }
+          const form = new FormData();
+          form.set("file", file);
+          await APP.api("competitions/" + id + "/media/" + kind, form);
+        }
+        await load();
+      },
+    );
+    for (const control of d.querySelectorAll("input[type=file]"))
+      control.accept = "image/*";
+  }
   async function load() {
     const [details, projection] = await Promise.all([
       APP.api("competitions/" + id),
@@ -43,6 +84,29 @@ APP.run(async () => {
     }
     document.title = c.name + " · " + APP.game.name + " · mimELo";
     text("[data-comp-name]", c.name);
+    const banner = $("#comp-banner");
+    banner.hidden = !c.banner;
+    if (c.banner) {
+      banner.src = c.banner;
+      banner.alt = c.name + " banner";
+    }
+    text("#comp-description", c.description || "");
+    $("#comp-description").hidden = !c.description;
+    const organizers = $("#comp-organizers");
+    organizers.innerHTML =
+      (c.organizers || [])
+        .map(
+          (p) =>
+            `<span class="organizer-line">${UI.avatar(p.name, "avatar-sm", p.photo)}<a href="player.html?player=${p.id}">${esc(p.name)}</a></span>`,
+        )
+        .join("") || "Organizer information unavailable.";
+    const trophy = $("#comp-trophy");
+    trophy.innerHTML = c.trophy
+      ? `<h3>Trophy</h3><img class="competition-trophy" src="${esc(c.trophy)}" alt="Competition trophy">`
+      : "<p>No trophy assigned.</p>";
+    const editDetails = $("#edit-comp-details");
+    editDetails.hidden = !c.canManage;
+    editDetails.onclick = () => editCompetitionDetails();
     text(
       "[data-comp-kind]",
       { knockout: "Knockout", league: "League", groups: "Groups & knockout" }[
@@ -289,12 +353,24 @@ APP.run(async () => {
             const breakdown = games.length
               ? `<span class="fixture-games">${games.map((game) => `${esc(game.a)}–${esc(game.b)}`).join(" · ")}</span>`
               : "";
-            const lineup = (entry) =>
-              f.priorLineups
-                ?.filter((p) => p.entry_id === entry)
-                .map((p) => p.name)
-                .join(" + ") || name(entry);
-            const content = `<span class="fixture-side">${esc(lineup(f.a))}</span><strong class="fixture-result">${esc(result)}</strong><span class="fixture-side fixture-away">${esc(lineup(f.b))}</span>${breakdown}`;
+            const lineup = (entry) => {
+              const players = f.priorLineups?.filter(
+                (p) => p.entry_id === entry,
+              );
+              return players?.length
+                ? players
+                : c.entries.find((e) => e.id === entry)?.players || [];
+            };
+            const playerSide = (entry, away) =>
+              `<span class="fixture-side ${away ? "fixture-away" : "fixture-home"}">${lineup(
+                entry,
+              )
+                .map(
+                  (p) =>
+                    `<span class="fixture-person">${away ? `<span>${esc(p.name)}</span>${UI.avatar(p.name, "avatar-xs", p.photo)}` : `${UI.avatar(p.name, "avatar-xs", p.photo)}<span>${esc(p.name)}</span>`}</span>`,
+                )
+                .join("")}</span>`;
+            const content = `${playerSide(f.a, false)}<strong class="fixture-result">${esc(result)}</strong>${playerSide(f.b, true)}${breakdown}`;
             const resultControl = f.match_id
               ? `<button type="button" class="fixture-match" data-match="${f.match_id}">${content}</button>`
               : f.status === "ready"
@@ -307,6 +383,51 @@ APP.run(async () => {
         )
         .join("") ||
       '<p class="panel-body">Registration precedes the draw.</p>';
+    const latestFixtures = orderedFixtures.filter((f) => f.played_at);
+    const dayLabel = (time) =>
+      new Date(time).toLocaleDateString(undefined, {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    const latestDay = latestFixtures.length
+      ? dayLabel(latestFixtures.at(-1).played_at)
+      : null;
+    const latestButton = $("#latest-matchday");
+    latestButton.hidden = !latestDay;
+    latestButton.onclick = () => {
+      const day = [...fixtureGroups.querySelectorAll(".fixture-day")].find(
+        (d) => d.querySelector("summary strong").textContent === latestDay,
+      );
+      if (day) {
+        day.open = true;
+        day.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+    const scheduleButton = $("#schedule-rounds");
+    scheduleButton.hidden =
+      !c.canManage ||
+      !c.fixtures.some(
+        (f) => ["ready", "waiting"].includes(f.status) && !f.scheduled,
+      );
+    scheduleButton.onclick = () =>
+      UI.formDialog(
+        "Schedule rounds",
+        field("First match date and time", "start", "", "datetime-local") +
+          field("Days between rounds", "intervalDays", "7", "number"),
+        async (data) => {
+          const start = new Date(data.get("start")).getTime();
+          if (!Number.isFinite(start))
+            throw new Error("Choose a start date and time.");
+          const result = await APP.api(`competitions/${id}/schedule-rounds`, {
+            start,
+            intervalDays: Number(data.get("intervalDays")),
+          });
+          UI.toast(result.assigned + " fixtures scheduled.");
+          await load();
+        },
+      );
     for (const b of $$("[data-fixture]"))
       b.onclick = () => {
         const f = c.fixtures.find((f) => f.id === Number(b.dataset.fixture));
@@ -414,7 +535,7 @@ APP.run(async () => {
         (!view && c.kind === "knockout")
       )
         $("#ct-bracket").click();
-      else if (["fixtures", "table", "rules"].includes(view))
+      else if (["fixtures", "table", "rules", "about"].includes(view))
         $("#ct-" + view).click();
       initialView = false;
     }
@@ -469,10 +590,16 @@ APP.run(async () => {
     }
     text(
       "#rules-elo-copy",
-      "Admin checkoff is required for Elo. Competition weights: " +
-        Object.entries(c.settings.weights)
-          .map(([k, v]) => k + " " + v + "×")
-          .join(", "),
+      "Accepted matches affect Elo after an admin checks them off. " +
+        "Competition multiplier: " +
+        (c.settings.weights[
+          c.kind === "knockout"
+            ? "knockout"
+            : c.kind === "groups"
+              ? "group"
+              : "league"
+        ] ?? 1) +
+        "×.",
     );
     const cards = $$("#cp-rules .format-card p");
     cards.at(-1).textContent =
@@ -504,6 +631,55 @@ APP.run(async () => {
         detail.textContent = change.incoming + " replaced " + change.outgoing;
         row.cells[1].append(detail);
       }
+      if (e.withdrawn) {
+        const detail = document.createElement("small");
+        detail.textContent = "Withdrawn";
+        row.cells[1].append(detail);
+        continue;
+      }
+      if (c.canManage && c.kind === "league" && c.state === "active") {
+        row.cells[2].insertAdjacentHTML(
+          "beforeend",
+          button("Withdraw seat", "withdraw-seat"),
+        );
+        row.cells[2].querySelector("[data-action=withdraw-seat]").onclick =
+          () => {
+            const pending = c.fixtures.filter(
+              (f) => f.status === "ready" && [f.a, f.b].includes(e.id),
+            );
+            const controls = pending
+              .map((f) =>
+                select(
+                  f.label + " · vs " + name(f.a === e.id ? f.b : f.a),
+                  "fixture_" + f.id,
+                  [
+                    ["hold", "Leave open for a successor"],
+                    ["forfeit", "Award a withdrawal forfeit"],
+                    ["no_contest", "Mark no contest"],
+                  ],
+                  "hold",
+                ),
+              )
+              .join("");
+            UI.formDialog(
+              "Withdraw entrant",
+              controls +
+                "<p>Played results remain. A fixture between two withdrawn players becomes a no contest if it was previously awarded as a withdrawal forfeit.</p>",
+              async (data) => {
+                const fixtures = Object.fromEntries(
+                  pending.map((f) => [
+                    String(f.id),
+                    data.get("fixture_" + f.id),
+                  ]),
+                );
+                await APP.api(`competitions/${id}/entries/${e.id}/withdraw`, {
+                  fixtures,
+                });
+                await load();
+              },
+            );
+          };
+      }
       if (
         !c.canManage ||
         c.kind !== "league" ||
@@ -514,49 +690,53 @@ APP.run(async () => {
         )
       )
         continue;
-      row.cells[2].innerHTML = button("Replace player", "replace-player");
-      row.cells[2].querySelector("button").onclick = async () => {
-        const d = UI.formDialog(
-          "Replace a player",
-          select(
-            "Leaving player",
-            "outgoing",
-            e.players.map((p) => [p.id, p.name]),
-          ) +
-            select("Replacement", "incoming", []) +
-            field(
-              "Transfer effective (optional)",
-              "effective",
-              "",
-              "datetime-local",
+      row.cells[2].insertAdjacentHTML(
+        "beforeend",
+        button("Replace player", "replace-player"),
+      );
+      row.cells[2].querySelector("[data-action=replace-player]").onclick =
+        async () => {
+          const d = UI.formDialog(
+            "Replace a player",
+            select(
+              "Leaving player",
+              "outgoing",
+              e.players.map((p) => [p.id, p.name]),
             ) +
-            "<p>The replacement takes this spot in unplayed fixtures. The entry keeps its standings. Earlier results and Elo stay with the players who played.</p>" +
-            `<details><summary>Keep earlier fixtures with the original lineup</summary>${c.fixtures
-              .filter(
-                (f) =>
-                  f.status === "ready" &&
-                  !f.match_id &&
-                  [f.a, f.b].includes(e.id),
-              )
-              .map(
-                (f) =>
-                  `<label class="check"><input type="checkbox" name="keep" value="${f.id}">${esc(f.label)} · vs ${esc(name(f.a === e.id ? f.b : f.a))}</label>`,
-              )
-              .join("")}</details>`,
-          async (data) => {
-            await APP.api(`competitions/${id}/entries/${e.id}/replace`, {
-              outgoing: Number(data.get("outgoing")),
-              incoming: Number(data.get("incoming")),
-              keep: data.getAll("keep").map(Number),
-              effective: data.get("effective")
-                ? new Date(data.get("effective")).getTime()
-                : undefined,
-            });
-            await load();
-          },
-        );
-        await UI.picker(d.querySelector("[name=incoming]"));
-      };
+              select("Replacement", "incoming", []) +
+              field(
+                "Transfer effective (optional)",
+                "effective",
+                "",
+                "datetime-local",
+              ) +
+              "<p>The replacement takes this spot in unplayed fixtures. The entry keeps its standings. Earlier results and Elo stay with the players who played.</p>" +
+              `<details><summary>Keep earlier fixtures with the original lineup</summary>${c.fixtures
+                .filter(
+                  (f) =>
+                    f.status === "ready" &&
+                    !f.match_id &&
+                    [f.a, f.b].includes(e.id),
+                )
+                .map(
+                  (f) =>
+                    `<label class="check"><input type="checkbox" name="keep" value="${f.id}">${esc(f.label)} · vs ${esc(name(f.a === e.id ? f.b : f.a))}</label>`,
+                )
+                .join("")}</details>`,
+            async (data) => {
+              await APP.api(`competitions/${id}/entries/${e.id}/replace`, {
+                outgoing: Number(data.get("outgoing")),
+                incoming: Number(data.get("incoming")),
+                keep: data.getAll("keep").map(Number),
+                effective: data.get("effective")
+                  ? new Date(data.get("effective")).getTime()
+                  : undefined,
+              });
+              await load();
+            },
+          );
+          await UI.picker(d.querySelector("[name=incoming]"));
+        };
     }
     panel.classList.toggle("competition-entrants-compact", !mutable);
     if (c.canManage && mutable && c.kind === "league") {

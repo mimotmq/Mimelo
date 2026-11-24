@@ -38,13 +38,13 @@
   <section class="player-hero" aria-labelledby="comp-title">
     <div class="player-hero-grid">
       <div>
-        <div class="player-flairs">
+        <h1 id="comp-title" data-comp-name>Winter League</h1>
+        <div class="player-flairs" data-comp-meta>
           <span class="chip" data-comp-kind>League</span>
           <span class="chip" data-comp-format>Double round robin</span>
           <span class="chip" data-comp-status>In progress</span>
           <span class="chip" data-comp-custom hidden>Custom</span>
         </div>
-        <h1 id="comp-title" data-comp-name style="margin-top:14px;">Winter League</h1>
         <p class="player-hero-sub" data-comp-blurb>Everyone plays everyone twice. Three points for a win; Elo moves after every approved match.</p>
       </div>
       <div class="player-elo">
@@ -53,6 +53,7 @@
         <div class="peak">Leader: <span data-comp-leader>Alex Rivera</span></div>
       </div>
     </div>
+    <img class="competition-banner" id="comp-banner" hidden alt="">
     <div class="player-stats">
       <div class="player-stat"><b data-comp-players>8</b><span>Players</span></div>
       <div class="player-stat"><b data-comp-fixtures>56</b><span>Fixtures</span></div>
@@ -68,6 +69,7 @@
       <button type="button" role="tab" id="ct-fixtures" aria-controls="cp-fixtures" aria-selected="false" tabindex="-1">Fixtures</button>
       <button type="button" role="tab" id="ct-bracket" aria-controls="cp-bracket" aria-selected="false" tabindex="-1">Bracket</button>
       <button type="button" role="tab" id="ct-rules" aria-controls="cp-rules" aria-selected="false" tabindex="-1">Rules</button>
+      <button type="button" role="tab" id="ct-about" aria-controls="cp-about" aria-selected="false" tabindex="-1">About</button>
     </div>
     <div class="comp-actions">
       <button class="btn btn-danger-quiet" type="button" id="delete-comp" hidden><span data-icon="close" data-size="18"></span> Delete</button>
@@ -81,7 +83,7 @@
   </div>
 
   <div class="panel" id="cp-fixtures" role="tabpanel" aria-labelledby="ct-fixtures" hidden>
-    <div class="panel-head"><div><h2>Fixtures &amp; results</h2><p class="sub" id="fixtures-sub">Every match in the competition · sample</p></div><span class="chip" id="fixtures-order">Newest first</span></div>
+    <div class="panel-head"><div><h2>Fixtures &amp; results</h2><p class="sub" id="fixtures-sub">Every match in the competition · sample</p></div><div class="comp-actions"><button type="button" class="btn btn-outline btn-sm" id="latest-matchday" hidden>Latest played matchday</button><button type="button" class="btn btn-outline btn-sm" id="schedule-rounds" hidden>Schedule rounds</button><span class="chip" id="fixtures-order">Newest first</span></div></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Date</th><th>Stage</th><th>Home</th><th class="c">Score</th><th>Away</th><th>Status</th></tr></thead>
@@ -106,6 +108,10 @@
         <div class="format-card card"><span class="monogram" data-tone="game">LOCK</span><h3 style="margin-top:14px;">Approval</h3><p>The opponent confirms the score. A game admin reviews and locks it before anything counts.</p></div>
       </div>
     </div>
+  </div>
+  <div class="panel" id="cp-about" role="tabpanel" aria-labelledby="ct-about" hidden>
+    <div class="panel-head"><div><h2>About this competition</h2></div></div>
+    <div class="panel-body"><h3>Tournament organizers</h3><div id="comp-organizers"></div><div id="comp-description"></div><div id="comp-trophy"></div><button class="btn btn-outline" id="edit-comp-details" hidden>Edit tournament details</button></div>
   </div>
 </main>
 

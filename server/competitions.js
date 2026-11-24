@@ -189,9 +189,13 @@ export function fixtureList(db, id) {
         ...f,
         priorLineups: db
           .prepare(
-            "SELECT r.entry_id,p.id,p.name,p.photo FROM fixture_rosters r JOIN players p ON p.id=r.player_id WHERE fixture_id=? ORDER BY p.id",
+            "SELECT r.entry_id,p.id,p.name,p.photo,p.profile FROM fixture_rosters r JOIN players p ON p.id=r.player_id WHERE fixture_id=? ORDER BY p.id",
           )
-          .all(f.id),
+          .all(f.id)
+          .map(({ profile, ...p }) => ({
+            ...p,
+            nationalities: profileNationalities(json(profile)),
+          })),
         score,
         teams: [score?.teamA, score?.teamB].map((id) => {
           if (!id) return null;
@@ -994,6 +998,11 @@ export function serializeCompetition(db, c) {
   const plan = qualificationPlan(c, tables, decisions);
   return {
     ...c,
+    organizers: db
+      .prepare(
+        "SELECT p.id,p.name,p.photo FROM accounts a JOIN players p ON p.id=a.player_id WHERE a.id=?",
+      )
+      .all(c.owner),
     qualifications: decisions,
     extraStandings: crossGroupTable(
       Object.entries(tables)

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import ExcelJS from "exceljs";
@@ -66,6 +66,96 @@ test("uploaded PNG profile photos are served as decodable WebP images", async (t
     .toBuffer({ resolveWithObject: true });
   assert.equal(decoded.info.width, 512);
   assert.equal(decoded.info.height, 512);
+});
+
+test("tournament banners are resized, compressed and replaced media is removed", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "mimelo-tournament-media-"));
+  const app = await createApp({ database: ":memory:", uploads: dir });
+  t.after(async () => {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const owner = register(
+    app.db,
+    { handle: "bannerowner", name: "Banner Owner" },
+    await passwordHash("BannerPassword!"),
+    null,
+    true,
+  );
+  app.db
+    .prepare(
+      "INSERT INTO competitions(game,owner,name,kind,format,enrollment,settings,created) VALUES('tt',?,'Banner Cup','league','singles','selected','{}',1)",
+    )
+    .run(owner.id);
+  const login = await app.inject({
+    method: "POST",
+    url: "/api/login",
+    headers: { "x-mimelo-request": "1" },
+    payload: { identity: owner.handle, password: "BannerPassword!" },
+  });
+  const headers = {
+    cookie: login.cookies.map((c) => c.name + "=" + c.value).join("; "),
+    "x-mimelo-request": "1",
+    "x-csrf-token": login.json().csrf,
+  };
+  const png = await sharp({
+    create: { width: 3200, height: 1000, channels: 3, background: "#15718b" },
+  })
+    .png()
+    .toBuffer();
+  async function upload(bytes) {
+    const boundary = "mimelo-banner-boundary";
+    return app.inject({
+      method: "POST",
+      url: "/api/competitions/1/media/banner",
+      headers: {
+        ...headers,
+        "content-type": "multipart/form-data; boundary=" + boundary,
+      },
+      payload: Buffer.concat([
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="banner.png"\r\nContent-Type: image/png\r\n\r\n`,
+        ),
+        bytes,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ]),
+    });
+  }
+  const first = await upload(png);
+  assert.equal(first.statusCode, 200, first.body);
+  const firstPath = join(dir, first.json().banner.split("/").pop());
+  const firstImage = await app.inject(first.json().banner);
+  assert.equal(firstImage.headers["content-type"], "image/webp");
+  assert.ok(firstImage.rawPayload.length < png.length);
+  const metadata = await sharp(firstImage.rawPayload).metadata();
+  assert.ok(metadata.width <= 1800);
+  assert.ok(metadata.height <= 520);
+  const second = await upload(png);
+  assert.equal(second.statusCode, 200, second.body);
+  assert.equal(existsSync(firstPath), false);
+  const emptyDescription = await app.inject({
+    method: "PATCH",
+    url: "/api/competitions/1",
+    headers,
+    payload: { description: "" },
+  });
+  assert.equal(emptyDescription.statusCode, 200, emptyDescription.body);
+  assert.equal(
+    app.db.prepare("SELECT description FROM competitions").get().description,
+    "",
+  );
+  const secondPath = join(dir, second.json().banner.split("/").pop());
+  const removed = await app.inject({
+    method: "DELETE",
+    url: "/api/competitions/1/media/banner",
+    headers,
+  });
+  assert.equal(removed.statusCode, 200, removed.body);
+  assert.equal(existsSync(secondPath), false);
+  assert.equal(
+    app.db.prepare("SELECT banner FROM competitions").get().banner,
+    null,
+  );
 });
 
 test("fresh persistent book, atomic CSV/XLSX imports, restart and online backup", async (t) => {

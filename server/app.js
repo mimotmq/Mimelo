@@ -403,10 +403,19 @@ export async function createApp(options = {}) {
     } catch {
       fail("Choose a valid photo under 5 MB.");
     }
+    const previous = db
+      .prepare("SELECT photo FROM players WHERE id=?")
+      .get(playerId)?.photo;
     db.prepare("UPDATE players SET photo=? WHERE id=?").run(
       "/uploads/" + name,
       playerId,
     );
+    if (previous?.startsWith("/uploads/") && !previous.includes(".."))
+      await import("node:fs/promises").then((fs) =>
+        fs
+          .unlink(join(uploads, previous.slice("/uploads/".length)))
+          .catch(() => {}),
+      );
     return { photo: "/uploads/" + name };
   }
   app.post("/api/me/photo", async (req) => {
@@ -414,7 +423,16 @@ export async function createApp(options = {}) {
   });
   app.delete("/api/me/photo", async (req) => {
     const u = signed(req);
+    const previous = db
+      .prepare("SELECT photo FROM players WHERE id=?")
+      .get(u.player_id)?.photo;
     db.prepare("UPDATE players SET photo=NULL WHERE id=?").run(u.player_id);
+    if (previous?.startsWith("/uploads/") && !previous.includes(".."))
+      await import("node:fs/promises").then((fs) =>
+        fs
+          .unlink(join(uploads, previous.slice("/uploads/".length)))
+          .catch(() => {}),
+      );
     return { ok: true };
   });
   app.post("/api/me/handle-request", async (req) => {
@@ -917,6 +935,65 @@ export async function createApp(options = {}) {
       canAdmin: admin(db, req.user, c.game),
     };
   });
+  app.post("/api/competitions/:id/media/:kind", async (req) => {
+    const user = signed(req);
+    const c = getCompetition(db, req.params.id);
+    assert(organizer(db, user, c), "Organizer access required.", 403);
+    const kind = req.params.kind;
+    assert(["banner", "trophy"].includes(kind), "Choose banner or trophy.");
+    const file = await req.file();
+    assert(file, "Choose an image.");
+    let image;
+    try {
+      const buffer = await file.toBuffer();
+      image = await sharp(buffer, { limitInputPixels: 25000000 })
+        .rotate()
+        .resize(
+          kind === "banner" ? 1800 : 1000,
+          kind === "banner" ? 520 : 1000,
+          { fit: "inside", withoutEnlargement: true },
+        )
+        .webp({ quality: 84 })
+        .toBuffer();
+    } catch {
+      fail("Choose a valid image under 5 MB.");
+    }
+    const previous = db
+      .prepare(`SELECT ${kind} image FROM competitions WHERE id=?`)
+      .get(c.id)?.image;
+    const name = token() + ".webp";
+    const fs = await import("node:fs/promises");
+    await fs.writeFile(join(uploads, name), image);
+    db.prepare("UPDATE competitions SET " + kind + "=? WHERE id=?").run(
+      "/uploads/" + name,
+      c.id,
+    );
+    if (previous?.startsWith("/uploads/") && !previous.includes(".."))
+      await fs
+        .unlink(join(uploads, previous.slice("/uploads/".length)))
+        .catch(() => {});
+    audit(db, user, "competition.media", c.id, { kind });
+    return { [kind]: "/uploads/" + name };
+  });
+  app.delete("/api/competitions/:id/media/:kind", async (req) => {
+    const user = signed(req);
+    const c = getCompetition(db, req.params.id);
+    assert(organizer(db, user, c), "Organizer access required.", 403);
+    const kind = req.params.kind;
+    assert(["banner", "trophy"].includes(kind), "Choose banner or trophy.");
+    const previous = db
+      .prepare(`SELECT ${kind} image FROM competitions WHERE id=?`)
+      .get(c.id)?.image;
+    db.prepare(`UPDATE competitions SET ${kind}=NULL WHERE id=?`).run(c.id);
+    if (previous?.startsWith("/uploads/") && !previous.includes(".."))
+      await import("node:fs/promises").then((fs) =>
+        fs
+          .unlink(join(uploads, previous.slice("/uploads/".length)))
+          .catch(() => {}),
+      );
+    audit(db, user, "competition.media-remove", c.id, { kind });
+    return { [kind]: null };
+  });
   app.patch("/api/competitions/:id", async (req) => {
     const u = signed(req),
       b = req.body || {};
@@ -968,6 +1045,13 @@ export async function createApp(options = {}) {
       if (b.name !== undefined)
         db.prepare("UPDATE competitions SET name=? WHERE id=?").run(
           textValue(b.name, 120),
+          c.id,
+        );
+      if (b.description !== undefined)
+        db.prepare("UPDATE competitions SET description=? WHERE id=?").run(
+          typeof b.description === "string" && b.description.length <= 2000
+            ? b.description.trim()
+            : fail("Description must be 2,000 characters or fewer."),
           c.id,
         );
       if (b.settings !== undefined || b.format !== undefined) {
@@ -1194,6 +1278,83 @@ export async function createApp(options = {}) {
         outgoing,
         incoming,
       });
+      return { ok: true };
+    });
+  });
+  app.post("/api/competitions/:id/entries/:entry/withdraw", async (req) => {
+    const user = signed(req);
+    return tx(() => {
+      const c = getCompetition(db, req.params.id),
+        entry = integer(req.params.entry, 1);
+      assert(organizer(db, user, c), "Organizer access required.", 403);
+      assert(
+        c.kind === "league" && c.state === "active",
+        "Withdrawals are available during an active league.",
+        409,
+      );
+      const entrant = db
+        .prepare(
+          "SELECT withdrawn FROM entrants WHERE id=? AND competition_id=?",
+        )
+        .get(entry, c.id);
+      assert(
+        entrant && !entrant.withdrawn,
+        "This seat is already withdrawn.",
+        409,
+      );
+      const fixtures = db
+        .prepare(
+          "SELECT f.*,m.id match_id,m.forfeit FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided' WHERE f.competition_id=? AND (f.a=? OR f.b=?)",
+        )
+        .all(c.id, entry, entry);
+      const choices = req.body?.fixtures || {};
+      for (const f of fixtures.filter((f) => f.status === "ready")) {
+        const action = choices[String(f.id)];
+        assert(
+          ["hold", "forfeit", "no_contest"].includes(action),
+          "Choose how to handle every unplayed fixture.",
+          400,
+        );
+        const opponent = f.a === entry ? f.b : f.a;
+        if (action === "forfeit") {
+          forfeit(db, f.id, opponent, user);
+          db.prepare(
+            "INSERT OR REPLACE INTO withdrawal_awards(fixture_id,created) VALUES(?,?)",
+          ).run(f.id, Date.now());
+        } else if (action === "no_contest") {
+          db.prepare(
+            "UPDATE fixtures SET status='completed',no_contest=1,winner=NULL,loser=NULL WHERE id=?",
+          ).run(f.id);
+        }
+      }
+      db.prepare("UPDATE entrants SET withdrawn=1 WHERE id=?").run(entry);
+      for (const f of fixtures.filter(
+        (f) =>
+          f.status === "completed" &&
+          f.forfeit &&
+          f.match_id &&
+          db
+            .prepare("SELECT 1 FROM withdrawal_awards WHERE fixture_id=?")
+            .get(f.id),
+      )) {
+        const opponent = f.a === entry ? f.b : f.a;
+        const opponentWithdrawn = db
+          .prepare("SELECT withdrawn FROM entrants WHERE id=?")
+          .get(opponent)?.withdrawn;
+        if (!opponentWithdrawn) continue;
+        db.prepare(
+          "UPDATE matches SET fixture_id=NULL,status='voided',revision=revision+1 WHERE id=?",
+        ).run(f.match_id);
+        db.prepare(
+          "UPDATE fixtures SET status='completed',no_contest=1,winner=NULL,loser=NULL WHERE id=?",
+        ).run(f.id);
+        db.prepare("DELETE FROM withdrawal_awards WHERE fixture_id=?").run(
+          f.id,
+        );
+        audit(db, user, "fixture.withdrawal-no-contest", f.id, { entry });
+      }
+      audit(db, user, "competition.withdraw", c.id, { entry });
+      progress(db, getCompetition(db, c.id));
       return { ok: true };
     });
   });
@@ -1435,6 +1596,48 @@ export async function createApp(options = {}) {
     });
   });
 
+  app.post("/api/competitions/:id/schedule-rounds", async (req) => {
+    const user = signed(req);
+    return tx(() => {
+      const c = getCompetition(db, req.params.id);
+      assert(organizer(db, user, c), "Organizer access required.", 403);
+      const start = Number(req.body.start),
+        interval = Number(req.body.intervalDays);
+      assert(
+        Number.isSafeInteger(start) && start > Date.now() - 86400000,
+        "Choose a valid start date.",
+      );
+      assert(
+        Number.isInteger(interval) && interval >= 1 && interval <= 30,
+        "Choose 1–30 days between rounds.",
+      );
+      const rounds = db
+        .prepare(
+          "SELECT DISTINCT stage,round FROM fixtures WHERE competition_id=? AND status IN('ready','waiting') ORDER BY round,stage",
+        )
+        .all(c.id);
+      const update = db.prepare(
+        "UPDATE fixtures SET scheduled=? WHERE id=? AND scheduled IS NULL",
+      );
+      let assigned = 0;
+      for (const [index, round] of rounds.entries()) {
+        const at = start + index * interval * 86400000;
+        const fixtures = db
+          .prepare(
+            "SELECT id FROM fixtures WHERE competition_id=? AND stage=? AND round=? AND status IN('ready','waiting') AND scheduled IS NULL",
+          )
+          .all(c.id, round.stage, round.round);
+        for (const fixture of fixtures)
+          assigned += update.run(at, fixture.id).changes;
+      }
+      audit(db, user, "competition.schedule", c.id, {
+        assigned,
+        start,
+        intervalDays: interval,
+      });
+      return { assigned };
+    });
+  });
   app.patch("/api/fixtures/:id/schedule", async (req) => {
     const u = signed(req),
       f = db
@@ -1772,7 +1975,16 @@ export async function createApp(options = {}) {
   });
   app.delete("/api/admin/players/:id/photo", async (req) => {
     const { id, user } = administeredPlayer(req);
+    const previous = db
+      .prepare("SELECT photo FROM players WHERE id=?")
+      .get(id)?.photo;
     db.prepare("UPDATE players SET photo=NULL WHERE id=?").run(id);
+    if (previous?.startsWith("/uploads/") && !previous.includes(".."))
+      await import("node:fs/promises").then((fs) =>
+        fs
+          .unlink(join(uploads, previous.slice("/uploads/".length)))
+          .catch(() => {}),
+      );
     audit(db, user, "player.photo", id, { removed: true });
     return { photo: null };
   });
