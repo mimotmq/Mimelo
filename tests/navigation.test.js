@@ -77,6 +77,12 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
   await sidebar.locator('[data-view="matches"]').click();
   assert.equal(await shell.getAttribute("data-nav-mode"), "drawer");
   assert.equal(await sidebar.getAttribute("aria-hidden"), "true");
+  // Measure the layout after the asynchronous matches view has finished rendering.
+  await page
+    .locator("#matches-body")
+    .getByText("No matching results.")
+    .waitFor();
+  await page.evaluate(() => document.fonts.ready);
   const closedMain = await page.locator("main").boundingBox();
   await page.locator("main").click({ position: { x: 500, y: 100 } });
   await page.mouse.move(2, 200);
