@@ -59,6 +59,9 @@ APP.run(async () => {
   const userEntry = () =>
     c.entries.find((e) => e.players.some((p) => p.id === APP.me?.player_id));
   function declareForfeit(f) {
+    const racketLeague =
+      ["league", "group", "tiebreak"].includes(f.stage) &&
+      ["tt", "tennis", "pickleball"].includes(APP.game.kind);
     UI.formDialog(
       "Declare forfeit",
       select(
@@ -70,11 +73,44 @@ APP.run(async () => {
           [f.b, name(f.b)],
         ],
         "",
-      ) + "<p>No Elo is awarded for a forfeit.</p>",
+      ) +
+        (racketLeague
+          ? field(
+              "Reported game scores (optional)",
+              "games",
+              "",
+              "text",
+              'placeholder="21–11, 21–11"',
+            ) +
+            field(
+              "Fixture date and time (optional)",
+              "played",
+              "",
+              "datetime-local",
+            ) +
+            field("Note (optional)", "note", "")
+          : "") +
+        "<p>No Elo is awarded for a forfeit.</p>",
       async (data) => {
         if (!data.get("winner")) throw new Error("Choose the advancing side.");
+        const scores = String(data.get("games") || "").trim();
+        const games = scores
+          ? scores.split(",").map((part) => {
+              const pieces = part.trim().match(/^(\d+)\s*[-–]\s*(\d+)$/);
+              if (!pieces)
+                throw new Error(
+                  "Separate game scores with commas, for example 21–11, 21–11.",
+                );
+              return { a: Number(pieces[1]), b: Number(pieces[2]) };
+            })
+          : undefined;
         await APP.api("fixtures/" + f.id + "/forfeit", {
           winner: Number(data.get("winner")),
+          ...(games ? { games } : {}),
+          ...(data.get("note") ? { note: data.get("note") } : {}),
+          ...(data.get("played")
+            ? { played_at: new Date(data.get("played")).getTime() }
+            : {}),
         });
         await load();
       },
@@ -275,7 +311,9 @@ APP.run(async () => {
           conf.name,
           c.standings[""].filter((r) => all.includes(r.entry)),
         ]);
-        for (const div of conf.divisions)
+        for (const div of conf.divisions.filter(
+          (d) => conf.divisions.length > 1 || d.name !== conf.name,
+        ))
           views.push([
             conf.name + " · " + div.name,
             c.standings[""].filter((r) => div.entries.includes(r.entry)),
@@ -389,9 +427,11 @@ APP.run(async () => {
             day: "numeric",
           })
         : isKnockout(f)
-          ? f.pool === "G"
-            ? "Grand finals"
-            : `${f.pool === "L" ? "Losers" : "Winners"} round ${f.round}`
+          ? f.pool === "P"
+            ? "Third-place match"
+            : f.pool === "G"
+              ? "Grand finals"
+              : `${f.pool === "L" ? "Losers" : "Winners"} round ${f.round}`
           : (f.pool ? `Group ${f.pool} · ` : "") + f.label;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(f);
@@ -664,9 +704,9 @@ APP.run(async () => {
       $("#rules-points-copy").textContent +=
         ` Top ${c.settings.advance} per group advance, plus the best ${c.settings.extraCount} from finishing position ${c.settings.extraPlace}. Cross-group comparison: points → ${(c.settings.extraTieBreaks || []).map((key) => tiebreakLabels(APP.game.kind)[key]).join(" → ")}. Raw points are used even for unequal groups. Unresolved cross-group ties require an admin decision. First knockout round avoids same-group opponents.`;
     if (c.settings.conferenceLayout) {
-      const { games, wildcards } = c.settings.conferenceLayout;
+      const { games, wildcards, playoffSeeds } = c.settings.conferenceLayout;
       $("#rules-points-copy").append(
-        ` Each entrant plays ${games.division} division, ${games.conference} other conference and ${games.cross} interconference games. Each division winner and ${wildcards} wild cards per conference advance. Conference champions meet in the final.`,
+        ` Each entrant plays ${games.division} division, ${games.conference} other conference and ${games.cross} interconference games. ${playoffSeeds ? "The organizer set the playoff seeds." : `Each division winner and ${wildcards} wild cards per conference advance. Conference champions meet in the final.`}`,
       );
     }
     text(
@@ -986,6 +1026,7 @@ APP.run(async () => {
             ],
             c.settings.elimination,
           ) +
+          `<label class="check"><input type="checkbox" name="thirdPlace" ${c.settings.thirdPlace ? "checked" : ""}>Third-place match</label>` +
           select(
             "Round robin legs",
             "legs",
@@ -1093,6 +1134,7 @@ APP.run(async () => {
                 ...c.settings,
                 legs: Number(f.get("legs")),
                 elimination: f.get("elimination"),
+                thirdPlace: f.has("thirdPlace"),
                 playoffs: f.has("playoffs"),
                 target: Number(f.get("target") || 11),
                 matchTiebreak: f.has("matchTiebreak"),
@@ -1157,6 +1199,11 @@ APP.run(async () => {
           kind !== "league" || !playoffs.checked;
         $("#field-elimination", ruleDialog).closest(".field").hidden =
           kind === "league" && !playoffs.checked;
+        const thirdPlace = $('[name="thirdPlace"]', ruleDialog);
+        thirdPlace.disabled =
+          (kind === "league" && !playoffs.checked) ||
+          $("#field-elimination", ruleDialog).value === "double";
+        thirdPlace.closest("label").hidden = thirdPlace.disabled;
         $("#field-legs", ruleDialog).closest(".field").hidden =
           kind === "knockout";
         $("[data-tiebreak-editor]", ruleDialog).hidden = kind === "knockout";

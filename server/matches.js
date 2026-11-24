@@ -23,6 +23,20 @@ export function getMatch(db, id) {
   assert(m, "Match not found.", 404);
   return m;
 }
+function completedKnockoutFixture(db, match) {
+  if (match.status !== "accepted" || match.forfeit || !match.fixture_id)
+    return null;
+  const fixture = db
+    .prepare("SELECT * FROM fixtures WHERE id=?")
+    .get(match.fixture_id);
+  return fixture?.status === "completed" &&
+    ["knockout", "semifinal", "final"].includes(fixture.stage) &&
+    fixture.winner &&
+    fixture.winner ===
+      (match.winner === 0 ? fixture.a : match.winner === 1 ? fixture.b : null)
+    ? fixture
+    : null;
+}
 function sideOf(db, m, user) {
   return user
     ? db
@@ -102,6 +116,7 @@ export function serializeMatch(db, m, user) {
         !!m.elo_enabled &&
         !m.elo_checked,
       void: isAdmin && !isLocked && m.status !== "voided",
+      forfeit: !!isAdmin && !!completedKnockoutFixture(db, m),
     },
   };
 }
@@ -683,7 +698,42 @@ export function edit(db, id, body, user, voided = false) {
   });
   return serializeMatch(db, getMatch(db, id), user);
 }
-export function forfeit(db, fixtureId, winnerEntry, user) {
+export function correctKnockoutForfeit(db, matchId, revision, user) {
+  const match = getMatch(db, matchId);
+  assert(
+    admin(db, user, match.game),
+    "Only game/site admins may correct an accepted knockout result.",
+    403,
+  );
+  assert(
+    match.revision === Number(revision),
+    "This result changed. Reload before editing.",
+    409,
+  );
+  const fixture = completedKnockoutFixture(db, match);
+  assert(fixture, "Choose an accepted knockout result with a winner.", 409);
+  // The same winner and loser keep their existing paths through the draw.
+  db.prepare("UPDATE fixtures SET forfeited=1 WHERE id=?").run(fixture.id);
+  db.prepare(
+    "UPDATE matches SET fixture_id=NULL,status='voided',revision=revision+1,elo_enabled=0,elo_checked=NULL,elo_checker=NULL WHERE id=?",
+  ).run(match.id);
+  db.prepare("DELETE FROM confirmations WHERE match_id=?").run(match.id);
+  remember(db, getMatch(db, match.id), user);
+  if (match.elo_checked) rebuild(db, match.game, match.format);
+  audit(db, user, "fixture.forfeit.correct", fixture.id, {
+    matchId: match.id,
+    winnerEntry: fixture.winner,
+  });
+  return { fixture_id: fixture.id, winner: fixture.winner, forfeit: true };
+}
+
+export function forfeit(
+  db,
+  fixtureId,
+  winnerEntry,
+  user,
+  { games, note, played_at } = {},
+) {
   const f = db
     .prepare("SELECT * FROM fixtures WHERE id=?")
     .get(Number(fixtureId));
@@ -704,6 +754,10 @@ export function forfeit(db, fixtureId, winnerEntry, user) {
   );
   const side = Number(winnerEntry) === f.a ? 0 : 1;
   if (["knockout", "semifinal", "final"].includes(f.stage)) {
+    assert(
+      games === undefined && note === undefined && played_at === undefined,
+      "Knockout forfeits are recorded without scores.",
+    );
     const [winner, loser] = side === 0 ? [f.a, f.b] : [f.b, f.a];
     lockBracketPredictions(db, f);
     db.prepare(
@@ -713,28 +767,55 @@ export function forfeit(db, fixtureId, winnerEntry, user) {
     audit(db, user, "fixture.forfeit", f.id, { winnerEntry: winner });
     return { fixture_id: f.id, winner, forfeit: true, elo_enabled: 0 };
   }
+  const kind = db
+    .prepare("SELECT kind FROM games WHERE slug=?")
+    .get(c.game).kind;
+  let recorded = { a: 0, b: 0, score: {} };
+  if (games !== undefined) {
+    assert(
+      ["tt", "tennis", "pickleball"].includes(kind),
+      "Reported forfeit scores are available for racquet sports.",
+    );
+    recorded = validateScore(kind, c.format, {
+      games,
+      bestOf: fixtureBestOf(c.settings, f),
+      target: c.settings.target,
+      matchTiebreak: c.settings.matchTiebreak,
+    });
+    assert(
+      recorded.winner === side,
+      "The reported scores must agree with the selected winner.",
+    );
+  }
+  const playedAt = playedTime(played_at);
+  const scored = {
+    ...recorded.score,
+    forfeit: true,
+    note: String(note || "")
+      .trim()
+      .slice(0, 1000),
+  };
   const id = Number(
     db
       .prepare(
-        "INSERT INTO matches(game,competition_id,fixture_id,format,score,a_score,b_score,outcome,winner,status,submitted,submitter,accepted,acceptor,elo_enabled,rules,forfeit) VALUES(?,?,?,?,?,0,0,?,?,'accepted',?,?,?,?,0,?,1)",
+        "INSERT INTO matches(game,competition_id,fixture_id,format,score,a_score,b_score,outcome,winner,status,submitted,submitter,accepted,acceptor,elo_enabled,rules,forfeit,played_at) VALUES(?,?,?,?,?,?,?,?,?,'accepted',?,?,?,?,0,?,1,?)",
       )
       .run(
         c.game,
         c.id,
         f.id,
         c.format,
-        JSON.stringify({ forfeit: true }),
+        JSON.stringify(scored),
+        recorded.a,
+        recorded.b,
         side === 0 ? 1 : 0,
         side,
         Date.now(),
         user.id,
         Date.now(),
         user.id,
-        JSON.stringify({
-          weight: 0,
-          kind: db.prepare("SELECT kind FROM games WHERE slug=?").get(c.game)
-            .kind,
-        }),
+        JSON.stringify({ weight: 0, kind }),
+        playedAt,
       ).lastInsertRowid,
   );
   for (let s = 0; s < 2; s++)

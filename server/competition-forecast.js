@@ -363,7 +363,7 @@ function simulate(c, ratings, football, drawRate, random) {
       const sample = terminal(f)
         ? f
         : sampleFixture(f, ratings, football, drawRate, random, c);
-      if (!terminal(f))
+      if (!terminal(f) && f.pool !== "P")
         for (const entry of [sample.a, sample.b].filter(Boolean))
           if (!first.has(entry)) {
             first.add(entry);
@@ -371,7 +371,8 @@ function simulate(c, ratings, football, drawRate, random) {
           }
       resolved.set(f.id, sample);
       changed = true;
-      if (sample.status !== "cancelled") champion = sample.winner;
+      if (sample.status !== "cancelled" && sample.pool !== "P")
+        champion = sample.winner;
     }
     if (!changed) break;
   }

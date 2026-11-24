@@ -236,6 +236,7 @@ export function settings(body, kind, format) {
   const s = {
     legs: Number(body.legs) || 1,
     elimination: body.elimination || "single",
+    thirdPlace: body.thirdPlace === true && body.elimination !== "double",
     groupCount: Number(body.groupCount) || 2,
     advance: Number(body.advance) || 2,
     extraCount: Number(body.extraCount ?? 0),
@@ -587,6 +588,18 @@ function bracket(db, c, ids) {
       win(grand),
       lose(grand),
       1,
+    );
+  } else if (c.settings.thirdPlace && ids.filter(Boolean).length >= 4) {
+    const [left, right] = winners.at(-2);
+    fixture(
+      db,
+      c,
+      "final",
+      "P",
+      round,
+      "Third-place match",
+      lose(left),
+      lose(right),
     );
   }
 }
@@ -1009,6 +1022,7 @@ export function progress(db, c) {
         .filter(
           (f) =>
             f.status !== "cancelled" &&
+            f.pool !== "P" &&
             !["league", "group", "tiebreak"].includes(f.stage),
         )
         .at(-1);

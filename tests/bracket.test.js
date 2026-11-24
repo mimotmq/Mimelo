@@ -25,6 +25,7 @@ async function setup(
     game = "eafc26",
     bestOf = 1,
     target,
+    thirdPlace = false,
   } = {},
 ) {
   const uploads = mkdtempSync(join(tmpdir(), "mimelo-bracket-"));
@@ -122,7 +123,7 @@ async function setup(
     kind: "knockout",
     format,
     entries,
-    settings: { elimination, seeding: "preseeded", bestOf, target },
+    settings: { elimination, seeding: "preseeded", bestOf, target, thirdPlace },
   });
   await call("POST", `/api/competitions/${comp.id}/draw`, {});
   const state = () => call("GET", `/api/competitions/${comp.id}`);
@@ -321,6 +322,38 @@ test("double elimination and doubles retain each lane, player pair, and conditio
       assert(fs.some((f) => f.id === edge.source));
   }
   assert(c.fixtures.some((f) => f.conditional));
+});
+
+test("an admin can correct a knockout score to a forfeit while keeping downstream results", async (t) => {
+  const h = await setup(t, { count: 4, game: "tt", thirdPlace: true });
+  const round = (await h.state()).fixtures.filter((f) => f.status === "ready");
+  const match = await h.record(round[0], { games: [{ a: 2, b: 11 }] });
+  await h.call("POST", `/api/matches/${match.id}/elo`, { revision: 1 });
+  await h.record(round[1], { games: [{ a: 11, b: 2 }] });
+  const fixtures = (await h.state()).fixtures;
+  const final = fixtures.find((f) => f.stage === "final" && f.pool === "W");
+  const finalMatch = await h.record(final, { games: [{ a: 11, b: 2 }] });
+  const third = fixtures.find((f) => f.pool === "P");
+  assert.deepEqual([third.a, third.b], [round[0].a, round[1].b]);
+  await h.record(third, { games: [{ a: 11, b: 2 }] });
+  assert.equal(locked(h.app.db, round[0].id), true);
+  await h.call("POST", `/api/matches/${match.id}/forfeit`, { revision: 1 });
+  const state = await h.state();
+  const fixed = state.fixtures.find((f) => f.id === round[0].id);
+  assert.equal(fixed.match_id, null);
+  assert.equal(fixed.winner, round[0].b);
+  assert.equal(fixed.forfeit, 1);
+  assert.equal(
+    h.app.db
+      .prepare("SELECT COUNT(*) n FROM ledger WHERE match_id=?")
+      .get(match.id).n,
+    0,
+  );
+  assert.equal(
+    state.fixtures.find((f) => f.id === final.id).match_id,
+    finalMatch.id,
+  );
+  assert.equal(state.champion, final.a);
 });
 
 test("swiping a large mobile draw brings the chosen round's matches into view", async (t) => {

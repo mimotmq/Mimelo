@@ -11,6 +11,7 @@ export function sourceRef(value) {
   }
 }
 export function roundTitle(index, total, pool = "W", round = index + 1) {
+  if (pool === "P") return "Third-place match";
   if (pool === "G") return index ? "Final reset" : "Grand final";
   if (pool === "L")
     return index === total - 1 ? "Losers final" : `Losers round ${round}`;
@@ -28,7 +29,9 @@ export function fixtureScoreText(f) {
   return f.no_contest
     ? "No contest"
     : f.forfeit
-      ? "Forfeit"
+      ? s?.games?.length
+        ? `${f.a_score}–${f.b_score} · Forfeit`
+        : "Forfeit"
       : f.match_id
         ? `${s?.pens ? `${f.a_score}(${s.pens[0]})–(${s.pens[1]})${f.b_score}` : `${f.a_score}–${f.b_score}`}${s?.aet ? " a.e.t." : ""}`
         : f.status === "bye"
@@ -281,7 +284,10 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           ["L", "Losers bracket"],
           ["G", "Grand finals"],
         ]
-      : [["W", ""]];
+      : [
+          ["W", ""],
+          ["P", ""],
+        ];
   const labels = new Map();
   for (const [pool] of groups) {
     const fs = fixtures.filter((f) => (f.pool || "W") === pool);

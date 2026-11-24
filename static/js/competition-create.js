@@ -158,6 +158,10 @@ APP.run(async () => {
   $("#comp-league-options > .field-label").remove();
   $("#comp-league-options label.check span").textContent = "League playoffs";
   $("#comp-playoffs").setAttribute("aria-controls", "comp-playoff-options");
+  $("#comp-knockout-options").insertAdjacentHTML(
+    "beforeend",
+    '<label class="check"><input type="checkbox" id="comp-third-place">Third-place match</label>',
+  );
   moveField("#field-competition-best", scoring);
   $("#field-competition-best").closest(".field").hidden =
     APP.game.kind === "fc";
@@ -286,7 +290,16 @@ APP.run(async () => {
       ),
       legs = $("#comp-legs").checked ? 2 : 1,
       de = $("#comp-elimination").value === "double",
-      ko = (k) => (k < 2 ? 0 : de ? 2 * k - 1 : k - 1);
+      thirdPlace = $("#comp-third-place"),
+      ko = (k) =>
+        k < 2
+          ? 0
+          : de
+            ? 2 * k - 1
+            : k - 1 + Number(k >= 4 && thirdPlace.checked);
+    thirdPlace.disabled =
+      de || (kind() === "league" && !$("#comp-playoffs").checked);
+    thirdPlace.closest("label").hidden = thirdPlace.disabled;
     bestOfStages.update({
       gameKind: APP.game.kind,
       kind: kind(),
@@ -426,7 +439,7 @@ APP.run(async () => {
   };
   $("#comp-back").onclick = () => setStep(1);
   $$(
-    "input[name=comp-format],#comp-playoffs,#comp-seeding,#comp-legs,#comp-elimination,#comp-group-count,#comp-advance,#comp-playoff-count",
+    "input[name=comp-format],#comp-playoffs,#comp-seeding,#comp-legs,#comp-elimination,#comp-third-place,#comp-group-count,#comp-advance,#comp-playoff-count",
     d,
   ).forEach((e) => (e.onchange = preview));
   $("#field-competition-format").onchange = () => {
@@ -490,6 +503,8 @@ APP.run(async () => {
         settings: {
           legs: kind() !== "knockout" && $("#comp-legs").checked ? 2 : 1,
           elimination: $("#comp-elimination").value,
+          thirdPlace:
+            !$("#comp-third-place").disabled && $("#comp-third-place").checked,
           groupCount: Number($("#comp-group-count").value),
           advance: Number($("#comp-advance").value),
           extraCount:

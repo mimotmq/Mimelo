@@ -68,6 +68,7 @@ import {
   setEloEnabled,
   edit,
   forfeit,
+  correctKnockoutForfeit,
   getMatch,
   serializeMatch,
   rebuild,
@@ -1666,7 +1667,7 @@ export async function createApp(options = {}) {
     return { ok: true };
   });
   app.post("/api/fixtures/:id/forfeit", async (req) =>
-    tx(() => forfeit(db, req.params.id, req.body.winner, signed(req))),
+    tx(() => forfeit(db, req.params.id, req.body.winner, signed(req), req.body)),
   );
   app.post("/api/fixtures/:id/no-contest", async (req) => {
     const user = signed(req);
@@ -1795,6 +1796,9 @@ export async function createApp(options = {}) {
   );
   app.post("/api/matches/:id/elo", async (req) =>
     tx(() => checkoff(db, req.params.id, signed(req), req.body.revision)),
+  );
+  app.post("/api/matches/:id/forfeit", async (req) =>
+    tx(() => correctKnockoutForfeit(db, req.params.id, req.body.revision, signed(req))),
   );
   app.post("/api/games/:game/elo-checkoff", async (req) => {
     const user = gameAdmin(req, req.params.game);

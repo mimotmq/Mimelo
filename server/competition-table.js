@@ -142,8 +142,22 @@ function conferencePlan(c, rows, decisions) {
   };
 }
 export function qualificationPlan(c, tables, decisions = {}) {
-  if (c.kind === "league" && c.settings.conferenceLayout && tables[""]?.length)
+  if (
+    c.kind === "league" &&
+    c.settings.conferenceLayout &&
+    tables[""]?.length
+  ) {
+    const seeds = c.settings.conferenceLayout.playoffSeeds;
+    if (seeds)
+      return {
+        direct: seeds,
+        extra: [],
+        extraTable: [],
+        pending: [],
+        selected: seeds,
+      };
     return conferencePlan(c, tables[""], decisions);
+  }
   const direct = [],
     pending = [],
     candidates = [];

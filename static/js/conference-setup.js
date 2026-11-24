@@ -18,7 +18,8 @@ export function configureConferences(c, reload) {
       const division =
         confs[conf].divisions.find((d) => d.entries.includes(entry.id))?.name ??
         divisionNames[Math.floor(index / 2) % guesses];
-      return `<tr data-entry="${entry.id}"><th scope="row">${esc(name(entry))}</th><td><select class="select" aria-label="${esc(name(entry))} conference">${confs.map((v, i) => `<option value="${i}" ${conf === i ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select></td><td><input class="input" list="division-names" maxlength="50" aria-label="${esc(name(entry))} division" value="${esc(division)}" required></td></tr>`;
+      const seed = (layout?.playoffSeeds?.indexOf(entry.id) ?? -1) + 1;
+      return `<tr data-entry="${entry.id}"><th scope="row">${esc(name(entry))}</th><td><select class="select" aria-label="${esc(name(entry))} conference">${confs.map((v, i) => `<option value="${i}" ${conf === i ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select></td><td><input class="input" list="division-names" maxlength="50" aria-label="${esc(name(entry))} division" value="${esc(division)}" required></td><td><input class="input" type="number" min="1" max="${entries.length}" data-playoff-seed aria-label="${esc(name(entry))} fixed playoff seed" value="${seed || ""}"></td></tr>`;
     })
     .join("");
   const games = layout?.games ?? {
@@ -61,7 +62,7 @@ export function configureConferences(c, reload) {
         .join("") +
       '</div><h3>Division assignments</h3><datalist id="division-names">' +
       divisionNames.map((s) => `<option value="${s}"></option>`).join("") +
-      '</datalist><div class="table-wrap"><table><thead><tr><th>Entrant</th><th>Conference</th><th>Division</th></tr></thead><tbody data-assign>' +
+      '</datalist><p class="hint">Leave playoff seeds blank for automatic qualification.</p><div class="table-wrap"><table><thead><tr><th>Entrant</th><th>Conference</th><th>Division</th><th>Fixed playoff seed</th></tr></thead><tbody data-assign>' +
       assignments +
       "</tbody></table></div>" +
       '<details><summary>Manual crossover fixtures</summary><p>Reserve an opponent and round. The scheduler fills the remaining quota.</p><div data-crossovers></div><button class="btn btn-outline" type="button" data-add-game>Add fixture</button></details>' +
@@ -73,6 +74,7 @@ export function configureConferences(c, reload) {
         name: data.get("conference" + i).trim(),
         divisions: [],
       }));
+      const seeded = [];
       for (const row of dialog.querySelectorAll("[data-assign] tr")) {
         const group = conferences[Number(row.querySelector("select").value)];
         const name = row.querySelector("input").value.trim();
@@ -82,6 +84,8 @@ export function configureConferences(c, reload) {
           group.divisions.push(div);
         }
         div.entries.push(Number(row.dataset.entry));
+        const seed = Number(row.querySelector("[data-playoff-seed]").value);
+        if (seed) seeded.push([seed, Number(row.dataset.entry)]);
       }
       const crossovers = [...dialog.querySelectorAll("[data-manual]")].map(
         (el) => ({
@@ -96,6 +100,9 @@ export function configureConferences(c, reload) {
           Number(data.get(k)),
         ]),
       );
+      seeded.sort((a, b) => a[0] - b[0]);
+      if (seeded.some(([seed], i) => seed !== i + 1))
+        throw new Error("Use consecutive playoff seeds starting at 1.");
       await APP.api(
         "competitions/" + c.id + "/conferences",
         {
@@ -106,6 +113,9 @@ export function configureConferences(c, reload) {
                 crossovers,
                 games,
                 wildcards: Number(data.get("wildcards")),
+                ...(seeded.length
+                  ? { playoffSeeds: seeded.map(([, entry]) => entry) }
+                  : {}),
               },
         },
         "PATCH",

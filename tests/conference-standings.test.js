@@ -79,6 +79,16 @@ test("division winners qualify ahead of conference wild cards and the halves mee
       (p) => p.pool === "@division-0-0",
     ),
   );
+  const playoffSeeds = [1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23];
+  const fixed = { ...layout, playoffSeeds };
+  validateConferences(fixed, ids);
+  const fixedPlan = qualificationPlan(
+    { ...c, settings: { conferenceLayout: fixed } },
+    { "": tied },
+  );
+  assert.deepEqual(fixedPlan.selected, playoffSeeds);
+  assert.deepEqual(fixedPlan.pending, []);
+  assert.equal(fixedPlan.conferenceSeeds, undefined);
 });
 test("Playpass compares displayed rally points, computes standings-only half credit and rewards fewer scores conceded", () => {
   const row = (entry, w, l, nc, pf, pa) => ({

@@ -24,7 +24,7 @@ export function renderPredictions(container, competition, data, { APP, UI }) {
     G: "Grand finals",
   };
   const roundNames = new Map();
-  for (const pool of ["W", "L", "G"]) {
+  for (const pool of ["W", "L", "G", "P"]) {
     const fixtures = competition.fixtures.filter(
       (f) => f.pool === pool && isBracketFixture(f),
     );

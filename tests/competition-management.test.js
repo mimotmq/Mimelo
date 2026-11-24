@@ -470,7 +470,15 @@ test("withdrawal awards become no contests if both seats withdraw, while ordinar
         .filter((f) => f.status === "ready" && [f.a, f.b].includes(entry))
         .map((f) => [String(f.id), overrides[f.id] || "hold"]),
     );
-  await call("POST", `fixtures/${cd.id}/forfeit`, { winner: c });
+  const reported = cd.a === c ? { a: 21, b: 11 } : { a: 11, b: 21 };
+  const result = await call("POST", `fixtures/${cd.id}/forfeit`, {
+    winner: c,
+    games: [reported, reported],
+    note: "Reported forfeit",
+    played_at: 1733851800000,
+  });
+  assert.equal(result.forfeit, 1);
+  assert.equal(result.elo_enabled, 0);
   await call("POST", `competitions/${competition.id}/entries/${c}/withdraw`, {
     fixtures: pending(c),
   });
@@ -479,6 +487,9 @@ test("withdrawal awards become no contests if both seats withdraw, while ordinar
   });
   let state = await call("GET", `competitions/${competition.id}`);
   assert.equal(state.fixtures.find((f) => f.id === cd.id).no_contest, 0);
+  const forfeitingWinner = state.standings[""].find((row) => row.entry === c);
+  assert.equal(forfeitingWinner.points_for, 42);
+  assert.equal(forfeitingWinner.points_against, 22);
   await call("POST", `competitions/${competition.id}/entries/${a}/withdraw`, {
     fixtures: pending(a, { [ab.id]: "forfeit" }),
   });

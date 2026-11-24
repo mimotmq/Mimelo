@@ -56,6 +56,19 @@ export function validateConferences(layout, entryIds) {
     );
   }
   assert(used.size === entryIds.length, "Assign every entrant to a division.");
+  if (layout.playoffSeeds !== undefined) {
+    const count = layout.conferences.reduce(
+      (sum, conf) => sum + conf.divisions.length + wildcards,
+      0,
+    );
+    assert(
+      Array.isArray(layout.playoffSeeds) &&
+        layout.playoffSeeds.length === count &&
+        new Set(layout.playoffSeeds).size === count &&
+        layout.playoffSeeds.every((id) => used.has(id)),
+      "Assign one distinct entrant to each playoff seed.",
+    );
+  }
   assert(
     Array.isArray(layout.crossovers) && layout.crossovers.length <= 2048,
     "Invalid crossover schedule.",

@@ -661,7 +661,7 @@
         .map((p) => esc(p.name))
         .join(" + ");
     const s = m.score;
-    if (m.forfeit)
+    if (m.forfeit && !s.games)
       return `<div class="match-summary"><span>${side(0)}</span><b>Forfeit</b><span>${side(1)}</span></div>`;
     if (s.games) {
       const kind = m.rules?.kind || APP.game.kind,
@@ -684,10 +684,7 @@
       return `<div class="${kind === "smash" ? "smash-scoreboard" : "tennis-scoreboard"} ${kind === "tt" ? "tt-scoreboard" : ""}" style="--tennis-set-count:${cols};--tennis-score-columns:minmax(112px,1.8fr) repeat(${cols},minmax(24px,.4fr)) 30px" aria-label="${esc(kind)} scorecard"><div class="tennis-score-row tennis-score-head"><span>Player</span>${s.games.map((_, i) => '<span class="tennis-score-cell">' + (i + 1) + "</span>").join("")}<span class="tennis-score-total-head">${totalLabel}</span></div>${rows}</div>`;
     }
     const team = (n) => clubMark(m.teams?.[n]);
-    const detail = [
-      s.aet ? "a.e.t." : "",
-      s.pens ? "Penalties" : "",
-    ]
+    const detail = [s.aet ? "a.e.t." : "", s.pens ? "Penalties" : ""]
       .filter(Boolean)
       .join(" · ");
     const score = s.pens
@@ -766,6 +763,13 @@
               action === "void" &&
               !confirm(
                 "Void this result? Its eligible Elo changes will be recalculated.",
+              )
+            )
+              return;
+            if (
+              action === "forfeit" &&
+              !confirm(
+                "Replace this score with a forfeit? The recorded winner and later bracket results will stay. Any Elo from this result will be removed.",
               )
             )
               return;
