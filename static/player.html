@@ -1,14 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-app-loading>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Player profile, Elo history, and match record.">
-<title>Player profile — EA FC 27 — mimELo</title>
+<title>Player profile · mimELo</title>
+<style>
+  :root[data-app-loading] { background: #f1f1ef; }
+  :root[data-app-loading] body { opacity: 0; transition: none !important; }
+  @media (prefers-color-scheme: dark) {
+    :root[data-app-loading] { background: #0b1222; }
+  }
+</style>
 <link rel="icon" href="assets/brand/m-crest.png">
 <link rel="stylesheet" href="css/styles.css">
 </head>
-<body data-game="eafc">
+<body data-game>
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="site-header app-header">
@@ -22,7 +29,7 @@
     </a>
     <div class="header-actions">
       <a class="btn btn-ghost" href="players.html" id="back-players"><span data-icon="arrow" data-size="18" style="transform:rotate(180deg)"></span> All players</a>
-      <a class="header-user" href="account.html"><span class="avatar avatar-sm">AR</span><span>Alex Rivera</span></a>
+      <a class="header-user" href="account.html"><span>Account</span></a>
     </div>
   </div>
 </header>
@@ -32,7 +39,7 @@
     <a href="index.html">Games</a><span class="sep">/</span>
     <a href="game.html" id="crumb-game">EA FC 27</a><span class="sep">/</span>
     <a href="players.html" id="crumb-players">Players</a><span class="sep">/</span>
-    <span data-player-name>Alex Rivera</span>
+    <span data-player-name>Player profile</span>
   </div>
 
   <section class="player-hero" aria-labelledby="player-title">
@@ -41,7 +48,7 @@
         <div class="player-id">
           <span id="player-avatar"></span>
           <div>
-            <h1 id="player-title" data-player-name>Alex Rivera</h1>
+            <h1 id="player-title" data-player-name>Player profile</h1>
             <div class="handle" data-player-handle>@arivera</div>
             <div class="player-flairs" id="player-flairs"></div>
           </div>

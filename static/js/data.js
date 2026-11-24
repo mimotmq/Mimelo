@@ -11,7 +11,8 @@
     players: new Map(),
     teams: new Map(),
   });
-  document.documentElement.style.visibility = "hidden";
+  const root = document.documentElement;
+  if (!root.hasAttribute("data-app-loading")) root.style.visibility = "hidden";
   app.api = async (path, body, method) => {
     const headers = { "x-mimelo-request": "1" };
     if (app.csrf) headers["x-csrf-token"] = app.csrf;
@@ -79,7 +80,8 @@
       app.pending--;
       if (app.pending === 0) {
         document.body.dataset.ready = "true";
-        document.documentElement.style.visibility = "";
+        root.removeAttribute("data-app-loading");
+        root.style.visibility = "";
       }
     }
   };

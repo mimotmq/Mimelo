@@ -1,14 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-app-loading>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Competition tables, fixtures, and brackets.">
-<title>Winter League — EA FC 27 — mimELo</title>
+<title>Competition · mimELo</title>
+<style>
+  :root[data-app-loading] { background: #f1f1ef; }
+  :root[data-app-loading] body { opacity: 0; transition: none !important; }
+  @media (prefers-color-scheme: dark) {
+    :root[data-app-loading] { background: #0b1222; }
+  }
+</style>
 <link rel="icon" href="assets/brand/m-crest.png">
 <link rel="stylesheet" href="css/styles.css">
 </head>
-<body data-game="eafc">
+<body data-game>
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="site-header app-header">

@@ -25,9 +25,9 @@
     "assets/fonts/RodinPro-Light.otf": "a4e50ea09a68ebfa0c53b86dbd491fff19e2cbdcb7ba3656189a741f3c95a50d",
     "assets/fonts/RodinPro-Medium.otf": "45440dbe0626a532f6598dc0f2699af1053b2d6242e24d50a17f43c101e06bcc",
     "assets/fonts/RodinPro-UltraBold.otf": "af74ffa094e3cd867295da93916b9719688b7d161834a2559044209a395f8783",
-    "competition.html": "7f39a3150561aaeaba14b58cfbcbeca4a9fb5b5098c9f5fde7de17d5473d14d0",
+    "competition.html": "92f2377e6fd28ffdcea2ee9933c8b7363893d2d5852aaff58c0ee0a04509a317",
     "css/styles.css": "3c521a17187e47390df53d1993b7d44998feb13f7666a3fd77e775f10d44333c",
-    "game.html": "94c9f5aebb733b840f480c10d8fd2b4247251f4e679c24e60a8054f72394521b",
+    "game.html": "28d8757cba76b4908596ab59262fed6a956cc560dcfbf6bdc0c8628a84f47644",
     "index.html": "804101387cad80c0d562bc235dc65eb819b2a26948616c0da35873c5178840f1",
     "js/account.js": "3026a880429c4354a8f3e73b84d8b9f51447e333526f07bfa0705daf9a145bbd",
     "js/admin.js": "bd3b00e638a7e4e77122035a29b8d34fe8a6794ba9711c0dcccd95793e6f68bd",
@@ -45,7 +45,7 @@
     "js/team-picker.js": "8df8d3016ce6b16ac04c888395b391fb1b6963c2050057c6d919c0ea95102c7c",
     "js/ui.js": "4bc09f479c5a893c170f696185bd29d580cc165a8cf327e94a83b9ebb95e563a",
     "login.html": "d422e014b1ca227127da97e42f3f99830e867d533e663eea508a3afd0fd8027f",
-    "player.html": "e3addd8096196a4827129362f71f2f48525df4bb566033562b0759f6f6e56c8e",
+    "player.html": "fb794fcda57a26a9316f957969e64dfbdceb1e22e949262f059eb8f7339bf64d",
     "players.html": "2c8d2819a90278b7fb6221dbd087a4bae0981418e5072103eccb02866edd8f3f"
   }
 }
