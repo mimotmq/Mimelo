@@ -23,6 +23,8 @@ async function setup(
     elimination = "single",
     format = "singles",
     game = "eafc26",
+    bestOf = 1,
+    target,
   } = {},
 ) {
   const uploads = mkdtempSync(join(tmpdir(), "mimelo-bracket-"));
@@ -120,7 +122,7 @@ async function setup(
     kind: "knockout",
     format,
     entries,
-    settings: { elimination, seeding: "preseeded", bestOf: 1 },
+    settings: { elimination, seeding: "preseeded", bestOf, target },
   });
   await call("POST", `/api/competitions/${comp.id}/draw`, {});
   const state = () => call("GET", `/api/competitions/${comp.id}`);
@@ -158,7 +160,7 @@ test("competition fixtures include current photos, club crests, and exact extra-
   assert.deepEqual(result.score.pens, [5, 4]);
   assert.equal(result.teams[0].image, "/uploads/MUN.webp");
   assert.equal(result.teams[1].code, "RMA");
-  assert.equal(fixtureScoreText(result), "2–2 (5–4 pens) a.e.t.");
+  assert.equal(fixtureScoreText(result), "2(5)–(4)2 a.e.t.");
   assert(
     after.fixtures
       .filter((f) => !f.match_id)
@@ -231,6 +233,7 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
   assert.equal(await page.locator(".bt-match.bt-bye").count(), 3);
   assert.equal(await page.locator(".bt-unresolved.bt-winner").count(), 0);
   assert.equal(await page.locator(".bt-penalty").count(), 2);
+  assert.equal(await page.locator(".bt-shootout").innerText(), "2(5)–(4)2");
   assert.match(await page.locator("#bracket-wrap").innerText(), /a\.e\.t\./);
   await page.locator("#cp-bracket").scrollIntoViewIfNeeded();
   await page.waitForFunction(() =>
@@ -259,7 +262,11 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
   await page.locator("dialog .match-score-detail").waitFor();
   assert.match(
     await page.locator("dialog .match-score-detail").innerText(),
-    /5 - 4 pens/,
+    /Penalties/,
+  );
+  assert.equal(
+    await page.locator("dialog .fc-shootout").innerText(),
+    "2(5)–(4)2",
   );
   await page.locator("dialog[open] .dialog-close").click();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -367,7 +374,13 @@ test("swiping a large mobile draw brings the chosen round's matches into view", 
 });
 
 test("double bracket views, round navigation, byes, and scoreless forfeits", async (t) => {
-  const h = await setup(t, { count: 6, elimination: "double", game: "tt" });
+  const h = await setup(t, {
+    count: 6,
+    elimination: "double",
+    game: "tt",
+    bestOf: 3,
+    target: 21,
+  });
   const draw = await h.state();
   const bye = draw.fixtures.find((f) => f.pool === "W" && f.status === "bye");
   const ready = draw.fixtures.find(
@@ -395,9 +408,15 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
   assert.match(await byeCard.innerText(), /Bye[\s\S]*advances/);
   assert.equal(await byeCard.locator("a,button").count(), 0);
   await page.getByRole("tab", { name: "Bracket" }).click();
+  assert.equal(
+    await page.getByRole("tab", { name: "Table", exact: true }).count(),
+    0,
+  );
   const winners = page.locator('[data-bracket-pool="W"]');
   const losers = page.locator('[data-bracket-pool="L"]');
-  const finals = page.locator('[data-bracket-pool="G"]');
+  const grand = draw.fixtures.find((f) => f.label === "Grand final");
+  const reset = draw.fixtures.find((f) => f.conditional);
+  const finals = page.locator(`[data-bracket-fixture="${grand.id}"]`);
   await page.getByRole("button", { name: "Losers only" }).click();
   assert.equal(await losers.isVisible(), true);
   assert.equal(await winners.isVisible(), false);
@@ -411,11 +430,31 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
   });
   await finalRound.click();
   assert.equal(await finalRound.getAttribute("aria-current"), "step");
-  assert.ok(
-    (await winners.locator(".bt-viewport").evaluate((v) => v.scrollLeft)) > 0,
+  const hasInnerScroll = (v) =>
+    v.scrollWidth > v.clientWidth || v.scrollHeight > v.clientHeight;
+  assert.equal(
+    await winners.locator(".bt-viewport").evaluate(hasInnerScroll),
+    false,
   );
   await page.getByRole("button", { name: "Full bracket" }).click();
   assert.equal(await finals.isVisible(), true);
+  const feeders = [
+    sourceRef(grand.source_a).fixture,
+    sourceRef(grand.source_b).fixture,
+  ];
+  for (const id of feeders)
+    assert.equal(
+      await page
+        .locator(
+          `[data-layout="connected"] svg path[data-source="${id}"][data-target="${grand.id}"]`,
+        )
+        .count(),
+      1,
+    );
+  assert.equal(
+    await page.locator(`[data-bracket-fixture="${reset.id}"]`).count(),
+    1,
+  );
   await page.locator(`[data-bracket-forfeit="${ready.id}"]`).click();
   const dialog = page.getByRole("dialog", { name: "Declare forfeit" });
   await dialog.locator('[name="winner"]').selectOption(String(ready.b));
@@ -448,11 +487,57 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
     await winners.locator('[data-round-target][data-match-round="2"]').count(),
     1,
   );
+  assert.equal(
+    await winners.locator(".bt-viewport").evaluate(hasInnerScroll),
+    false,
+  );
   await page
     .locator("#cp-bracket")
     .screenshot({ path: "/tmp/mimelo-bracket-desktop.png" });
   await h.call("POST", `/api/fixtures/${next.id}/forfeit`, { winner: ready.b });
   assert.equal(locked(h.app.db, ready.id), true);
+  for (
+    let state = await h.state();
+    state.fixtures.find((f) => f.id === grand.id).status !== "ready";
+    state = await h.state()
+  ) {
+    const f = state.fixtures.find((item) => item.status === "ready");
+    assert.ok(f, "The tournament should reach the grand final");
+    await h.call("POST", `/api/fixtures/${f.id}/forfeit`, { winner: f.a });
+  }
+  const readyGrandFinal = (await h.state()).fixtures.find(
+    (f) => f.id === grand.id,
+  );
+  await h.record(readyGrandFinal, {
+    games: [
+      { a: 21, b: 12 },
+      { a: 12, b: 21 },
+      { a: 21, b: 9 },
+    ],
+  });
+  await page.goto(
+    `${base}/competition.html?game=tt&id=${h.comp.id}&view=table`,
+  );
+  await finals.waitFor();
+  assert.equal(
+    await page
+      .getByRole("tab", { name: "Bracket" })
+      .getAttribute("aria-selected"),
+    "true",
+  );
+  assert.equal(
+    await page.locator(`[data-bracket-fixture="${reset.id}"]`).count(),
+    0,
+  );
+  assert.deepEqual(
+    await finals.locator(".bt-series-games > span").allTextContents(),
+    ["21–12", "12–21", "21–9"],
+  );
+  assert.equal(await finals.locator(".bt-series-total").innerText(), "2–1");
+  await page.locator("#cp-bracket").screenshot({
+    path: "/tmp/mimelo-connected-bracket.png",
+    style: ".app-header, .skip-link { visibility: hidden !important; }",
+  });
 });
 
 test("racket-sport bracket cards include nationality flags beside names and photos, including doubles", async (t) => {

@@ -686,11 +686,14 @@
     const team = (n) => clubMark(m.teams?.[n]);
     const detail = [
       s.aet ? "a.e.t." : "",
-      s.pens ? s.pens.join(" - ") + " pens" : "",
+      s.pens ? "Penalties" : "",
     ]
       .filter(Boolean)
       .join(" · ");
-    return `<div class="match-summary fc-scoreline"><span class="fc-player">${side(0)}</span>${team(0)}<span class="score">${m.a_score} - ${m.b_score}</span>${team(1)}<span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
+    const score = s.pens
+      ? `<span class="score fc-shootout" aria-label="Match score ${m.a_score} to ${m.b_score}. Penalties ${s.pens[0]} to ${s.pens[1]}">${m.a_score}<small>(${s.pens[0]})</small>–<small>(${s.pens[1]})</small>${m.b_score}</span>`
+      : `<span class="score">${m.a_score} - ${m.b_score}</span>`;
+    return `<div class="match-summary fc-scoreline"><span class="fc-player">${side(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
   }
   function clubMark(team) {
     return team

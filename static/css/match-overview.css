@@ -26,6 +26,12 @@
 .match-result-trigger .fc-scoreline .score {
   font-size: 1.5rem;
 }
+.fc-scoreline .fc-shootout {
+  white-space: nowrap;
+}
+.fc-shootout small {
+  font-size: 0.7em;
+}
 .match-result-trigger .tennis-score-row {
   min-height: 40px;
 }

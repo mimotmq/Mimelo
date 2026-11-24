@@ -53,6 +53,45 @@
   isolation: isolate;
   margin: 0 auto;
 }
+.bt-lane-title {
+  position: absolute;
+  margin: 0;
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+[data-layout="expanded"] .bt-viewport,
+[data-layout="stacked"] .bt-viewport,
+[data-layout="connected"] .bt-viewport {
+  max-height: none;
+}
+[data-layout="stacked"] .bt-viewport {
+  overflow: visible;
+}
+.bt-stacked-rounds {
+  display: grid;
+  gap: 24px;
+}
+.bt-stacked-rounds h4 {
+  margin: 0 0 8px;
+}
+.bt-stacked-rounds section > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 12px;
+}
+.bt-stack-slot {
+  position: relative;
+  min-width: 0;
+}
+.bt-stack-slot .bt-match {
+  position: relative;
+  width: 100%;
+}
+.bt-stack-slot .bt-forfeit {
+  right: 10px;
+  bottom: 4px;
+  transform: none;
+}
 .bt-connections {
   position: absolute;
   inset: 0;
@@ -103,6 +142,62 @@
   font: inherit;
   overflow: hidden;
   box-shadow: 0 2px 5px rgb(16 30 50 / 0.035);
+  scroll-margin-top: 80px;
+}
+.bt-match.bt-with-series {
+  grid-template-rows: 25px 38px 38px 22px 23px;
+}
+.bt-with-series .bt-side:not(:has(.bt-team)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bt-with-series .bt-side:has(.bt-team) {
+  grid-template-columns: minmax(0, 1fr) 26px;
+}
+.bt-with-series.bt-right .bt-side:has(.bt-team) {
+  grid-template-columns: 26px minmax(0, 1fr);
+}
+.bt-with-series.bt-right .bt-team {
+  grid-column: 1;
+}
+.bt-with-series.bt-right .bt-side:has(.bt-team) .bt-player {
+  grid-column: 2;
+}
+.bt-with-series.bt-right .bt-side:not(:has(.bt-team)) .bt-player {
+  grid-column: 1;
+}
+.bt-with-series .bt-match-bottom {
+  border-top: 0;
+}
+.bt-series {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  border-top: 1px solid var(--line);
+}
+.bt-series-games {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 1px 6px;
+  color: var(--muted);
+}
+.bt-series-games > span,
+.bt-series-total {
+  white-space: nowrap;
+}
+.bt-shootout {
+  justify-content: center;
+  gap: 0;
+}
+.bt-series-total {
+  padding-left: 6px;
+  border-left: 1px solid var(--line);
+  color: var(--ink);
 }
 button.bt-match,
 a.bt-match {
@@ -236,10 +331,9 @@ a.bt-match:hover {
   font-variant-numeric: tabular-nums;
 }
 .bt-penalty {
-  display: block;
   color: var(--muted);
-  font: 500 0.59rem/1.3 var(--font-mono);
-  margin-top: 3px;
+  font: inherit;
+  font-weight: 500;
 }
 .bt-winner {
   background: var(--accent-soft);

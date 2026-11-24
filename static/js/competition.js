@@ -247,6 +247,8 @@ APP.run(async () => {
         : "Accepted results · organizer-selected tiebreak rules",
     );
     text("#table-chip", c.format);
+    $("#ct-table").hidden = c.kind === "knockout";
+    if (c.kind === "knockout") $("#cp-table").hidden = true;
     $("#ct-bracket").hidden = c.kind === "league" && !c.settings.playoffs;
     predictionTab.hidden = !c.fixtures.some(isBracketFixture);
     $("#record-link").href = APP.url("game", { view: "record" });
@@ -601,7 +603,7 @@ APP.run(async () => {
       const view = APP.params.get("view");
       if (
         (view === "bracket" && !$("#ct-bracket").hidden) ||
-        (!view && c.kind === "knockout")
+        ((!view || view === "table") && c.kind === "knockout")
       )
         $("#ct-bracket").click();
       else if (view === "predictions" && !predictionTab.hidden)

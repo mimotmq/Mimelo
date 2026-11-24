@@ -30,7 +30,7 @@ export function fixtureScoreText(f) {
     : f.forfeit
       ? "Forfeit"
       : f.match_id
-        ? `${f.a_score}–${f.b_score}${s?.pens ? ` (${s.pens.join("–")} pens)` : ""}${s?.aet ? " a.e.t." : ""}`
+        ? `${s?.pens ? `${f.a_score}(${s.pens[0]})–(${s.pens[1]})${f.b_score}` : `${f.a_score}–${f.b_score}`}${s?.aet ? " a.e.t." : ""}`
         : f.status === "bye"
           ? "Bye"
           : "—";
@@ -84,15 +84,30 @@ export function bracketLayout(
       };
     }),
   );
+  return {
+    nodes,
+    edges: bracketEdges(nodes),
+    height,
+    width: columns * cardWidth + Math.max(0, columns - 1) * gap,
+    mirrored,
+    groups,
+  };
+}
+
+function bracketEdges(nodes, full = false) {
   const byId = new Map(nodes.map((n) => [n.f.id, n]));
-  const edges = nodes.flatMap((target) =>
+  return nodes.flatMap((target) =>
     ["a", "b"].flatMap((side) => {
       const ref = sourceRef(target.f["source_" + side]),
         source = ref && byId.get(ref.fixture);
-      if (!source) return [];
+      if (
+        !source ||
+        (full && target.f.pool !== "G" && target.f.pool !== source.f.pool)
+      )
+        return [];
       const dir = target.x > source.x ? 1 : -1;
-      const x1 = source.x + (dir === 1 ? cardWidth : 0),
-        x2 = target.x + (dir === 1 ? 0 : cardWidth);
+      const x1 = source.x + (dir === 1 ? source.width : 0),
+        x2 = target.x + (dir === 1 ? 0 : target.width);
       return [
         {
           source: source.f.id,
@@ -104,25 +119,99 @@ export function bracketLayout(
           x1,
           x2,
           y1: source.y + CARD_HEIGHT / 2,
-          y2: target.y + CARD_HEIGHT / 2,
+          y2:
+            target.y +
+            (full && target.f.pool === "G"
+              ? 25 +
+                (side === "a" ? 0.5 : 1.5) *
+                  (target.f.score?.games?.length || target.f.score?.pens
+                    ? 38
+                    : 48)
+              : CARD_HEIGHT / 2),
         },
       ];
     }),
   );
+}
+
+function connectedLayout(fixtures, width) {
+  const pools = ["W", "L", "G"];
+  const byPool = pools.map((pool) => fixtures.filter((f) => f.pool === pool));
+  const roundCounts = byPool.map((fs) => new Set(fs.map((f) => f.round)).size);
+  const laneColumns = Math.max(roundCounts[0], roundCounts[1]);
+  const columns = laneColumns + roundCounts[2];
+  const gap = 44;
+  const cardWidth = Math.max(
+    204,
+    Math.min(330, Math.floor((width - 8 - (columns - 1) * gap) / columns)),
+  );
+  const stride = cardWidth + gap;
+  const nodes = [],
+    headings = [],
+    lanes = [];
+  let offsetY = 0,
+    round = 0;
+  for (const [i, pool] of pools.entries()) {
+    const fs = byPool[i];
+    if (!fs.length) continue;
+    const layout = bracketLayout(fs, { cardWidth, gap, pool });
+    const x =
+      (pool === "G" ? laneColumns : laneColumns - roundCounts[i]) * stride;
+    const feeders =
+      pool === "G"
+        ? ["a", "b"]
+            .map((side) => sourceRef(fs[0]["source_" + side])?.fixture)
+            .map((id) => nodes.find((n) => n.f.id === id))
+            .filter(Boolean)
+        : [];
+    const finalY = feeders.length
+      ? Math.max(
+          0,
+          Math.round(
+            feeders.reduce((sum, n) => sum + n.y, 0) / feeders.length,
+          ) -
+            TOP -
+            14,
+        )
+      : 0;
+    const y = pool === "G" ? finalY : offsetY;
+    if (pool !== "G")
+      lanes.push({ pool, x: 0, y, width: laneColumns * stride - gap });
+    for (const n of layout.nodes)
+      nodes.push({ ...n, x: n.x + x, y: n.y + y + 28, round: n.round + round });
+    for (const [j, group] of layout.groups.entries())
+      headings.push({
+        x: x + j * stride,
+        y: y + 28,
+        width: cardWidth,
+        round: round + j,
+        heading: roundTitle(j, layout.groups.length, pool, group[0].round),
+        navLabel:
+          pool === "W"
+            ? "Winners · " + roundTitle(j, layout.groups.length, pool)
+            : roundTitle(j, layout.groups.length, pool, group[0].round),
+      });
+    round += layout.groups.length;
+    if (pool !== "G") offsetY += layout.height + 36;
+  }
   return {
     nodes,
-    edges,
-    height,
-    width: columns * cardWidth + Math.max(0, columns - 1) * gap,
-    mirrored,
-    groups,
+    headings,
+    lanes,
+    edges: bracketEdges(nodes, true),
+    width: columns * stride - gap,
+    height: Math.max(offsetY, ...nodes.map((n) => n.y + n.height + 16)),
   };
 }
 function connector(e) {
   const middle = (e.x1 + e.x2) / 2,
     dir = Math.sign(e.x2 - e.x1),
     vertical = Math.sign(e.y2 - e.y1);
-  const radius = Math.min(8, Math.abs(e.y2 - e.y1) / 2);
+  const radius = Math.min(
+    8,
+    Math.abs(e.y2 - e.y1) / 2,
+    Math.abs(e.x2 - e.x1) / 2,
+  );
   if (!radius) return `M ${e.x1} ${e.y1} H ${e.x2}`;
   return `M ${e.x1} ${e.y1} H ${middle - dir * radius} Q ${middle} ${e.y1} ${middle} ${e.y1 + vertical * radius} V ${e.y2 - vertical * radius} Q ${middle} ${e.y2} ${middle + dir * radius} ${e.y2} H ${e.x2}`;
 }
@@ -134,6 +223,7 @@ export function visibleBracketFixtures(fixtures) {
   const bypass = new Map();
   const visible = [];
   for (const fixture of [...fixtures].sort((a, b) => a.id - b.id)) {
+    if (fixture.conditional && fixture.status === "cancelled") continue;
     const f = { ...fixture };
     const slots = ["a", "b"].map((side) => {
       let ref = sourceRef(f["source_" + side]);
@@ -207,7 +297,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
       return `${ref.outcome === "loser" ? "Loser" : "Winner"} of ${labels.get(ref.fixture) || "match " + ref.fixture}`;
     return f.status === "bye" ? "Bye" : "To be decided";
   }
-  function sideMarkup(f, side) {
+  function sideMarkup(f, side, showScore) {
     const n = side === "a" ? 0 : 1,
       entry = entries.get(f[side]);
     const won = f.winner != null && f[side] != null && f.winner === f[side];
@@ -241,9 +331,9 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     return `<span class="bt-side ${won ? "bt-winner" : ""} ${entry ? "" : "bt-unresolved"}" data-entry="${f[side] || ""}">
       <span class="bt-player"><span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : ""}" title="${esc(entrant(f, side))}">${identity}</span></span>
       ${fc ? `<span class="bt-team" title="${esc(team?.name || "Club not recorded")}" aria-label="${esc(team?.name || "Club not recorded")}">${team?.image ? `<img src="${esc(team.image)}" alt="" loading="lazy">` : `<span class="bt-club-code">${esc(team?.code || "—")}</span>`}</span>` : ""}
-      <span class="bt-score" aria-label="${esc(f.forfeit ? (won ? "Walkover winner" : "Forfeit") : "Score " + score)}">${esc(score)}${f.score?.pens ? `<small class="bt-penalty" aria-label="${f.score.pens[n]} penalties">${f.score.pens[n]}</small>` : ""}</span></span>`;
+      ${showScore ? `<span class="bt-score" aria-label="${esc(f.forfeit ? (won ? "Walkover winner" : "Forfeit") : "Score " + score)}">${esc(score)}</span>` : ""}</span>`;
   }
-  function card(n) {
+  function card(n, stacked = false) {
     const f = n.f;
     const state =
       f.status === "bye"
@@ -264,7 +354,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     const detail = [
       f.score?.aet ? "a.e.t." : "",
       f.score?.pens ? "Penalties" : "",
-      f.conditional ? "Reset if needed" : "",
+      f.conditional && f.status === "waiting" ? "Reset if needed" : "",
     ]
       .filter(Boolean)
       .join(" · ");
@@ -275,11 +365,40 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
       : record
         ? `href="${esc(APP.url("game", { view: "record", fixture: f.id, competition: c.id }))}"`
         : "";
-    const aria = `${n.label}: ${entrant(f, "a")} versus ${entrant(f, "b")}. ${fixtureScoreText(f)}. ${state}${f.match_id ? ". View result" : record ? ". Record result" : ""}`;
-    return `<${tag} class="bt-match ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" aria-label="${esc(aria)}" style="left:${n.x}px;top:${n.y}px;width:${n.width}px;height:${n.height}px">
+    const games =
+      f.match_id && !f.forfeit && !f.no_contest
+        ? (f.score?.games || []).map((g) => `${g.a}–${g.b}`)
+        : [];
+    const scoreType =
+      APP.game.kind === "tennis"
+        ? "Set scores"
+        : APP.game.kind === "smash"
+          ? "Stocks by game"
+          : "Game scores";
+    const total = fixtureScoreText(f);
+    const pens = f.score?.pens;
+    const scoreStrip = games.length
+      ? `<span class="bt-series"><span class="bt-series-games">${games.map((score) => `<span>${esc(score)}</span>`).join("")}</span><strong class="bt-series-total">${esc(total)}</strong></span>`
+      : pens
+        ? `<strong class="bt-series bt-shootout"><span>${f.a_score}<small class="bt-penalty">(${pens[0]})</small>–<small class="bt-penalty">(${pens[1]})</small>${f.b_score}</span></strong>`
+        : "";
+    const scoreLabel = pens
+      ? `Match score ${f.a_score} to ${f.b_score}. Penalties ${pens[0]} to ${pens[1]}`
+      : games.length
+        ? `${scoreType}: ${games.join(", ")}. Series result: ${total}`
+        : total;
+    const aria = `${n.label}: ${entrant(f, "a")} versus ${entrant(f, "b")}. ${scoreLabel}. ${state}${f.match_id ? ". View result" : record ? ". Record result" : ""}`;
+    const position = stacked
+      ? ""
+      : `left:${n.x}px;top:${n.y}px;width:${n.width}px;`;
+    const forfeitPosition = stacked
+      ? ""
+      : `style="left:${n.x + n.width - 10}px;top:${n.y + n.height - 4}px"`;
+    return `<${tag} class="bt-match ${scoreStrip ? "bt-with-series" : ""} ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" aria-label="${esc(aria)}" style="${position}height:${n.height}px">
       <span class="bt-match-top"><span>${esc(n.label)}</span>${f.match_id || record ? '<span class="bt-open" aria-hidden="true">↗</span>' : ""}</span>
-      ${sideMarkup(f, "a")}${sideMarkup(f, "b")}
-      <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && !f.forfeit ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" style="left:${n.x + n.width - 10}px;top:${n.y + n.height - 4}px" data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
+      ${sideMarkup(f, "a", !scoreStrip)}${sideMarkup(f, "b", !scoreStrip)}
+      ${scoreStrip}
+      <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && !f.forfeit ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" ${forfeitPosition} data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
   }
   container.classList.add("bt-root");
   const views = [
@@ -297,54 +416,102 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         "aria-pressed",
         String(button.dataset.bracketView === selectedView),
       );
-    for (const section of sections.querySelectorAll("[data-bracket-pool]"))
-      section.hidden =
-        selectedView !== "all" && section.dataset.bracketPool !== selectedView;
   }
   let previousWidth = -1,
+    previousView,
     frame;
   const scrollTimers = new Set();
+  const roundNav = (headings, title) =>
+    `<nav class="bt-round-nav" aria-label="${title} rounds">${headings.map((n) => `<button type="button" data-bracket-round="${n.round}">${esc(n.navLabel || n.heading)}</button>`).join("")}</nav>`;
+  const canvas = (layout, headings = layout.headings) =>
+    `<div class="bt-canvas" style="width:${layout.width}px;height:${layout.height}px">
+      <svg class="bt-connections" width="${layout.width}" height="${layout.height}" aria-hidden="true">${layout.edges.map((e) => `<path d="${connector(e)}" data-source="${e.source}" data-target="${e.target}" class="${e.active ? "bt-path-active" : ""} ${e.outcome === "loser" ? "bt-path-loser" : ""}"/>`).join("")}</svg>
+      ${(layout.lanes || []).map((lane) => `<h3 class="bt-lane-title" style="left:${lane.x}px;top:${lane.y}px;width:${lane.width}px">${lane.pool === "W" ? "Winners bracket" : "Losers bracket"}</h3>`).join("")}
+      ${headings.map((n) => `<div class="bt-round" data-round-index="${n.round}" style="left:${n.x}px;top:${n.y || 0}px;width:${n.width}px"><h4>${esc(n.heading)}</h4></div>`).join("")}
+      ${layout.nodes.map((n) => card(n)).join("")}
+    </div>`;
   function draw() {
     const width = container.clientWidth;
-    if (!width || width === previousWidth) return;
+    if (!width || (width === previousWidth && selectedView === previousView))
+      return;
     previousWidth = width;
+    previousView = selectedView;
     scrollTimers.forEach(clearTimeout);
     scrollTimers.clear();
     const active = document.activeElement?.dataset?.bracketFixture;
-    sections.innerHTML = groups
-      .map(([pool, title]) => {
-        const fs = fixtures.filter((f) => (f.pool || "W") === pool);
-        if (!fs.length) return "";
-        const mirrored = c.settings.elimination !== "double" && width >= 1000;
-        const count = new Set(fs.map((f) => f.round)).size;
-        const cardWidth = mirrored
-          ? Math.max(
-              208,
-              Math.min(
-                270,
-                (width - Math.max(0, count * 2 - 2) * 32) / (count * 2 - 1),
-              ),
-            )
-          : Math.min(300, Math.max(224, width - 32));
-        const layout = bracketLayout(fs, {
-          mirrored,
-          cardWidth,
-          gap: mirrored ? 32 : 44,
-          pool,
-        });
-        const headings = [
-          ...new Map(layout.nodes.map((n) => [n.x, n])).values(),
-        ];
-        return `<section class="bt-section" data-bracket-pool="${pool}" data-layout="${layout.mirrored ? "mirrored" : "linear"}">${title ? `<h3 class="bt-section-title">${title}</h3>` : ""}
-        <nav class="bt-round-nav" aria-label="${title || "Bracket"} rounds">${layout.groups.map((g, i) => `<button type="button" data-bracket-round="${i}">${esc(roundTitle(i, layout.groups.length, pool, g[0].round))}</button>`).join("")}</nav>
-        <div class="bt-viewport" tabindex="0" role="region" aria-label="${title || "Tournament"} bracket. Scroll across rounds." style="--bt-stride:${cardWidth + 44}px">
-        <div class="bt-canvas" style="width:${layout.width}px;height:${layout.height}px">
-          <svg class="bt-connections" width="${layout.width}" height="${layout.height}" aria-hidden="true">${layout.edges.map((e) => `<path d="${connector(e)}" data-source="${e.source}" data-target="${e.target}" class="${e.active ? "bt-path-active" : ""} ${e.outcome === "loser" ? "bt-path-loser" : ""}"/>`).join("")}</svg>
-          ${headings.map((n) => `<div class="bt-round" data-round-index="${n.round}" style="left:${n.x}px;width:${cardWidth}px;height:${layout.height}px"><h4>${esc(n.heading)}</h4></div>`).join("")}
-          ${layout.nodes.map(card).join("")}
-        </div></div></section>`;
-      })
-      .join("");
+    const connected =
+      c.settings.elimination === "double" && selectedView === "all";
+    if (connected) {
+      const layout = connectedLayout(fixtures, width);
+      sections.innerHTML = `<section class="bt-section" data-layout="connected">
+        ${roundNav(layout.headings, "Full bracket")}
+        <div class="bt-viewport" tabindex="0" role="region" aria-label="Full bracket. Scroll across rounds.">${canvas(layout)}</div>
+      </section>`;
+    } else
+      sections.innerHTML = groups
+        .filter(([pool]) => selectedView === "all" || selectedView === pool)
+        .map(([pool, title]) => {
+          const fs = fixtures.filter((f) => (f.pool || "W") === pool);
+          if (!fs.length) return "";
+          const mirrored = c.settings.elimination !== "double" && width >= 1000;
+          const count = new Set(fs.map((f) => f.round)).size;
+          const focused = selectedView !== "all";
+          const gap = mirrored ? 32 : 44;
+          const fitWidth = Math.floor((width - 8 - (count - 1) * gap) / count);
+          const stacked = focused && fitWidth < 202;
+          const cardWidth = focused
+            ? Math.max(202, Math.min(380, fitWidth))
+            : mirrored
+              ? Math.max(
+                  208,
+                  Math.min(
+                    270,
+                    (width - Math.max(0, count * 2 - 2) * 32) / (count * 2 - 1),
+                  ),
+                )
+              : Math.min(300, Math.max(224, width - 32));
+          const layout = bracketLayout(fs, {
+            mirrored,
+            cardWidth,
+            gap,
+            pool,
+          });
+          const headings = [
+            ...new Map(layout.nodes.map((n) => [n.x, { ...n, y: 0 }])).values(),
+          ];
+          const nav = layout.groups.map((g, i) => ({
+            round: i,
+            heading: roundTitle(i, layout.groups.length, pool, g[0].round),
+          }));
+          const view = stacked
+            ? "stacked"
+            : focused
+              ? "expanded"
+              : layout.mirrored
+                ? "mirrored"
+                : "linear";
+          return `<section class="bt-section" data-bracket-pool="${pool}" data-layout="${view}">${title ? `<h3 class="bt-section-title">${title}</h3>` : ""}
+        ${roundNav(nav, title || "Bracket")}
+        <div class="bt-viewport" tabindex="0" role="region" aria-label="${title || "Tournament"} bracket">
+          ${
+            stacked
+              ? `<div class="bt-stacked-rounds">${nav
+                  .map(
+                    ({ round, heading }) =>
+                      `<section><h4>${esc(heading)}</h4><div>${layout.nodes
+                        .filter((n) => n.round === round)
+                        .map(
+                          (n) =>
+                            `<div class="bt-stack-slot">${card(n, true)}</div>`,
+                        )
+                        .join("")}</div></section>`,
+                  )
+                  .join("")}</div>`
+              : canvas(layout, headings)
+          }
+        </div></section>`;
+        })
+        .join("");
     updateView();
     for (const section of sections.querySelectorAll(".bt-section")) {
       const viewport = section.querySelector(".bt-viewport"),
@@ -373,11 +540,18 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           const match = matches.reduce((first, candidate) =>
             candidate.offsetTop < first.offsetTop ? candidate : first,
           );
-          viewport.scrollTo({
-            left: match.offsetLeft,
-            top: Math.max(0, match.offsetTop - TOP),
-            behavior: "instant",
-          });
+          if (
+            ["stacked", "expanded", "connected"].includes(
+              section.dataset.layout,
+            )
+          )
+            match.scrollIntoView({ block: "nearest", inline: "nearest" });
+          else
+            viewport.scrollTo({
+              left: match.offsetLeft,
+              top: Math.max(0, match.offsetTop - TOP),
+              behavior: "instant",
+            });
           lastLeft = viewport.scrollLeft;
           selectRound(index);
           section
@@ -430,7 +604,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     const view = e.target.closest("[data-bracket-view]");
     if (view) {
       selectedView = view.dataset.bracketView;
-      updateView();
+      draw();
     }
     const forfeit = e.target.closest("[data-bracket-forfeit]");
     if (forfeit)
