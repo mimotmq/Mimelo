@@ -10,7 +10,7 @@ On a competition page, site admins and admins for that game can use Delete at an
 
 Tournament setup and rule editing use wide, responsive layouts with compact numeric inputs and toggles. Standings tiebreaks are an ordered list of named rules: select, move, add or remove criteria without entering comma-separated keys. Seed numbers also use compact fields, and signup deadlines appear only when open registration is enabled. Demo-only template notices are removed before live screens appear.
 
-The eight HTML files, stylesheet, fonts, and images in `static/` are byte-identical to the supplied OpenDesign Cloud mockup. JavaScript connects them to a new Fastify/SQLite backend. `design-reference/` preserves the complete source and its hashes; see [REBUILD.md](REBUILD.md) for the integration map.
+The live HTML pages in `static/` adapt the supplied mockup for the record book. The original stylesheet, fonts, and images are preserved. JavaScript connects them to a new Fastify/SQLite backend. `design-reference/` preserves the complete source and its hashes; see [REBUILD.md](REBUILD.md) for the integration map.
 
 ## Run locally
 

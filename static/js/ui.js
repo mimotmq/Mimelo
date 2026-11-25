@@ -678,7 +678,7 @@
       const rows = [0, 1]
         .map(
           (n) =>
-            `<div class="tennis-score-row ${m.winner === n ? "match-winner" : ""}"><span class="tennis-score-player"><span title="${side(n)}">${identities(n)}</span></span>${s.games.map((g, i) => `<span class="tennis-score-cell ${g.winner === n ? "set-winner" : ""}">${kind === "smash" ? '<span class="match-stock-icons">' + fighterIcons(m, i, n) + "</span>" : ""}${n === 0 ? g.a : g.b}${g.tb ? "<sup>" + g.tb[n] + "</sup>" : ""}${g.winner === n && g.jv ? '<sup class="jv">JV</sup>' : ""}${g.suddenDeath ? "<sup>SD</sup>" : ""}</span>`).join("")}<span class="tennis-score-total">${n === 0 ? m.a_score : m.b_score}</span></div>`,
+            `<div class="tennis-score-row ${m.winner === n ? "match-winner" : ""}"><span class="tennis-score-player"><span title="${side(n)}">${identities(n)}</span></span>${s.games.map((g, i) => `<span class="tennis-score-cell ${g.winner === n ? "set-winner" : ""}">${kind === "smash" ? '<span class="match-stock-icons">' + fighterIcons(m, i, n) + "</span>" : ""}${n === 0 ? g.a : g.b}${g.tb ? "<sup>" + g.tb[n] + "</sup>" : ""}${kind === "smash" && g.winner === n && g.jv ? `<sup class="jv">JV${1 + Math.abs(g.a - g.b)}</sup>` : ""}${g.suddenDeath ? "<sup>SD</sup>" : ""}</span>`).join("")}<span class="tennis-score-total">${n === 0 ? m.a_score : m.b_score}</span></div>`,
         )
         .join("");
       return `<div class="${kind === "smash" ? "smash-scoreboard" : "tennis-scoreboard"} ${kind === "tt" ? "tt-scoreboard" : ""}" style="--tennis-set-count:${cols};--tennis-score-columns:minmax(112px,1.8fr) repeat(${cols},minmax(24px,.4fr)) 30px" aria-label="${esc(kind)} scorecard"><div class="tennis-score-row tennis-score-head"><span>Player</span>${s.games.map((_, i) => '<span class="tennis-score-cell">' + (i + 1) + "</span>").join("")}<span class="tennis-score-total-head">${totalLabel}</span></div>${rows}</div>`;
@@ -1179,37 +1179,6 @@
       (b) => (b.onclick = () => b.closest("dialog")?.close()),
     );
     $$(".sample-tag,.demo-note").forEach((e) => e.remove());
-    // Remove demo/season wording in text nodes without touching structure or accessibility attributes.
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-    );
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    for (const n of nodes) {
-      if (n.parentElement.closest("script,style")) continue;
-      n.textContent = n.textContent
-        .replace(
-          /All (numbers|players and results shown) are sample data\./g,
-          "",
-        )
-        .replace(
-          /Season 2026\/27|2026\/27|this season|Season snapshot|Your season|current season|season tour/gi,
-          (m) =>
-            m === "Season snapshot"
-              ? "Record snapshot"
-              : m === "Your season"
-                ? "Your record"
-                : "All time",
-        )
-        .replace(/\s*[·—]\s*sample\b/gi, "")
-        .replace(/Sample data only\.|Sample data\./g, "")
-        .replace(
-          "Passwords and active sessions for this sample account.",
-          "Manage your password and signed-in devices.",
-        )
-        .replace("Sample submission", "Result review");
-    }
     if ($("#menu-btn"))
       $("#menu-btn").onclick = () => {
         const open = $("#menu-btn").getAttribute("aria-expanded") === "true";
@@ -1250,12 +1219,6 @@
       )
     ) {
       $$(".game-badge.live").forEach((badge) => badge.remove());
-      if (pickleball) {
-        $(".games-grid").insertAdjacentHTML(
-          "beforeend",
-          `<a class="game-card small" data-tone="pickleball" href="game.html?game=pickleball"><div class="game-card-top"><span class="game-icon"><img src="assets/brand/${esc(pickleball.logo)}" alt="Pickleball"></span></div><div class="game-card-body"><h3>Pickleball</h3><p>Singles &amp; doubles. Game scores, ratings, and competitions.</p></div><div class="game-card-foot"><span class="game-card-cta">Open game</span></div></a>`,
-        );
-      }
       $(".games-grid").classList.add("uniform-game-grid");
       $$(".games-grid .game-card").forEach((card) => {
         card.classList.remove("large", "small");
@@ -1272,18 +1235,6 @@
       $(".home-players .avatar-stack")?.setAttribute(
         "aria-label",
         "Group players",
-      );
-      text(
-        '.game-card[data-tone="eafc"] p',
-        "Teams, ratings, and match records.",
-      );
-      text(
-        '.game-card[data-tone="tennis"] p',
-        "Sets, tiebreaks, and tournament records.",
-      );
-      text(
-        '.game-card[data-tone="tt"] p',
-        "Games to 11 or 21, best of 1, 3, 5, or 7.",
       );
       $$(".game-card .avatar-stack").forEach((e) => (e.innerHTML = ""));
       const recent = await APP.api("recent-results");

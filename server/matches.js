@@ -413,6 +413,7 @@ function prepare(db, game, body, user, correction = null) {
       "Player not found.",
     );
   const input = { ...body.score };
+  if (g.kind === "tennis") input.surface ??= "Hardcourt";
   if (c) {
     input.bestOf = fixtureBestOf(c.settings, f);
     input.target = c.settings.target;
@@ -675,7 +676,10 @@ export function edit(db, id, body, user, voided = false) {
   const f = m.fixture_id
     ? db.prepare("SELECT * FROM fixtures WHERE id=?").get(m.fixture_id)
     : null;
-  let score = body.score || json(m.score);
+  const previousScore = json(m.score);
+  let score = body.score || previousScore;
+  if (json(m.rules).kind === "tennis" && previousScore.surface && score.surface === undefined)
+    score = { ...score, surface: previousScore.surface };
   if (c)
     score = {
       ...score,

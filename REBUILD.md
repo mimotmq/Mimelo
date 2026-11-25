@@ -4,7 +4,7 @@ The earlier main branch applied visual changes to the previous application. This
 
 ## Source fidelity
 
-The source is OpenDesign Cloud project `e98cc95f-f9c8-4e37-b70b-c8fab25662b9/mockup`. All 46 supplied files are preserved under `design-reference/`; `SOURCE.json` records their SHA-256 hashes. Eight live HTML pages and all supplied CSS/assets—31 files altogether—remain byte-identical to that reference. `npm run verify:templates` enforces this independently of screenshots.
+The source is OpenDesign Cloud project `e98cc95f-f9c8-4e37-b70b-c8fab25662b9/mockup`. All 46 supplied files are preserved under `design-reference/`; `SOURCE.json` records their SHA-256 hashes. Live HTML pages carry production labels and markup. All supplied CSS and assets remain byte-identical to the reference. `npm run verify:templates` enforces this independently of screenshots.
 
 The template JavaScript's mock records, local-storage persistence, fake logins, and demo handlers have been replaced. Runtime additions use the supplied component classes, typefaces, colors, and layouts. Small runtime layout rules contain new administrative controls and score inputs on mobile. The login retains the supplied split visual/form layout.
 

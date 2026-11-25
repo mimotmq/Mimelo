@@ -69,12 +69,12 @@ Status: interview in progress. This file distinguishes user decisions from imple
 
 - There are no seasons, season resets, or season transitions. Each game maintains continuous Elo and records.
 - EA FC 26 and EA FC 27 are independent games. Player ability and Elo must not carry across editions. Maintain separate team catalogs and allow game-specific rules.
-- Template source HTML remains identical. Adapt season-related display text and incompatible controls through runtime JavaScript to reflect continuous game records. Do not introduce a season model because the mockup contains season terminology.
+- Preserve the original template HTML in `design-reference/`. Adapt live page labels and controls to reflect continuous game records. Do not introduce a season model because the mockup contains season terminology.
 - EA FC 26 and 27 use the same application scoring and Elo rules. Their team overalls, player ratings, and records remain independent.
 
 ## Competition creation and participation
 
-- All five games support round-robin leagues, leagues with playoffs, groups followed by knockout, single elimination, and double elimination. Tables/brackets adapt to each game's scoring while sharing the format concepts.
+- All six games support round-robin leagues, leagues with playoffs, groups followed by knockout, single elimination, and double elimination. Tables/brackets adapt to each game's scoring while sharing the format concepts.
 - Regular players as well as relevant admins can create competitions.
 - There is no advance competition verification gate. Result acceptance may be by admin, organizer, or both sides; admin checkoff remains required for Elo.
 - Creators can manage entrants, schedules, and settings without renewed admin verification, subject to the structural freeze below.

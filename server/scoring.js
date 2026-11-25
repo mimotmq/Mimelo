@@ -33,6 +33,8 @@ export function validateScore(
     s.legScores == null || (kind === "fc" && aggregate),
     "This fixture uses a single score.",
   );
+  if (s.surface != null)
+    assert(kind === "tennis" && ["Hardcourt", "Clay", "Grass"].includes(s.surface), "Choose a valid tennis court surface.");
   if (["tt", "tennis", "pickleball"].includes(kind)) {
     assert(
       s.umpire == null ||

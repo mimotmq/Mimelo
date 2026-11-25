@@ -99,7 +99,7 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
   });
   const league = await call("competitions", {
     game: "tennis",
-    name: "Overview League",
+    name: "Overview League 2026/27",
     kind: "league",
     entries: users.map((u) => [u.player_id]),
     settings: { bestOf: 1 },
@@ -156,6 +156,7 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
     );
     assert.equal(await dialog.locator(".match-form-result").count(), 0);
     assert.match(await dialog.innerText(), /Standings before this match/);
+    assert.match(await dialog.innerText(), /Overview League 2026\/27/);
     assert(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth + 1));
     if (width === 1440 || width === 390)
       await dialog.screenshot({
@@ -224,6 +225,8 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
   await page.locator("#field-score0b").fill("2");
   await page.locator("#r-played-date").fill("2026-01-02");
   await page.locator("#r-start-time").fill("14:35");
+  assert.equal(await page.getByLabel("Court surface").inputValue(), "Hardcourt");
+  await page.getByLabel("Court surface").selectOption("Clay");
   await page.locator("#r-duration").fill("90");
   await page
     .locator(".record-timing")
@@ -232,6 +235,7 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
   await page.waitForURL(/match=/);
   let timingDialog = page.locator(".match-overview-dialog[open]");
   await timingDialog.waitFor();
+  assert.match(await timingDialog.innerText(), /Clay/);
   assert.match(await timingDialog.innerText(), /90 minutes played/);
   assert.match(
     await timingDialog.locator(".match-overview-meta time").innerText(),
@@ -250,6 +254,8 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
   assert.equal(await page.locator("#r-duration").inputValue(), "90");
   await page.locator("#r-played-date").fill("");
   await page.locator("#r-start-time").fill("");
+  assert.equal(await page.getByLabel("Court surface").inputValue(), "Clay");
+  await page.getByLabel("Court surface").selectOption("Grass");
   await page.locator("#r-duration").fill("");
   await page.locator("#record-form button[type=submit]").click();
   await page.waitForURL(/match=/);
@@ -262,6 +268,7 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
   const cleared = app.db
     .prepare("SELECT * FROM matches WHERE id=?")
     .get(timedMatch.id);
+  assert.equal(JSON.parse(cleared.score).surface, "Grass");
   assert.equal(cleared.played_at, null);
   assert.equal(cleared.duration_minutes, null);
   assert.equal(cleared.submitted, timedMatch.submitted);

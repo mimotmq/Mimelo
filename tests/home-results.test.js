@@ -44,6 +44,11 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
   const base = "http://127.0.0.1:" + app.server.address().port;
   const browser = await chromium.launch();
   t.after(() => browser.close());
+  const initial = await browser.newPage({ javaScriptEnabled: false });
+  await initial.goto(base);
+  assert.equal(await initial.locator("main .games-grid .game-card").count(), 6);
+  assert.equal(await initial.locator("main .last-approved-band").count(), 1);
+  await initial.close();
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1000 },
   });
@@ -91,7 +96,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
             a: game === "smash" ? 3 : game === "tennis" ? 6 : 11,
             b: 1,
             ...(game === "smash"
-              ? { fighters: ["Mario", "Link"], stage: "Battlefield" }
+              ? { jv: true, fighters: ["Mario", "Link"], stage: "Battlefield" }
               : {}),
           },
         ],
@@ -99,8 +104,8 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
     if (game === "smash") {
       score.bestOf = 3;
       score.games.push(
-        { a: 1, b: 3, fighters: ["Luigi", "Samus"], stage: "Battlefield" },
-        { a: 3, b: 2, fighters: ["Kirby", "Fox"], stage: "Battlefield" },
+        { a: 0, b: 3, jv: true, fighters: ["Luigi", "Samus"], stage: "Battlefield" },
+        { a: 3, b: 2, jv: true, fighters: ["Kirby", "Fox"], stage: "Battlefield" },
       );
     }
     const match = await call("POST", "/api/games/" + game + "/matches", {
@@ -297,7 +302,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
       await smash
         .locator(".tennis-score-row:not(.tennis-score-head) .tennis-score-cell")
         .allTextContents(),
-      ["3", "1", "3", "1", "3", "2"],
+      ["3JV3", "0", "3JV2", "1", "3JV4", "2"],
     );
     assert.deepEqual(
       await smash.locator(".tennis-score-total").allTextContents(),

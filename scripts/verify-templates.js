@@ -11,7 +11,6 @@ for (const [name, hash] of Object.entries(source.files)) {
   if (createHash("sha256").update(reference).digest("hex") !== hash)
     throw new Error("Reference modified: " + name);
   if (
-    name.endsWith(".html") ||
     name.startsWith("css/") ||
     name.startsWith("assets/")
   ) {
@@ -21,5 +20,5 @@ for (const [name, hash] of Object.entries(source.files)) {
   }
 }
 console.log(
-  `PASS ${count} unchanged HTML, CSS and asset files; all ${Object.keys(source.files).length} reference hashes verified.`,
+  `PASS ${count} unchanged CSS and asset files; all ${Object.keys(source.files).length} reference hashes verified.`,
 );

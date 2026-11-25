@@ -501,6 +501,14 @@ APP.run(async () => {
                 : ""),
           );
       }
+      if (g.kind === "tennis") {
+        const surfaces = ["Hardcourt", "Clay", "Grass"].map((name) => [name, name]);
+        if (editing && !editing.score.surface) surfaces.unshift(["", "Unspecified"]);
+        $("#field-umpire").closest(".field").insertAdjacentHTML(
+          "beforebegin",
+          select("Court surface", "surface", surfaces, editing ? editing.score.surface || "" : "Hardcourt"),
+        );
+      }
       if (fixed || editing) $("#field-record-format").disabled = true;
       if (g.kind === "smash") {
         const { createSmashRecorder } = await import("./smash-record.js");
@@ -838,6 +846,8 @@ APP.run(async () => {
         }
         score = { ...config(), games };
       }
+      if (g.kind === "tennis" && $("#field-surface").value)
+        score.surface = $("#field-surface").value;
       score.note = $("#r-note").value;
       if (["tt", "tennis", "pickleball"].includes(g.kind)) {
         score.umpire = $("#field-umpire").value;

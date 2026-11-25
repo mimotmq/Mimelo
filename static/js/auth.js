@@ -4,12 +4,6 @@ APP.run(async () => {
   const target = new URL(next || "/", location.origin);
   const destination =
     target.origin === location.origin ? target.pathname + target.search : "/";
-  $("#login-email").type = "text";
-  $("#login-email").autocomplete = "username";
-  $("#login-email").value = "";
-  $("#login-email").placeholder = "Handle or email";
-  text("label[for=login-email]", "Handle or email");
-  $("#login-password").value = "";
   $("#reg-email").required = false;
   $("#reg-password").minLength = 8;
   $("#reg-handle").autocomplete = "username";
