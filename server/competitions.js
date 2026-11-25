@@ -10,6 +10,7 @@ import { catalogImage } from "./catalog-images.js";
 import { profileNationalities } from "./profile.js";
 import {
   rankTable,
+  qualificationChanges,
   qualificationPlan,
   crossGroupTable,
 } from "./competition-table.js";
@@ -1069,13 +1070,23 @@ export function serializeCompetition(db, c) {
   const plan = qualificationPlan(c, tables, decisions);
   const prelimComplete =
     prelim.length > 0 && prelim.every((f) => f.status === "completed");
+  const standingsPlan = c.settings.conferenceLayout?.playoffSeeds
+    ? qualificationPlan(c, tables, decisions, { useFixedSeeds: false })
+    : plan;
   const regularSeasonQualifiers =
     c.kind === "league" && c.settings.playoffs && prelimComplete
-      ? (c.settings.conferenceLayout?.playoffSeeds
-          ? qualificationPlan(c, tables, decisions, { useFixedSeeds: false })
-          : plan
-        ).selected
+      ? standingsPlan.selected
       : null;
+  const withdrawals = es.some((entry) => entry.withdrawn)
+    ? new Map(
+        db
+          .prepare(
+            "SELECT detail,created FROM audit WHERE action='competition.withdraw' AND subject=? ORDER BY id",
+          )
+          .all(String(c.id))
+          .map(({ detail, created }) => [json(detail)?.entry, created]),
+      )
+    : new Map();
   return {
     ...c,
     organizers: db
@@ -1098,7 +1109,17 @@ export function serializeCompetition(db, c) {
     ),
     qualificationPending: prelimComplete ? plan.pending : [],
     regularSeasonQualifiers,
-    entries: es,
+    qualificationChanges:
+      prelimComplete &&
+      !standingsPlan.pending.length &&
+      (c.kind === "groups" || c.settings.playoffs)
+        ? qualificationChanges(standingsPlan.selected, fs)
+        : null,
+    entries: es.map((entry) =>
+      entry.withdrawn
+        ? { ...entry, withdrawnAt: withdrawals.get(entry.id) ?? null }
+        : entry,
+    ),
     fixtures: fs,
     standings: tables,
     players: es.reduce((n, e) => n + e.players.length, 0),

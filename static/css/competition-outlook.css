@@ -68,11 +68,75 @@
 }
 .progression-badge {
   display: inline-flex;
+  align-items: center;
   padding: 3px 7px;
   border-radius: var(--pill);
   font-size: 0.7rem;
   line-height: 1.4;
   font-weight: 600;
+}
+.standing-note-trigger {
+  min-width: 24px;
+  min-height: 24px;
+  margin-block: -4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.standings-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: 0.75rem;
+}
+.standings-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.standings-legend li::before {
+  content: "";
+  width: 13px;
+  height: 10px;
+  border-left: 3px solid var(--standing-edge);
+  border-radius: 2px;
+  background: var(--standing-fill);
+}
+[data-standing="division-winner"],
+[data-standing="group-winner"] {
+  --standing-edge: #218581;
+  --standing-fill: color-mix(in srgb, var(--standing-edge) 20%, var(--surface));
+}
+[data-standing="qualified"] {
+  --standing-edge: var(--success);
+  --standing-fill: color-mix(in srgb, var(--standing-edge) 10%, var(--surface));
+}
+[data-standing="champion"] {
+  --standing-edge: #ad790c;
+  --standing-fill: color-mix(in srgb, var(--standing-edge) 16%, var(--surface));
+}
+[data-standing="eliminated"] {
+  --standing-edge: var(--danger);
+  --standing-fill: color-mix(in srgb, var(--standing-edge) 9%, var(--surface));
+}
+[data-standing="withdrawn"] {
+  --standing-edge: var(--muted);
+  --standing-fill: color-mix(in srgb, var(--standing-edge) 13%, var(--surface));
+}
+.competition-standings-table tr[data-standing] > td {
+  background: var(--standing-fill);
+}
+.competition-standings-table tr[data-standing] > td:first-child {
+  border-left: 3px solid var(--standing-edge);
 }
 .progression-badge[data-status="qualified"],
 .progression-badge[data-status="winner"],
@@ -638,9 +702,22 @@ body:has(.league-page #ct-table[aria-selected="true"]) .game-identity,
   gap: 16px;
 }
 @media (min-width: 1160px) {
+  .app-body:has(> .league-page #ct-table[aria-selected="true"]) {
+    width: 100%;
+  }
+  .league-page > :is(.breadcrumb, .player-hero, .filter-row) {
+    width: min(var(--wrap), calc(100% - clamp(56px, 7vw, 112px)));
+    margin-inline: auto;
+  }
+  .league-page #cp-table {
+    --standings-width: min(1760px, calc(100% - clamp(48px, 4vw, 80px)));
+    width: var(--standings-width);
+    margin-inline: calc((100% - var(--standings-width)) / 2);
+  }
   .league-page [data-all-divisions="true"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
+    gap: clamp(16px, 1.5vw, 28px);
   }
 }
 .league-page .division-standings {
@@ -698,28 +775,21 @@ body:has(.league-page #ct-table[aria-selected="true"]) .game-identity,
   content: "";
   flex: 0 0 13px;
 }
-.league-page #comp-table-wrap .progression-badges:not(:empty) {
-  display: inline-flex;
-  margin: 0 0 0 5px;
-  vertical-align: middle;
-}
-.league-page #comp-table-wrap .progression-badge {
-  padding: 1px 4px;
-}
-.league-page #comp-table-wrap tr[data-division-winner="true"] > td {
-  background: color-mix(in srgb, var(--success) 14%, var(--surface));
-}
-.league-page #comp-table-wrap tr[data-division-winner="true"] .progression-badge[data-status="winner"] {
-  color: var(--success);
-  background: transparent;
-  font-weight: 750;
-}
-.league-page #comp-table-wrap tr[data-progress="withdrawn"] > td {
-  background: color-mix(in srgb, var(--surface) 88%, #000);
-}
-.league-page #comp-table-wrap .progression-badge[data-status="withdrawn"] {
-  background: var(--surface-3);
-  color: var(--ink-2);
+@media (min-width: 1160px) {
+  .league-page #comp-table-wrap {
+    --standings-avatar-size: clamp(26px, 1.9vw, 32px);
+    padding: 8px clamp(12px, 1.2vw, 22px) 16px;
+  }
+  .league-page #comp-table-wrap :is(th, td) {
+    padding: 7px clamp(6px, 0.55vw, 10px);
+  }
+  .league-page #comp-table-wrap .player-cell .avatar {
+    width: var(--standings-avatar-size);
+    height: var(--standings-avatar-size);
+  }
+  .league-page #comp-table-wrap .seat-history-trigger {
+    min-height: var(--standings-avatar-size);
+  }
 }
 @media (max-width: 700px) {
   .league-page #comp-table-wrap .standings-player {
@@ -730,24 +800,12 @@ body:has(.league-page #ct-table[aria-selected="true"]) .game-identity,
   .league-page #comp-table-wrap :is(th, td) {
     padding-block: 2.5px;
   }
-  .league-page #comp-table-wrap .progression-badges:not(:empty) {
-    display: flex;
-    margin-inline-start: 0;
-    padding-inline-start: 18px;
-  }
-  .league-page #comp-table-wrap .progression-badge {
-    padding-block: 0;
-    line-height: 1.15;
-  }
   .league-page #comp-table-wrap .seat-history-trigger {
     min-height: 22px;
     padding: 0 3px;
   }
   .league-page #comp-table-wrap .standings-rank {
     width: 22px;
-  }
-  .league-page #comp-table-wrap tr[data-division-winner="true"] .progression-badge[data-status="qualified"] {
-    display: none;
   }
   .league-page #comp-table-wrap [data-stat] {
     padding-inline: 2px;

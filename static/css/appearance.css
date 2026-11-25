@@ -9,6 +9,16 @@
 @import url("./match-overview.css");
 @import url("./competition-outlook.css");
 /* Live appearance refinements; the original design-reference styles stay intact. */
+:root { --avatar-radius: 20%; }
+.avatar,
+.directory-avatar {
+  border-radius: var(--avatar-radius);
+}
+.avatar img,
+.avatar-editor .avatar img {
+  border-radius: inherit;
+}
+
 /* Tiny universal transition durations can delay inherited visibility on load. */
 @media (prefers-reduced-motion: reduce) {
   *,

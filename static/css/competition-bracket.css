@@ -261,7 +261,7 @@ a.bt-match:hover {
 .bt-avatar-placeholder {
   width: 27px;
   height: 27px;
-  border-radius: 50%;
+  border-radius: var(--avatar-radius);
   font-size: 0.58rem;
 }
 .bt-avatar-placeholder {

@@ -5,7 +5,11 @@ import {
   validateConferences,
   conferenceBracketSeeds,
 } from "../server/conferences.js";
-import { rankTable, qualificationPlan } from "../server/competition-table.js";
+import {
+  rankTable,
+  qualificationChanges,
+  qualificationPlan,
+} from "../server/competition-table.js";
 import { playpassOrder, statText } from "../static/js/standings-stats.js";
 
 const ids = Array.from({ length: 32 }, (_, i) => i + 1);
@@ -102,6 +106,20 @@ test("division winners qualify ahead of conference wild cards and the halves mee
   assert.deepEqual(fixedPlan.selected, playoffSeeds);
   assert.deepEqual(fixedPlan.pending, []);
   assert.equal(fixedPlan.conferenceSeeds, undefined);
+});
+test("qualification notes compare standings against original bracket slots", () => {
+  const fixtures = [
+    { stage: "group", a: 1, b: 2 },
+    { stage: "knockout", a: 1, b: null },
+    { stage: "knockout", a: 3, b: 4 },
+    { stage: "final", a: 1, b: 3, source_a: "winner", source_b: "winner" },
+  ];
+  assert.deepEqual(qualificationChanges([1, 2, 3], fixtures), {
+    outgoing: [2],
+    incoming: [4],
+  });
+  assert.equal(qualificationChanges([1, 3, 4], fixtures), null);
+  assert.equal(qualificationChanges([1, 2], fixtures), null);
 });
 test("Playpass compares displayed rally points, computes standings-only half credit and rewards fewer scores conceded", () => {
   const row = (entry, w, l, nc, pf, pa) => ({

@@ -486,6 +486,15 @@ test("withdrawal awards become no contests if both seats withdraw, while ordinar
     fixtures: pending(d),
   });
   let state = await call("GET", `competitions/${competition.id}`);
+  const withdrawal = app.db
+    .prepare(
+      "SELECT created FROM audit WHERE action='competition.withdraw' AND subject=? AND json_extract(detail,'$.entry')=?",
+    )
+    .get(String(competition.id), c);
+  assert.equal(
+    state.entries.find((entry) => entry.id === c).withdrawnAt,
+    withdrawal.created,
+  );
   assert.equal(state.fixtures.find((f) => f.id === cd.id).no_contest, 0);
   const forfeitingWinner = state.standings[""].find((row) => row.entry === c);
   assert.equal(forfeitingWinner.points_for, 42);

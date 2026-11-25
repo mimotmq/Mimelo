@@ -799,16 +799,22 @@
     );
   }
   document.addEventListener("click", (event) => {
-    const trigger = event.target.closest?.("button[data-seat-history]");
+    const trigger = event.target.closest?.(
+      "button[data-seat-history], button[data-standing-note]",
+    );
     if (!trigger) return;
     const content = trigger.nextElementSibling.content.cloneNode(true);
-    const d = dialog("Seat history", "");
+    const d = dialog(
+      trigger.dataset.standingNote || "Seat history",
+      "",
+    );
     d.querySelector(".dialog-body").append(content);
     d.addEventListener("close", () => trigger.focus(), { once: true });
   });
   function seatHistory(row) {
     if (!row.seatHistory?.length) return "";
     const names = row.players.map((p) => p.name).join(" + ");
+    const notes = [];
     const items = row.seatHistory
       .map((h) => {
         const transfer = h.type === "transfer";
@@ -823,19 +829,68 @@
             : h.scheduled
               ? "Scheduled"
               : "Assigned";
-        return `<li><strong>${label}</strong><div>${esc(detail)}</div><small>${when} ${esc(new Date(h.time).toLocaleString())}</small></li>`;
+        const date = new Date(h.time).toLocaleString();
+        notes.push(`${detail}. ${when} ${date}.`);
+        return `<li><strong>${label}</strong><div>${esc(detail)}</div><small>${when} ${esc(date)}</small></li>`;
       })
       .join("");
-    return `<button type="button" class="seat-history-trigger" data-seat-history aria-haspopup="dialog" aria-label="Seat history for ${esc(names)}">*</button><template><p>Current seat holder · <strong>${esc(names)}</strong></p><ul class="seat-history-list">${items}</ul></template>`;
+    return `<button type="button" class="seat-history-trigger" data-seat-history title="${esc(notes.join(" "))}" aria-haspopup="dialog" aria-label="Seat history for ${esc(names)}">*</button><template><p>Current seat holder · <strong>${esc(names)}</strong></p><ul class="seat-history-list">${items}</ul></template>`;
   }
-  function standingsTable(c, rows, highlight = []) {
+  const standingsLabels = {
+    "division-winner": "Division winner",
+    "group-winner": "Group winner",
+    qualified: "Qualified",
+    champion: "Champion",
+    eliminated: "Eliminated",
+    withdrawn: "Withdrawn",
+  };
+  function standingsLegend(statuses) {
+    const shown = new Set(statuses);
+    const items = Object.entries(standingsLabels)
+      .filter(([status]) => shown.has(status))
+      .map(([status, label]) => `<li data-standing="${status}">${label}</li>`)
+      .join("");
+    return items ? `<ul class="standings-legend" aria-label="Standings legend">${items}</ul>` : "";
+  }
+  function standingsTable(c, rows, highlight = [], { legend = true } = {}) {
     const kind = APP.games.find((g) => g.slug === c.game)?.kind;
-    const withdrawn = new Set(
+    const withdrawn = new Map(
       (c.entries || [])
         .filter((entry) => entry.withdrawn)
-        .map((entry) => entry.id),
+        .map((entry) => [entry.id, entry.withdrawnAt]),
     );
     const regularSeasonQualifiers = new Set(c.regularSeasonQualifiers || []);
+    const changes = c.qualificationChanges;
+    const replaced = new Set(changes?.outgoing);
+    const replacements = new Set(changes?.incoming);
+    const replacementNames = (c.entries || [])
+      .filter((entry) => replacements.has(entry.id))
+      .map((entry) => entry.players.map((p) => p.name).join(" + "));
+    const round = c.kind === "league" ? "playoffs" : "knockout stage";
+    const standingNote = (row) => {
+      const wasReplaced = replaced.has(row.entry);
+      const isWithdrawn = withdrawn.has(row.entry);
+      if (!wasReplaced && !isWithdrawn) return "";
+      const names = row.players.map((p) => p.name).join(" + ");
+      const title = isWithdrawn ? "Withdrawal note" : "Qualification note";
+      const details = [];
+      if (isWithdrawn) {
+        const time = withdrawn.get(row.entry);
+        details.push(
+          time
+            ? `${names}’s withdrawal was recorded on ${new Date(time).toLocaleDateString(undefined, { dateStyle: "long" })}.`
+            : `No withdrawal date was recorded for ${names}.`,
+        );
+      }
+      if (wasReplaced) {
+        details.push(
+          replaced.size === 1 && replacementNames.length === 1
+            ? `${replacementNames[0]} took ${names}’s spot in the ${round}.`
+            : `${names} qualified through the standings. The final ${round} lineup added ${replacementNames.join(", ")}.`,
+        );
+      }
+      return `<button type="button" class="standing-note-trigger" data-standing-note="${title}" title="${esc(details.join(" "))}" aria-haspopup="dialog" aria-label="${title} for ${esc(names)}">*</button><template>${details.map((detail) => `<p>${esc(detail)}</p>`).join("")}</template>`;
+    };
     const progress = (row) => {
       const state = c.projection?.rows.find((item) => item.entry === row.entry);
       if (c.kind === "league") {
@@ -853,28 +908,17 @@
               : "contending";
         return { status, group_winner: false };
       }
+      if (replaced.has(row.entry)) return { ...state, status: "qualified" };
+      if (state?.status === "qualified" && replacements.has(row.entry))
+        return { ...state, status: "contending" };
       return state;
     };
-    const statusLabels = {
-      qualified: "Qualified",
-      eliminated: "Eliminated",
-      champion: "Champion",
-      withdrawn: "Withdrawn",
-    };
-    const badge = (row, state) => {
-      const items = [];
-      if (row.divisionWinner) items.push(["winner", "Division winner"]);
-      if (state?.group_winner) items.push(["winner", "Group winner"]);
-      if (statusLabels[state?.status])
-        items.push([state.status, statusLabels[state.status]]);
-      return items.length
-        ? `<span class="progression-badges">${items
-            .map(
-              ([status, label]) =>
-                `<span class="progression-badge" data-status="${status}">${label}</span>`,
-            )
-            .join("")}</span>`
-        : "";
+    const rowStanding = (row, state) => {
+      if (withdrawn.has(row.entry)) return "withdrawn";
+      if (state?.status === "champion") return "champion";
+      if (row.divisionWinner) return "division-winner";
+      if (state?.group_winner && state.status !== "eliminated") return "group-winner";
+      return standingsLabels[state?.status] ? state.status : "";
     };
     const { statCatalog, defaultColumns, statText } = UI.standingsStats;
     const catalog = statCatalog(kind);
@@ -887,19 +931,22 @@
         return `<th scope="col" data-stat="${key}" title="${title}" aria-label="${title}">${label}</th>`;
       })
       .join("");
+    const statuses = new Set();
     const body = rows
       .map((row) => {
         const state = progress(row);
+        const standing = rowStanding(row, state);
+        if (standing) statuses.add(standing);
         const progressAttrs = state
-          ? ` data-progress="${state.status}" data-group-winner="${state.group_winner && state.status !== "eliminated"}"`
+          ? ` data-progress="${state.status}" data-group-winner="${Boolean(state.group_winner && state.status !== "eliminated")}"`
           : "";
         const cells = columns
           .map((key) => `<td data-stat="${key}">${statText(row, key)}</td>`)
           .join("");
-        return `<tr${progressAttrs}${row.divisionWinner ? ' data-division-winner="true"' : ""}${row.players.some((p) => highlight.includes(p.id)) ? ' class="match-standings-highlight"' : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}<span class="seat-identity">${row.players.map((p) => (p.id || p.player_id ? playerLink(p) : esc(p.name))).join(" + ")}${seatHistory(row)}</span>${badge(row, state)}</td>${cells}</tr>`;
+        return `<tr${progressAttrs}${standing ? ` data-standing="${standing}"` : ""}${row.players.some((p) => highlight.includes(p.id)) ? ' class="match-standings-highlight"' : ""}><td class="standings-rank">${row.position}</td><td class="standings-player">${row.pool ? `<span class="chip">Group ${esc(row.pool)}</span> ` : ""}<span class="seat-identity">${row.players.map((p) => (p.id || p.player_id ? playerLink(p) : esc(p.name))).join(" + ")}${standingNote(row)}${seatHistory(row)}</span>${standing ? `<span class="sr-only">${standingsLabels[standing]}</span>` : ""}</td>${cells}</tr>`;
       })
       .join("");
-    return `<div class="table-wrap competition-standings-table stat-table"><table><thead><tr><th scope="col" class="standings-rank">#</th><th scope="col" class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th>${headings}</tr></thead><tbody>${body}</tbody></table></div>`;
+    return `${legend ? standingsLegend(statuses) : ""}<div class="table-wrap competition-standings-table stat-table"><table><thead><tr><th scope="col" class="standings-rank">#</th><th scope="col" class="standings-player">${c.format === "doubles" ? "Pair" : "Player"}</th>${headings}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
 
   window.UI = {
@@ -935,6 +982,7 @@
     matchDialog,
     matchTable,
     standingsTable,
+    standingsLegend,
   };
   APP.shell = Promise.all([APP.ready, APP.dom]).then(async () => {
     UI.standingsStats = await import("./standings-stats.js");
@@ -942,7 +990,7 @@
     const appearance = document.createElement("link");
     appearance.rel = "stylesheet";
     appearance.href =
-      "css/appearance.css?v=profiles-and-match-overviews-20261122";
+      "css/appearance.css?v=fluid-standings-rounded-avatars";
     await new Promise((resolve, reject) => {
       appearance.onload = resolve;
       appearance.onerror = () =>

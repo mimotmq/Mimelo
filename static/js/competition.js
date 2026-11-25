@@ -301,12 +301,20 @@ APP.run(async () => {
     $("#record-link").href = APP.url("game", { view: "record" });
     $("#record-link").hidden = true;
     const selectedDivision = $("#field-division-table")?.value || "all";
-    $("#comp-table-wrap").innerHTML =
+    const tableWrap = $("#comp-table-wrap");
+    const legendMarkup = '<div data-standings-legend></div>';
+    const updateStandingsLegend = () => {
+      $("[data-standings-legend]", tableWrap).innerHTML = UI.standingsLegend(
+        $$("tr[data-standing]", tableWrap).map((row) => row.dataset.standing),
+      );
+    };
+    const standings = (rows) => UI.standingsTable(c, rows, [], { legend: false });
+    const tablesMarkup =
       Object.entries(c.standings)
         .map(
           ([pool, rows]) =>
             `<h3 class="panel-body">${pool ? "Group " + esc(pool) : "Table"}</h3>` +
-            UI.standingsTable(c, rows),
+            standings(rows),
         )
         .join("") ||
       UI.empty(
@@ -314,8 +322,8 @@ APP.run(async () => {
           ? "This competition is decided by the bracket."
           : "Standings appear when the draw is generated.",
       );
+    tableWrap.innerHTML = legendMarkup + tablesMarkup;
     if (c.settings.conferenceLayout && c.standings[""]?.length) {
-      const wrap = $("#comp-table-wrap");
       const views = [],
         divisions = [];
       const overall = c.standings[""];
@@ -382,7 +390,7 @@ APP.run(async () => {
         selectedDivision !== "all" && views[Number(selectedDivision)]
           ? selectedDivision
           : "all";
-      wrap.innerHTML =
+      tableWrap.innerHTML =
         select(
           "Standings",
           "division-table",
@@ -391,9 +399,9 @@ APP.run(async () => {
             ...views.map(({ label }, i) => [i, label]),
           ],
           current,
-        ) + "<div data-division-table></div>";
-      const chooser = $("#field-division-table", wrap);
-      const divisionTables = $("[data-division-table]", wrap);
+        ) + legendMarkup + "<div data-division-table></div>";
+      const chooser = $("#field-division-table", tableWrap);
+      const divisionTables = $("[data-division-table]", tableWrap);
       chooser.onchange = () => {
         const showAll = chooser.value === "all";
         const tables = showAll ? divisions : [views[Number(chooser.value)]];
@@ -402,12 +410,13 @@ APP.run(async () => {
           .filter(Boolean)
           .map(
             ({ label, rows }) =>
-              `<section class="division-standings"><h3>${esc(label)}</h3>${UI.standingsTable(c, rows)}</section>`,
+              `<section class="division-standings"><h3>${esc(label)}</h3>${standings(rows)}</section>`,
           )
           .join("");
+        updateStandingsLegend();
       };
       chooser.onchange();
-    }
+    } else updateStandingsLegend();
     if (c.canManage && c.kind !== "knockout") {
       const wrap = $("#comp-table-wrap");
       wrap.insertAdjacentHTML(

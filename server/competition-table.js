@@ -1,4 +1,23 @@
 import { lowerIsBetter } from "../static/js/standings-stats.js";
+import { isBracketFixture } from "../static/js/bracket-picks.js";
+
+export function qualificationChanges(qualifiers, fixtures) {
+  const qualified = new Set(qualifiers);
+  const bracketEntries = new Set();
+  for (const fixture of fixtures.filter(isBracketFixture)) {
+    // Original bracket slots have no source. Later slots carry winners or losers.
+    if (fixture.a && !fixture.source_a) bracketEntries.add(fixture.a);
+    if (fixture.b && !fixture.source_b) bracketEntries.add(fixture.b);
+  }
+  if (!bracketEntries.size || bracketEntries.size !== qualified.size) return null;
+  const outgoing = [...qualified].filter((id) => !bracketEntries.has(id));
+  if (!outgoing.length) return null;
+  return {
+    outgoing,
+    incoming: [...bracketEntries].filter((id) => !qualified.has(id)),
+  };
+}
+
 export const orderedCriteria = (criteria) =>
   criteria.includes("points") ? criteria : ["points", ...criteria];
 function compareStat(a, b, key) {
