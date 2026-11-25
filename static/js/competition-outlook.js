@@ -24,7 +24,7 @@ export function renderCompetitionOutlook(c) {
     section = document.createElement("section");
     section.id = "competition-outlook";
     section.className = "panel competition-outlook";
-    document.querySelector("#cp-rules").after(section);
+    document.querySelector("#cp-overview").append(section);
   }
   const { esc } = UI,
     projection = c.projection;
@@ -74,6 +74,6 @@ export function renderCompetitionOutlook(c) {
     box.id = "competition-extra-standings";
     box.className = "panel competition-extra-standings";
     box.innerHTML = `<div class="panel-head"><h2>Best-placed qualifiers</h2><span class="chip">${c.settings.extraCount} advance from position ${c.settings.extraPlace}</span></div><p class="panel-body muted">Current candidates · raw points, then ${(c.settings.extraTieBreaks || []).map((key) => tiebreakLabels(APP.game.kind)[key]).join(" → ")}. Unresolved boundary ties require an admin decision.</p>${UI.standingsTable(c, c.extraStandings)}`;
-    section.after(box);
+    document.querySelector("#cp-table").append(box);
   }
 }

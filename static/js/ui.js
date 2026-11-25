@@ -990,7 +990,7 @@
     const appearance = document.createElement("link");
     appearance.rel = "stylesheet";
     appearance.href =
-      "css/appearance.css?v=fluid-standings-rounded-avatars";
+      "css/appearance.css?v=competition-overview-and-bracket-fit";
     await new Promise((resolve, reject) => {
       appearance.onload = resolve;
       appearance.onerror = () =>

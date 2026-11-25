@@ -447,7 +447,7 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
   assert.ok((await byeGroup.locator(".fixture-card .bt-seed").count()) > 0);
   await page.getByRole("tab", { name: "Bracket" }).click();
   assert.equal(
-    await page.getByRole("tab", { name: "Table", exact: true }).count(),
+    await page.getByRole("tab", { name: "Standings", exact: true }).count(),
     0,
   );
   const winners = page.locator('[data-bracket-pool="W"]');

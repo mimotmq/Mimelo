@@ -122,6 +122,8 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
     await page.setViewportSize({ width, height: 1000 });
     await visit(`/competition.html?game=eafc27&id=${league.id}&view=table`);
     const outlook = page.locator("#competition-outlook");
+    assert.equal(await outlook.isVisible(), false);
+    assert.equal(await page.locator("#cp-fixtures").isVisible(), false);
     assert.equal(await outlook.locator("tbody tr").count(), 4);
     assert.equal(
       await outlook.locator('[data-progress="qualified"]').count(),
@@ -141,9 +143,6 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
         .count(),
       2,
     );
-    assert.match(await outlook.innerText(), /100%/);
-    assert.match(await outlook.innerText(), /Win title/i);
-    assert.match(await outlook.innerText(), /Advance/i);
     assert(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth + 1,
@@ -161,12 +160,27 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
         ),
       "Standings fit desktop and keep all selected statistics reachable on mobile",
     );
-    await outlook.screenshot({
-      path: `artifacts/competition-outlook-${width}.png`,
-    });
     await page.locator("#comp-table-wrap").screenshot({
       path: `artifacts/competition-confirmed-table-${width}.png`,
     });
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
+    assert.equal(await outlook.isVisible(), true);
+    assert.equal(
+      await page.locator("#cp-overview .overview-groups > div").count(),
+      1,
+    );
+    assert.match(await outlook.innerText(), /100%/);
+    assert.match(await outlook.innerText(), /Win title/i);
+    assert.match(await outlook.innerText(), /Advance/i);
+    await outlook.screenshot({
+      path: `artifacts/competition-outlook-${width}.png`,
+    });
+    await page.getByRole("button", { name: "All fixtures", exact: true }).click();
+    assert.equal(await page.locator("#cp-fixtures").isVisible(), true);
+    assert.equal(await outlook.isVisible(), false);
+    await page.getByRole("tab", { name: "Playoffs", exact: true }).click();
+    assert.equal(await page.locator("#cp-playoffs").isVisible(), true);
+    assert.equal(await page.locator("#cp-fixtures").isVisible(), false);
     await visit(`/competition.html?game=eafc27&id=${extra.id}&view=table`);
     assert.equal(
       await page.locator("#competition-extra-standings tbody tr").count(),

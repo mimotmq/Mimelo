@@ -61,7 +61,9 @@
 }
 [data-layout="expanded"] .bt-viewport,
 [data-layout="stacked"] .bt-viewport,
-[data-layout="connected"] .bt-viewport {
+[data-layout="connected"] .bt-viewport,
+[data-compact="true"] .bt-viewport,
+[data-fitted="true"] .bt-viewport {
   max-height: none;
 }
 [data-layout="stacked"] .bt-viewport {
@@ -146,6 +148,12 @@
 }
 .bt-match.bt-with-series {
   grid-template-rows: 25px 38px 38px 22px 23px;
+}
+[data-compact="true"] .bt-match {
+  grid-template-rows: 22px 38px 38px 22px;
+}
+[data-compact="true"] .bt-match.bt-with-series {
+  grid-template-rows: 22px 32px 32px 16px 18px;
 }
 .bt-with-series .bt-side:not(:has(.bt-team)) {
   grid-template-columns: minmax(0, 1fr);

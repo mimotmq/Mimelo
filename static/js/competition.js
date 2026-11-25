@@ -57,10 +57,76 @@ APP.run(async () => {
     }
   }
   const competitionTabs = predictionTab.closest("[role=tablist]");
+  const bracketPanel = $("#cp-bracket");
+  const bracketAnchor = document.createComment("Bracket panel position");
+  $("main").classList.add("competition-page");
+  competitionTabs.insertAdjacentHTML(
+    "afterbegin",
+    '<button type="button" role="tab" id="ct-overview" aria-controls="cp-overview" aria-selected="false" tabindex="-1">Overview</button>',
+  );
+  $("#ct-fixtures").insertAdjacentHTML(
+    "afterend",
+    '<button type="button" role="tab" id="ct-playoffs" aria-controls="cp-playoffs" aria-selected="false" tabindex="-1" hidden>Playoffs</button>',
+  );
+  text("#ct-table", "Standings");
+  $("#cp-table").insertAdjacentHTML(
+    "beforebegin",
+    '<div id="cp-overview" role="tabpanel" aria-labelledby="ct-overview" hidden><div class="competition-overview-grid" data-overview-summary></div></div>',
+  );
+  bracketPanel.insertAdjacentHTML(
+    "beforebegin",
+    '<section class="panel" id="cp-playoffs" role="tabpanel" aria-labelledby="ct-playoffs" hidden><div class="panel-head"><h2>Playoff fixtures &amp; results</h2></div></section>',
+  );
+  bracketPanel.before(bracketAnchor);
+  const overviewPanel = $("#cp-overview");
+  const playoffsPanel = $("#cp-playoffs");
+  const fixturesPanel = $("#cp-fixtures");
+  const selectedSection = () =>
+    $("[aria-selected=true]", competitionTabs).id.slice(3);
+  function syncSection() {
+    const section = selectedSection();
+    const overview = section === "overview";
+    if (overview && bracketPanel.parentElement !== overviewPanel)
+      $("[data-overview-summary]", overviewPanel).after(bracketPanel);
+    else if (!overview && bracketPanel.parentElement === overviewPanel)
+      bracketAnchor.after(bracketPanel);
+    bracketPanel.hidden =
+      $("#ct-bracket").hidden || (!overview && section !== "bracket");
+    if (overview) {
+      bracketPanel.setAttribute("role", "region");
+      bracketPanel.setAttribute("aria-labelledby", "bracket-heading");
+    } else {
+      bracketPanel.setAttribute("role", "tabpanel");
+      bracketPanel.setAttribute("aria-labelledby", "ct-bracket");
+    }
+    const fixtureGroups = $("#fixture-groups");
+    if (!fixtureGroups) return;
+    const playoffs = section === "playoffs";
+    const fixturePanel = playoffs ? playoffsPanel : fixturesPanel;
+    if (fixtureGroups.parentElement !== fixturePanel)
+      fixturePanel.append(fixtureGroups);
+    const separatePlayoffs = !$("#ct-playoffs").hidden;
+    for (const day of $$("[data-fixture-phase]", fixtureGroups)) {
+      const isPlayoffDay = day.dataset.fixturePhase === "playoffs";
+      day.hidden = separatePlayoffs && isPlayoffDay !== playoffs;
+    }
+    const empty = $("[data-fixtures-empty]", fixtureGroups);
+    empty.hidden = !!$(".fixture-day:not([hidden])", fixtureGroups);
+    empty.textContent = playoffs
+      ? "Playoff fixtures appear after qualification."
+      : "Fixtures appear after the draw.";
+    return showPredictions();
+  }
+  UI.tabs(competitionTabs.parentElement);
   for (const event of ["click", "keydown"])
-    competitionTabs.addEventListener(event, () =>
-      queueMicrotask(() => showPredictions()),
-    );
+    competitionTabs.addEventListener(event, () => queueMicrotask(syncSection));
+  overviewPanel.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-overview-view]");
+    if (!trigger) return;
+    const tab = $("#ct-" + trigger.dataset.overviewView);
+    tab.click();
+    tab.focus();
+  });
   const name = (e) =>
     c.entries
       .find((x) => x.id === e)
@@ -297,6 +363,11 @@ APP.run(async () => {
     $("#ct-table").hidden = c.kind === "knockout";
     if (c.kind === "knockout") $("#cp-table").hidden = true;
     $("#ct-bracket").hidden = c.kind === "league" && !c.settings.playoffs;
+    $("#ct-playoffs").hidden = c.kind === "knockout" || $("#ct-bracket").hidden;
+    text(
+      "#bracket-heading",
+      c.kind === "league" ? "Playoff bracket" : "Knockout bracket",
+    );
     predictionTab.hidden = !c.fixtures.some(isBracketFixture);
     $("#record-link").href = APP.url("game", { view: "record" });
     $("#record-link").hidden = true;
@@ -309,6 +380,10 @@ APP.run(async () => {
       );
     };
     const standings = (rows) => UI.standingsTable(c, rows, [], { legend: false });
+    let summaryTables = Object.entries(c.standings).map(([pool, rows]) => ({
+      label: pool ? `Group ${pool}` : "Standings",
+      rows,
+    }));
     const tablesMarkup =
       Object.entries(c.standings)
         .map(
@@ -386,6 +461,7 @@ APP.run(async () => {
         }
         views.push(...items);
       }
+      summaryTables = divisions;
       const current =
         selectedDivision !== "all" && views[Number(selectedDivision)]
           ? selectedDivision
@@ -501,6 +577,52 @@ APP.run(async () => {
               ? 1
               : a.round - b.round || a.id - b.id;
       });
+    const overviewFixtures = orderedFixtures.filter(
+      (f) => $("#ct-playoffs").hidden || !isKnockout(f),
+    );
+    const upcoming = overviewFixtures
+      .filter((f) => f.status === "ready")
+      .slice(0, 3);
+    const recent = overviewFixtures
+      .filter((f) => f.status === "completed")
+      .sort(
+        (a, b) =>
+          (b.played_at || b.scheduled || 0) -
+            (a.played_at || a.scheduled || 0) || b.id - a.id,
+      )
+      .slice(0, 3);
+    const preview = upcoming.length ? upcoming : recent;
+    $("[data-overview-summary]", overviewPanel).innerHTML = `${
+      summaryTables.length
+        ? `
+      <section class="panel"><div class="panel-head"><h2>${c.settings.conferenceLayout ? "Divisions" : c.kind === "groups" ? "Groups" : "Standings"}</h2>${button("Full standings", "overview", 'data-overview-view="table"')}</div>
+      <div class="panel-body overview-groups">${summaryTables
+        .map(
+          ({ label, rows }) =>
+            `<div>${label === "Standings" ? "" : `<h3>${esc(label)}</h3>`}<ol>${rows
+              .slice(0, 3)
+              .map(
+                (row) =>
+                  `<li>${row.players.map((p) => UI.playerLink(p)).join(" + ")}</li>`,
+              )
+              .join("")}</ol></div>`,
+        )
+        .join("")}</div></section>`
+        : ""
+    }
+      <section class="panel"><div class="panel-head"><h2>${upcoming.length ? "Upcoming fixtures" : recent.length ? "Recent results" : "Fixtures &amp; results"}</h2>${button("All fixtures", "overview", 'data-overview-view="fixtures"')}</div>
+      <div class="panel-body">${
+        preview.length
+          ? `<ul class="overview-fixtures">${preview
+              .map((f) => {
+                const score =
+                  f.status === "completed" ? fixtureScoreText(f) : "vs";
+                const line = `<span>${esc(name(f.a))}</span><strong>${esc(score)}</strong><span>${esc(name(f.b))}</span>`;
+                return `<li>${f.match_id ? `<button type="button" class="overview-fixture-line" data-match="${f.match_id}">${line}</button>` : `<div class="overview-fixture-line">${line}</div>`}</li>`;
+              })
+              .join("")}</ul>`
+          : '<p class="muted">Fixtures appear after the draw.</p>'
+      }</div></section>`;
     for (const f of orderedFixtures) {
       const date = f.played_at || f.scheduled;
       const key = date
@@ -517,14 +639,17 @@ APP.run(async () => {
               ? "Grand finals"
               : `${f.pool === "L" ? "Losers" : "Winners"} round ${f.round}`
           : (f.pool ? `Group ${f.pool} · ` : "") + f.label;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(f);
+      const phase = isKnockout(f) ? "playoffs" : "preliminary";
+      const groupKey = `${phase}:${key}`;
+      if (!groups.has(groupKey))
+        groups.set(groupKey, { label: key, phase, fixtures: [] });
+      groups.get(groupKey).fixtures.push(f);
     }
     fixtureGroups.innerHTML =
-      [...groups]
+      [...groups.values()]
         .map(
-          ([label, fixtures]) => `
-      <details class="fixture-day">
+          ({ label, phase, fixtures }) => `
+      <details class="fixture-day" data-fixture-phase="${phase}">
         <summary><strong>${esc(label)}</strong><span>${UI.count(fixtures.length, "match", "matches")}</span></summary>
         <div class="fixture-day-matches">${fixtures
           .map((f) => {
@@ -585,8 +710,7 @@ APP.run(async () => {
           .join("")}</div>
       </details>`,
         )
-        .join("") ||
-      '<p class="panel-body">Registration precedes the draw.</p>';
+        .join("") + '<p class="panel-body" data-fixtures-empty hidden></p>';
     fixtureScorePreview = bindFixtureScorePopover(fixtureGroups, {
       findFixture: (id) => orderedFixtures.find((f) => f.id === id),
       names: (f, side) => {
@@ -599,7 +723,7 @@ APP.run(async () => {
       esc,
     });
     fixtureNames = watchFixtureNames(fixtureGroups);
-    const latestFixtures = orderedFixtures.filter((f) => f.played_at);
+    const latestFixtures = overviewFixtures.filter((f) => f.played_at);
     const dayLabel = (time) =>
       new Date(time).toLocaleDateString(undefined, {
         weekday: "long",
@@ -727,20 +851,17 @@ APP.run(async () => {
         } else declareForfeit(f);
       };
     if (initialView) {
-      const view = APP.params.get("view");
-      if (
-        (view === "bracket" && !$("#ct-bracket").hidden) ||
-        ((!view || view === "table") && c.kind === "knockout")
-      )
-        $("#ct-bracket").click();
-      else if (view === "predictions" && !predictionTab.hidden)
-        predictionTab.click();
-      else if (["fixtures", "table", "rules", "about"].includes(view))
-        $("#ct-" + view).click();
+      let view = APP.params.get("view");
+      if (view === "standings") view = "table";
+      if (view === "table" && c.kind === "knockout") view = "bracket";
+      const tab = $$("[role=tab]", competitionTabs).find(
+        (item) => item.id === `ct-${view}` && !item.hidden,
+      );
+      (tab || $("#ct-overview")).click();
       initialView = false;
     }
     delete predictionPanel.dataset.loaded;
-    if (!predictionTab.hidden) await showPredictions();
+    await syncSection();
     // The bracket measures its panel to lay out the first round.
     clearBracket?.();
     clearBracket = renderBracket($("#bracket-wrap"), c, {
@@ -749,23 +870,6 @@ APP.run(async () => {
       declareForfeit,
     });
     bindMatches();
-    const showLeagueFixtures = () => {
-      if (
-        c.kind === "league" &&
-        $("#ct-table").getAttribute("aria-selected") === "true"
-      )
-        $("#cp-fixtures").hidden = false;
-    };
-    $$("[role=tab]", $("[role=tablist]")).forEach((tab) => {
-      if (!tab.dataset.leagueFixturesBound) {
-        tab.addEventListener("click", () => queueMicrotask(showLeagueFixtures));
-        tab.addEventListener("keydown", () =>
-          queueMicrotask(showLeagueFixtures),
-        );
-        tab.dataset.leagueFixturesBound = "1";
-      }
-    });
-    showLeagueFixtures();
     $("#rules-points-title").closest(".format-card").hidden =
       c.kind === "knockout";
     text(
@@ -823,7 +927,7 @@ APP.run(async () => {
       panel = document.createElement("section");
       panel.id = "registration-panel";
       panel.className = "panel settings-card";
-      $("#competition-outlook").after(panel);
+      overviewPanel.append(panel);
     }
     const mutable = ["registration", "closed"].includes(c.state),
       open =

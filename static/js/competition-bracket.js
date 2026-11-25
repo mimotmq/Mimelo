@@ -45,11 +45,16 @@ export function fixtureScoreText(f) {
           : "—";
 }
 
-// Generated draws retain every slot, including byes. Keep their positions so
-// advancement lines follow source fixture IDs rather than a visual approximation.
+// Keep fixture order and source IDs when compressing the spaces left by byes.
 export function bracketLayout(
   fixtures,
-  { mirrored = false, cardWidth = 240, gap = 36, pool = "W" } = {},
+  {
+    mirrored = false,
+    cardWidth = 240,
+    gap = 36,
+    pool = "W",
+    compact = false,
+  } = {},
 ) {
   const rounds = [...new Set(fixtures.map((f) => f.round))].sort(
     (a, b) => a - b,
@@ -59,8 +64,25 @@ export function bracketLayout(
   );
   mirrored =
     mirrored && groups.length > 1 && groups.at(-1).length === 1 && pool === "W";
-  const base = Math.max(1, ...groups.map((g) => g.length)) / (mirrored ? 2 : 1);
-  const height = TOP + base * PITCH + 12;
+  const visibleSlots = compact
+    ? groups.map((group) => {
+        const half = Math.ceil(group.length / 2);
+        const lanes = mirrored
+          ? [group.slice(0, half), group.slice(half)]
+          : [group];
+        return lanes.map(
+          (lane) => new Map(
+            lane.filter((f) => f.status !== "bye").map((f, i) => [f.id, i]),
+          ),
+        );
+      })
+    : null;
+  const base = visibleSlots
+    ? Math.max(1, ...visibleSlots.flat().map((lane) => lane.size))
+    : Math.max(1, ...groups.map((g) => g.length)) / (mirrored ? 2 : 1);
+  const pitch = compact ? 136 : PITCH;
+  const cardHeight = compact ? 122 : CARD_HEIGHT;
+  const height = TOP + base * pitch + 12;
   const columns = mirrored ? groups.length * 2 - 1 : groups.length;
   const nodes = groups.flatMap((group, ri) =>
     group.map((f, i) => {
@@ -69,15 +91,18 @@ export function bracketLayout(
       const right = mirrored && !final && i >= half;
       const col = right ? columns - 1 - ri : ri;
       const local = right ? i - half : i;
+      const slots = visibleSlots?.[ri][right ? 1 : 0];
+      const position = slots ? slots.get(f.id) ?? 0 : local;
+      const laneSize = slots ? Math.max(1, slots.size) : half;
       const center = final
-        ? TOP + (base * PITCH) / 2
-        : TOP + (((local + 0.5) * base) / half) * PITCH;
+        ? TOP + (base * pitch) / 2
+        : TOP + (((position + 0.5) * base) / laneSize) * pitch;
       return {
         f,
         x: col * (cardWidth + gap),
-        y: center - CARD_HEIGHT / 2,
+        y: center - cardHeight / 2,
         width: cardWidth,
-        height: CARD_HEIGHT,
+        height: cardHeight,
         right,
         round: ri,
         heading: roundTitle(ri, groups.length, pool, f.round),
@@ -127,13 +152,13 @@ function bracketEdges(nodes, full = false) {
             !["cancelled", "waiting"].includes(source.f.status),
           x1,
           x2,
-          y1: source.y + CARD_HEIGHT / 2,
+          y1: source.y + source.height / 2,
           y2:
             target.y +
             (full && target.f.pool === "G"
               ? 25 +
                 (side === "a" ? 0.5 : 1.5) * (target.f.score?.pens ? 38 : 48)
-              : CARD_HEIGHT / 2),
+              : target.height / 2),
         },
       ];
     }),
@@ -146,9 +171,9 @@ function connectedLayout(fixtures, width) {
   const roundCounts = byPool.map((fs) => new Set(fs.map((f) => f.round)).size);
   const laneColumns = Math.max(roundCounts[0], roundCounts[1]);
   const columns = laneColumns + roundCounts[2];
-  const gap = 44;
+  const gap = 28;
   const cardWidth = Math.max(
-    204,
+    190,
     Math.min(330, Math.floor((width - 8 - (columns - 1) * gap) / columns)),
   );
   const stride = cardWidth + gap;
@@ -481,34 +506,64 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         )}
         <div class="bt-viewport" tabindex="0" role="region" aria-label="Full bracket. Scroll across rounds.">${canvas(layout)}</div>
       </section>`;
-    } else
+    } else {
+      const winnersRounds = new Set(
+        fixtures.filter((f) => f.pool === "W").map((f) => f.round),
+      );
+      const thirdPlace =
+        selectedView === "all" &&
+        c.settings.elimination !== "double" &&
+        width >= 1000 &&
+        winnersRounds.size >= 2 &&
+        winnersRounds.size <= 4
+          ? fixtures.find((f) => f.pool === "P")
+          : null;
       sections.innerHTML = groups
-        .filter(([pool]) => selectedView === "all" || selectedView === pool)
+        .filter(
+          ([pool]) =>
+            (selectedView === "all" || selectedView === pool) &&
+            !(thirdPlace && pool === "P"),
+        )
         .map(([pool, title]) => {
           const fs = fixtures.filter((f) => (f.pool || "W") === pool);
           if (!fs.length) return "";
-          const mirrored = c.settings.elimination !== "double" && width >= 1000;
-          const count = new Set(fs.map((f) => f.round)).size;
+          const rounds = new Set(fs.map((f) => f.round));
+          const count = rounds.size;
           const focused = selectedView !== "all";
-          const gap = mirrored ? 32 : 44;
+          const mirrorColumns = count * 2 - 1;
+          const gap = width >= 700 ? 26 : 44;
+          const mirrorFit = Math.floor(
+            (width - 8 - (mirrorColumns - 1) * gap) / mirrorColumns,
+          );
+          const mirrored =
+            c.settings.elimination !== "double" &&
+            pool === "W" &&
+            width >= 1000 &&
+            mirrorFit >= 190;
           const fitWidth = Math.floor((width - 8 - (count - 1) * gap) / count);
           const stacked = focused && fitWidth < 202;
+          const fitted = !focused && (mirrored || fitWidth >= 190);
+          const sparseMobileDraw =
+            width < 700 &&
+            fs.some((f) => f.status === "bye") &&
+            [...rounds].every(
+              (round) =>
+                fs.filter((f) => f.round === round && f.status !== "bye")
+                  .length <= 4,
+            );
+          const compact =
+            !focused && count >= 4 && (fitted || sparseMobileDraw);
           const cardWidth = focused
             ? Math.max(202, Math.min(380, fitWidth))
-            : mirrored
-              ? Math.max(
-                  208,
-                  Math.min(
-                    270,
-                    (width - Math.max(0, count * 2 - 2) * 32) / (count * 2 - 1),
-                  ),
-                )
+            : fitted
+              ? Math.min(mirrored ? 270 : 300, mirrored ? mirrorFit : fitWidth)
               : Math.min(300, Math.max(224, width - 32));
           const layout = bracketLayout(fs, {
             mirrored,
             cardWidth,
             gap,
             pool,
+            compact,
           });
           const headings = [
             ...new Map(layout.nodes.map((n) => [n.x, { ...n, y: 0 }])).values(),
@@ -521,6 +576,22 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
             .filter(({ round }) =>
               layout.groups[round].some((f) => f.status !== "bye"),
             );
+          if (thirdPlace && pool === "W") {
+            const final = layout.nodes.at(-1);
+            const round = layout.groups.length;
+            const y = final.y + final.height + 20;
+            layout.nodes.push({
+              f: thirdPlace,
+              x: final.x,
+              y,
+              width: final.width,
+              height: final.height,
+              round,
+              label: "Third-place match",
+            });
+            layout.height = Math.max(layout.height, y + final.height + 12);
+            nav.push({ round, heading: "Third-place match" });
+          }
           const view = stacked
             ? "stacked"
             : focused
@@ -528,7 +599,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
               : layout.mirrored
                 ? "mirrored"
                 : "linear";
-          return `<section class="bt-section" data-bracket-pool="${pool}" data-layout="${view}">${title ? `<h3 class="bt-section-title">${title}</h3>` : ""}
+          return `<section class="bt-section" data-bracket-pool="${pool}" data-layout="${view}" data-fitted="${fitted}" data-compact="${compact}">${title ? `<h3 class="bt-section-title">${title}</h3>` : ""}
         ${roundNav(nav, title || "Bracket")}
         <div class="bt-viewport" tabindex="0" role="region" aria-label="${title || "Tournament"} bracket">
           ${
@@ -550,6 +621,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         </div></section>`;
         })
         .join("");
+    }
     updateView();
     names.refresh();
     for (const section of sections.querySelectorAll(".bt-section")) {
@@ -581,6 +653,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
             candidate.offsetTop < first.offsetTop ? candidate : first,
           );
           if (
+            section.dataset.fitted === "true" ||
             ["stacked", "expanded", "connected"].includes(
               section.dataset.layout,
             )
