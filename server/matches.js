@@ -1,4 +1,9 @@
-import { fixturePlayers, fixtureBestOf } from "./competitions.js";
+import {
+  fixturePlayers,
+  fixtureBestOf,
+  aggregateFinalRound,
+  isAggregateFixture,
+} from "./competitions.js";
 import { lockBracketPredictions } from "./bracket-predictions.js";
 import { admin, assert, json, audit, notify, integer } from "./db.js";
 import { validateScore, eloDelta, ratingK } from "./scoring.js";
@@ -192,7 +197,14 @@ export function rebuild(db, game, format) {
       const avg = (ps) =>
         ps.reduce((sum, p) => sum + rating(p.id).elo, 0) / ps.length;
       const r = json(m.rules),
-        sc = validateScore(r.kind, m.format, json(m.score));
+        score = json(m.score),
+        sc = validateScore(
+          r.kind,
+          m.format,
+          score,
+          false,
+          Array.isArray(score.legScores),
+        );
       const delta = eloDelta(
         avg(a),
         avg(b),
@@ -336,7 +348,7 @@ export function checkoff(
   );
   return deferRebuild ? null : serializeMatch(db, getMatch(db, id), user);
 }
-function prepare(db, game, body, user) {
+function prepare(db, game, body, user, correction = null) {
   const g = db.prepare("SELECT * FROM games WHERE slug=?").get(game);
   assert(g, "Game not found.", 404);
   let c = null,
@@ -353,18 +365,29 @@ function prepare(db, game, body, user) {
     f = db
       .prepare("SELECT * FROM fixtures WHERE id=?")
       .get(integer(body.fixture, 1));
-    assert(f && f.status === "ready", "This fixture is not ready.", 409);
+    assert(
+      f && (correction ? correction.fixture_id === f.id : f.status === "ready"),
+      "This fixture is not ready.",
+      409,
+    );
     c = getCompetition(db, f.competition_id);
     assert(c.game === game, "Wrong game for fixture.");
     assert(
-      !db.prepare("SELECT 1 FROM matches WHERE fixture_id=?").get(f.id),
+      correction ||
+        !db.prepare("SELECT 1 FROM matches WHERE fixture_id=?").get(f.id),
       "This fixture already has a submitted result.",
       409,
     );
     format = c.format;
-    sides = [f.a, f.b].map((id) =>
-      fixturePlayers(db, f.id, id).map((p) => p.player_id),
-    );
+    sides = correction
+      ? [0, 1].map((side) =>
+          members(db, correction.id)
+            .filter((p) => p.side === side)
+            .map((p) => p.id),
+        )
+      : [f.a, f.b].map((id) =>
+          fixturePlayers(db, f.id, id).map((p) => p.player_id),
+        );
   }
   assert(
     Array.isArray(sides) &&
@@ -401,6 +424,12 @@ function prepare(db, game, body, user) {
     format,
     input,
     !!f && !["league", "group"].includes(f.stage),
+    !!f &&
+      isAggregateFixture(
+        c.settings,
+        f,
+        aggregateFinalRound(db, c.id, c.settings),
+      ),
   );
   if (g.kind === "fc")
     for (const id of [sc.score.teamA, sc.score.teamB])
@@ -418,7 +447,24 @@ function prepare(db, game, body, user) {
   return { c, f, format, sides, sc, rules };
 }
 export function preview(db, game, body, user) {
-  const { format, sides, sc, rules } = prepare(db, game, body, user);
+  const correction = body.edit && body.fixture ? getMatch(db, body.edit) : null;
+  if (correction)
+    assert(
+      correction.game === game &&
+        correction.status !== "voided" &&
+        (admin(db, user, game) ||
+          (correction.status === "submitted" &&
+            sideOf(db, correction, user) !== undefined)),
+      "You cannot correct this result.",
+      403,
+    );
+  const { format, sides, sc, rules } = prepare(
+    db,
+    game,
+    body,
+    user,
+    correction,
+  );
   const ratings = sides.map((ps) =>
     ps.map((id) => ({
       id,
@@ -655,6 +701,12 @@ export function edit(db, id, body, user, voided = false) {
     m.format,
     score,
     !!f && !["league", "group"].includes(f.stage),
+    !!f &&
+      isAggregateFixture(
+        c.settings,
+        f,
+        aggregateFinalRound(db, c.id, c.settings),
+      ),
   );
   if (json(m.rules).kind === "fc")
     for (const tid of [sc.score.teamA, sc.score.teamB])

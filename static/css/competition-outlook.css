@@ -367,7 +367,7 @@ a.fixture-match {
 .app-body:has(> .competition-page) {
   width: min(1560px, calc(100% - clamp(24px, 5vw, 112px)));
 }
-.competition-page > :is(.breadcrumb, .player-hero, .filter-row) {
+.competition-page > :is(.game-identity, .breadcrumb, .player-hero, .filter-row) {
   width: min(var(--wrap), 100%);
   margin-inline: auto;
 }
@@ -401,6 +401,11 @@ a.fixture-match {
   list-style: none;
   padding: 0;
 }
+.competition-overview-grid > :only-child .overview-fixtures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 0 clamp(16px, 2vw, 28px);
+}
 .overview-fixture-line {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -426,7 +431,7 @@ button.overview-fixture-line:hover {
   background: var(--surface-2);
 }
 #cp-overview > :is(.competition-outlook, #registration-panel) {
-  margin-top: 0;
+  margin-block: 0;
 }
 #cp-table > .competition-extra-standings {
   margin: 16px;
@@ -625,11 +630,11 @@ button.overview-fixture-line:hover {
 }
 .competition-banner {
   display: block;
-  width: 100%;
-  max-height: 240px;
-  object-fit: cover;
+  width: auto;
+  max-width: 100%;
+  max-height: 340px;
   border-radius: var(--radius-md);
-  margin: 12px 0;
+  margin: 12px auto;
 }
 .competition-trophy {
   display: block;
@@ -721,149 +726,138 @@ label.prediction-choice { cursor: pointer; }
 .prediction-result { margin: 4px 6px 0; }
 .prediction-result[data-correct="true"] { font-weight: 600; }
 .prediction-leaderboard { margin-top: 24px; }
-.division-standings {
-  margin-block: 20px 28px;
-}
-.division-standings > h3 {
-  margin: 0 0 8px;
-}
-.league-page #cp-table .panel-head {
+.competition-page #cp-table .panel-head {
   padding-block: 10px;
 }
-body:has(.league-page #ct-table[aria-selected="true"]) .game-identity,
-.league-page:has(#ct-table[aria-selected="true"]) :is(.player-elo, .player-stats, .player-hero-sub),
-.league-page #table-chip {
+body:has(.competition-page #ct-overview[aria-selected="false"]) .game-identity,
+.competition-page:has(#ct-overview[aria-selected="false"]) :is(.player-elo, .player-stats, .player-hero-sub),
+.competition-page #table-chip {
   display: none;
 }
-.league-page:has(#ct-table[aria-selected="true"]) .player-hero {
+.competition-page:has(#ct-overview[aria-selected="false"]) .player-hero {
   padding: 12px 16px;
 }
-.league-page:has(#ct-table[aria-selected="true"]) .player-hero-grid {
+.competition-page:has(#ct-overview[aria-selected="false"]) .player-hero-grid {
   grid-template-columns: minmax(0, 1fr);
 }
-.league-page:has(#ct-table[aria-selected="true"]) .player-flairs {
+.competition-page:has(#ct-overview[aria-selected="false"]) .player-flairs {
   margin-top: 6px;
 }
-.league-page:has(#ct-table[aria-selected="true"]) .player-hero + .filter-row {
+.competition-page:has(#ct-overview[aria-selected="false"]) .player-hero + .filter-row {
   margin-top: 12px !important;
 }
-.league-page #comp-table-wrap {
+.competition-page #comp-table-wrap {
   padding: 6px 12px 12px;
 }
-.league-page #comp-table-wrap > .field:has(#field-division-table) {
+.competition-page #comp-table-wrap > .field:has(#field-division-table) {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-block: 2px 8px;
 }
-.league-page #field-division-table {
+.competition-page #field-division-table {
   width: auto;
   min-height: 34px;
   padding-block: 4px;
 }
-.league-page [data-division-table] {
+.standings-grid {
   display: grid;
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 540px), 1fr));
+  align-items: start;
+  gap: clamp(16px, 2.1vw, 36px);
 }
-@media (min-width: 1160px) {
-  .league-page [data-all-divisions="true"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
-    gap: clamp(22px, 2.1vw, 36px);
-  }
-}
-.league-page .division-standings {
+.competition-page .standings-section {
   min-width: 0;
   margin: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
 }
-.league-page .division-standings > h3 {
+.competition-page .standings-section > h3 {
   margin: 0;
   padding: 8px 10px;
 }
-.league-page #comp-table-wrap :is(th, td) {
+.competition-page #comp-table-wrap :is(th, td) {
   padding: 5px 6px;
 }
-.league-page #comp-table-wrap .standings-rank {
+.competition-page #comp-table-wrap .standings-rank {
   width: 25px;
 }
-.league-page #comp-table-wrap .standings-player {
+.competition-page #comp-table-wrap .standings-player {
   min-width: 128px;
 }
-.league-page #comp-table-wrap .seat-identity {
+.competition-page #comp-table-wrap .seat-identity {
   vertical-align: middle;
 }
-.league-page #comp-table-wrap .player-cell {
+.competition-page #comp-table-wrap .player-cell {
   gap: 5px;
 }
-.league-page #comp-table-wrap .player-link-copy {
+.competition-page #comp-table-wrap .player-link-copy {
   display: contents;
 }
-.league-page #comp-table-wrap .player-cell .avatar {
+.competition-page #comp-table-wrap .player-cell .avatar {
   display: inline-grid;
   width: 22px;
   height: 22px;
   flex: none;
   font-size: 0.6rem;
 }
-.league-page #comp-table-wrap .player-cell .nationality-flags {
+.competition-page #comp-table-wrap .player-cell .nationality-flags {
   order: -1;
   flex: none;
   flex-flow: column nowrap;
   gap: 2px;
 }
-.league-page #comp-table-wrap .player-cell .country-flag {
+.competition-page #comp-table-wrap .player-cell .country-flag {
   width: 13px;
   height: 9px;
 }
-.league-page #comp-table-wrap .player-cell .nationality-country {
+.competition-page #comp-table-wrap .player-cell .nationality-country {
   max-width: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.league-page #comp-table-wrap .stat-table:has(.nationality-flags) .player-cell:not(:has(.nationality-flags))::before {
+.competition-page #comp-table-wrap .stat-table:has(.nationality-flags) .player-cell:not(:has(.nationality-flags))::before {
   content: "";
   flex: 0 0 13px;
 }
 @media (min-width: 1160px) {
-  .league-page #comp-table-wrap {
+  .competition-page #comp-table-wrap {
     --standings-avatar-size: clamp(26px, 1.9vw, 32px);
     padding: 8px clamp(12px, 1.2vw, 22px) 16px;
   }
-  .league-page #comp-table-wrap :is(th, td) {
+  .competition-page #comp-table-wrap :is(th, td) {
     padding: 7px clamp(6px, 0.55vw, 10px);
   }
-  .league-page #comp-table-wrap .player-cell .avatar {
+  .competition-page #comp-table-wrap .player-cell .avatar {
     width: var(--standings-avatar-size);
     height: var(--standings-avatar-size);
   }
-  .league-page #comp-table-wrap .seat-history-trigger {
+  .competition-page #comp-table-wrap .seat-history-trigger {
     min-height: var(--standings-avatar-size);
   }
 }
 @media (max-width: 700px) {
-  .league-page #comp-table-wrap .standings-player {
+  .competition-page #comp-table-wrap .standings-player {
     width: 136px;
     min-width: 136px;
     max-width: 136px;
   }
-  .league-page #comp-table-wrap :is(th, td) {
+  .competition-page #comp-table-wrap :is(th, td) {
     padding-block: 2.5px;
   }
-  .league-page #comp-table-wrap .seat-history-trigger {
+  .competition-page #comp-table-wrap .seat-history-trigger {
     min-height: 22px;
     padding: 0 3px;
   }
-  .league-page #comp-table-wrap .standings-rank {
+  .competition-page #comp-table-wrap .standings-rank {
     width: 22px;
   }
-  .league-page #comp-table-wrap [data-stat] {
+  .competition-page #comp-table-wrap [data-stat] {
     padding-inline: 2px;
   }
-  .league-page #cp-table .panel-head,
-  .league-page #comp-table-wrap {
+  .competition-page #cp-table .panel-head,
+  .competition-page #comp-table-wrap {
     padding-inline: 8px;
   }
 }

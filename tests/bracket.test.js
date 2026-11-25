@@ -26,6 +26,7 @@ async function setup(
     bestOf = 1,
     target,
     thirdPlace = false,
+    aggregateRounds = [],
   } = {},
 ) {
   const uploads = mkdtempSync(join(tmpdir(), "mimelo-bracket-"));
@@ -123,7 +124,14 @@ async function setup(
     kind: "knockout",
     format,
     entries,
-    settings: { elimination, seeding: "preseeded", bestOf, target, thirdPlace },
+    settings: {
+      elimination,
+      seeding: "preseeded",
+      bestOf,
+      target,
+      thirdPlace,
+      aggregateRounds,
+    },
   });
   await call("POST", `/api/competitions/${comp.id}/draw`, {});
   const state = () => call("GET", `/api/competitions/${comp.id}`);
@@ -161,7 +169,7 @@ test("competition fixtures include current photos, club crests, and exact extra-
   assert.deepEqual(result.score.pens, [5, 4]);
   assert.equal(result.teams[0].image, "/uploads/MUN.webp");
   assert.equal(result.teams[1].code, "RMA");
-  assert.equal(fixtureScoreText(result), "2(5)–(4)2 a.e.t.");
+  assert.equal(fixtureScoreText(result), "2 (5)–2 (4)");
   assert(
     after.fixtures
       .filter((f) => !f.match_id)
@@ -239,8 +247,14 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
   );
   assert.equal(await page.locator(".bt-unresolved.bt-winner").count(), 0);
   assert.equal(await page.locator(".bt-penalty").count(), 2);
-  assert.equal(await page.locator(".bt-shootout").innerText(), "2(5)–(4)2");
-  assert.match(await page.locator("#bracket-wrap").innerText(), /a\.e\.t\./);
+  assert.deepEqual(
+    await page.locator(".bt-has-penalties .bt-score").allTextContents(),
+    ["2 (5)", "2 (4)"],
+  );
+  assert.doesNotMatch(
+    await page.locator(".bt-has-penalties").innerText(),
+    /a\.e\.t\./,
+  );
   await page.locator("#cp-bracket").scrollIntoViewIfNeeded();
   await page.waitForFunction(() =>
     [...document.querySelectorAll(".bt-team img")].every(
@@ -272,7 +286,7 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
   );
   assert.equal(
     await page.locator("dialog .fc-shootout").innerText(),
-    "2(5)–(4)2",
+    "2 (5)–2 (4)",
   );
   await page.locator("dialog[open] .dialog-close").click();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -308,6 +322,156 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
     .locator("#cp-bracket")
     .screenshot({ path: "artifacts/bracket-dark.png" });
   assert.deepEqual(errors, []);
+});
+
+test("EA FC aggregate rounds reveal a shootout only for tied totals and advance the winner", async (t) => {
+  const h = await setup(t, { count: 4, aggregateRounds: [4] });
+  const seeded = await h.state();
+  const [semi, other] = seeded.fixtures.filter((f) => f.stage === "semifinal");
+  const final = seeded.fixtures.find((f) => f.stage === "final");
+  assert.equal(semi.aggregate, true);
+  assert.equal(final.aggregate, undefined);
+  const teams = { teamA: h.teams[0].id, teamB: h.teams[1].id };
+  const reject = async (score, message) => {
+    const response = await h.app.inject({
+      method: "POST",
+      url: `/api/games/${h.game}/matches`,
+      headers: h.headers,
+      payload: { fixture: semi.id, score: { ...teams, ...score } },
+    });
+    assert.equal(response.statusCode, 400);
+    assert.match(response.json().error, message);
+  };
+  await reject({ legScores: [{ a: 2, b: 1 }] }, /both legs/);
+  await reject(
+    {
+      legScores: [
+        { a: 2, b: 1 },
+        { a: 1, b: 2 },
+      ],
+    },
+    /needs a winner/,
+  );
+  await reject(
+    {
+      legScores: [
+        { a: 2, b: 1 },
+        { a: 3, b: 2 },
+      ],
+      pens: [1, 3],
+    },
+    /tied aggregate/,
+  );
+  await h.record(other, {
+    ...teams,
+    legScores: [
+      { a: 1, b: 1 },
+      { a: 2, b: 1 },
+    ],
+    aet: true,
+  });
+
+  await h.app.listen({ host: "127.0.0.1", port: 0 });
+  const base = `http://127.0.0.1:${h.app.server.address().port}`;
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage({
+    viewport: { width: 1360, height: 940 },
+  });
+  await page.request.post(base + "/api/login", {
+    headers: { "x-mimelo-request": "1" },
+    data: { identity: h.users[0].handle, password: "BracketPassword!" },
+  });
+  await page.goto(
+    `${base}/game.html?game=${h.game}&view=record&competition=${h.comp.id}&fixture=${semi.id}`,
+  );
+  await page.locator("body[data-ready=true]").waitFor();
+  const pens = page.locator("#r-pens"),
+    aet = page.locator("#r-aet");
+  assert.equal(await pens.isVisible(), false);
+  await page.locator("#r-s1").fill("2");
+  await page.locator("#r-s2").fill("1");
+  await page.locator("#field-leg2-1").fill("0");
+  await page.locator("#field-leg2-2").fill("0");
+  assert.equal(await pens.isVisible(), false);
+  await page.locator("#field-leg2-2").fill("1");
+  assert.equal(await pens.isVisible(), true);
+  await aet.check();
+  await pens.check();
+  assert.equal(await aet.isVisible(), false);
+  await page.locator("#r-pen1").fill("1");
+  await page.locator("#r-pen2").fill("3");
+  await page.evaluate(({ teamA, teamB }) => {
+    document.querySelector("#r-club1").value = teamA;
+    document.querySelector("#r-club2").value = teamB;
+  }, teams);
+  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.waitForURL(/competition\.html.*view=bracket/);
+  const fixture = () =>
+    h.state().then((c) => c.fixtures.find((f) => f.id === semi.id));
+  const submitted = await fixture();
+  assert.deepEqual(submitted.score.legScores, [
+    { a: 2, b: 1 },
+    { a: 0, b: 1 },
+  ]);
+  assert.equal(submitted.score.aet, false);
+  await h.call("POST", `/api/matches/${submitted.match_id}/accept`, {
+    revision: 1,
+  });
+  assert.equal((await fixture()).winner, semi.b);
+  assert.equal(
+    (await h.state()).fixtures.find((f) => f.id === final.id).status,
+    "ready",
+  );
+  await h.call("POST", `/api/matches/${submitted.match_id}/elo`, {
+    revision: 1,
+  });
+  await page.reload();
+  const card = page.locator(`[data-bracket-fixture="${semi.id}"]`);
+  await card.hover();
+  assert.deepEqual(await card.locator(".bt-score").allTextContents(), [
+    "2 (1)",
+    "2 (3)",
+  ]);
+  assert.doesNotMatch(await card.innerText(), /a\.e\.t\./);
+  assert.match(
+    await page.locator(`[data-bracket-fixture="${other.id}"]`).innerText(),
+    /a\.e\.t\./,
+  );
+  const popover = page.locator("#bracket-wrap-score-popover");
+  await popover.waitFor();
+  assert.deepEqual(await popover.locator("thead th").allTextContents(), [
+    "Entrant",
+    "Leg 1",
+    "Leg 2",
+    "Aggregate",
+  ]);
+  assert.deepEqual(await popover.locator("tbody td").allTextContents(), [
+    "2",
+    "0",
+    "2",
+    "1",
+    "1",
+    "2",
+  ]);
+  const corrected = {
+    ...teams,
+    legScores: [{ a: 1, b: 0 }, { a: 2, b: 3 }],
+    pens: [1, 3],
+  };
+  const preview = await h.call("POST", `/api/games/${h.game}/preview`, {
+    edit: submitted.match_id,
+    fixture: semi.id,
+    score: corrected,
+  });
+  assert.deepEqual([preview.a, preview.b], [3, 3]);
+  const amended = await h.call("PATCH", `/api/matches/${submitted.match_id}`, {
+    revision: 1,
+    score: corrected,
+  });
+  assert.deepEqual(amended.score.legScores, corrected.legScores);
+  await h.call("POST", `/api/matches/${submitted.match_id}/accept`, { revision: 2 });
+  assert.equal((await fixture()).winner, semi.b);
 });
 
 test("double elimination and doubles retain each lane, player pair, and conditional reset", async (t) => {
@@ -518,6 +682,14 @@ test("double bracket views, round navigation, byes, and scoreless forfeits", asy
     .locator("#cp-bracket")
     .screenshot({ path: "/tmp/mimelo-bracket-mobile.png" });
   await page.setViewportSize({ width: 1440, height: 950 });
+  await page.waitForFunction((ids) => {
+    const viewport = document.querySelector('[data-layout="connected"] .bt-viewport');
+    if (!viewport?.clientWidth || viewport.scrollWidth !== viewport.clientWidth) return false;
+    const [upper, lower, final] = ids.map((id) =>
+      viewport.querySelector(`[data-bracket-fixture="${id}"]`)?.getBoundingClientRect().y,
+    );
+    return Math.abs(final - (upper + lower) / 2) <= 1;
+  }, [...feeders, grand.id]);
   await page.getByRole("button", { name: "Winners only" }).click();
   await finalRound.click();
   assert.equal(await finalRound.getAttribute("aria-current"), "step");

@@ -15,7 +15,8 @@ import {
   crossGroupTable,
 } from "./competition-table.js";
 import { validatePickleballFormat } from "./scoring.js";
-import { bracketSeedOrder } from "../static/js/bracket-picks.js";
+import { bracketSeedOrder, isBracketFixture } from "../static/js/bracket-picks.js";
+import { aggregateRounds } from "../static/js/aggregate-rounds.js";
 export function getCompetition(db, id) {
   const c = db.prepare("SELECT * FROM competitions WHERE id=?").get(Number(id));
   assert(c, "Competition not found.", 404);
@@ -182,6 +183,7 @@ export function fixtureList(db, id) {
     .get(id);
   const game = competition?.game,
     rules = json(competition?.settings);
+  const finalRound = aggregateFinalRound(db, id, rules);
   return db
     .prepare(
       "SELECT f.*,m.id AS match_id,m.a_score,m.b_score,m.score,m.forfeit,m.played_at,m.submitted,m.status AS result_status FROM fixtures f LEFT JOIN matches m ON m.fixture_id=f.id AND m.status<>'voided' WHERE f.competition_id=? ORDER BY f.id",
@@ -193,6 +195,9 @@ export function fixtureList(db, id) {
         ...f,
         forfeit: f.forfeited || f.forfeit,
         bestOf: fixtureBestOf(rules, f),
+        ...(isAggregateFixture(rules, f, finalRound)
+          ? { aggregate: true }
+          : {}),
         priorLineups: db
           .prepare(
             "SELECT r.entry_id,p.id,p.name,p.photo,p.profile FROM fixture_rosters r JOIN players p ON p.id=r.player_id WHERE fixture_id=? ORDER BY p.id",
@@ -214,6 +219,23 @@ export function fixtureList(db, id) {
         }),
       };
     });
+}
+export function aggregateFinalRound(db, id, settings) {
+  if (!settings?.aggregateRounds?.length || settings.elimination === "double")
+    return null;
+  return db
+    .prepare(
+      "SELECT round FROM fixtures WHERE competition_id=? AND stage='final' AND pool='W'",
+    )
+    .get(id)?.round;
+}
+export function isAggregateFixture(settings, fixture, finalRound) {
+  return !!(
+    finalRound &&
+    fixture?.pool === "W" &&
+    isBracketFixture(fixture) &&
+    settings.aggregateRounds.includes(2 ** (finalRound - fixture.round + 1))
+  );
 }
 export function fixtureBestOf(settings, fixture) {
   if (!fixture) return Number(settings.bestOf);
@@ -260,6 +282,18 @@ export function settings(body, kind, format) {
     [1, 2].includes(s.legs) && ["single", "double"].includes(s.elimination),
     "Invalid competition format.",
   );
+  const aggregate = body.aggregateRounds ?? [];
+  assert(
+    Array.isArray(aggregate) &&
+      new Set(aggregate).size === aggregate.length &&
+      aggregate.every(
+        (round) =>
+          Number.isInteger(round) && Object.hasOwn(aggregateRounds, round),
+      ) &&
+      (!aggregate.length || (kind === "fc" && s.elimination === "single")),
+    "Choose valid two-leg rounds for single-elimination EA FC.",
+  );
+  if (aggregate.length) s.aggregateRounds = aggregate;
   assert(
     ["elo", "random", "manual", "preseeded"].includes(s.seeding),
     "Invalid seeding method.",

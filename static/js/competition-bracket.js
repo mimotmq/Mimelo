@@ -39,7 +39,7 @@ export function fixtureScoreText(f) {
         ? `${f.a_score}–${f.b_score} · Forfeit`
         : "Forfeit"
       : f.match_id
-        ? `${s?.pens ? `${f.a_score}(${s.pens[0]})–(${s.pens[1]})${f.b_score}` : `${f.a_score}–${f.b_score}`}${s?.aet ? " a.e.t." : ""}`
+        ? `${s?.pens ? `${f.a_score} (${s.pens[0]})–${f.b_score} (${s.pens[1]})` : `${f.a_score}–${f.b_score}${s?.aet ? " a.e.t." : ""}`}${s?.legScores ? " agg." : ""}`
         : f.status === "bye"
           ? "Bye"
           : "—";
@@ -142,6 +142,10 @@ function bracketEdges(nodes, full = false) {
       const dir = target.x > source.x ? 1 : -1;
       const x1 = source.x + (dir === 1 ? source.width : 0),
         x2 = target.x + (dir === 1 ? 0 : target.width);
+      const sideHeight = target.height === CARD_HEIGHT ? 48 : 38;
+      const entryOffset = full && target.f.pool === "G"
+        ? (side === "a" ? -0.5 : 0.5) * sideHeight
+        : 0;
       return [
         {
           source: source.f.id,
@@ -153,12 +157,7 @@ function bracketEdges(nodes, full = false) {
           x1,
           x2,
           y1: source.y + source.height / 2,
-          y2:
-            target.y +
-            (full && target.f.pool === "G"
-              ? 25 +
-                (side === "a" ? 0.5 : 1.5) * (target.f.score?.pens ? 38 : 48)
-              : target.height / 2),
+          y2: target.y + target.height / 2 + entryOffset,
         },
       ];
     }),
@@ -171,7 +170,9 @@ function connectedLayout(fixtures, width) {
   const roundCounts = byPool.map((fs) => new Set(fs.map((f) => f.round)).size);
   const laneColumns = Math.max(roundCounts[0], roundCounts[1]);
   const columns = laneColumns + roundCounts[2];
-  const gap = 28;
+  const compact = laneColumns >= 3 || fixtures.some((f) => f.status === "bye");
+  const availableGap = (width - 8 - columns * 190) / Math.max(1, columns - 1);
+  const gap = Math.max(12, Math.min(26, Math.floor(availableGap)));
   const cardWidth = Math.max(
     190,
     Math.min(330, Math.floor((width - 8 - (columns - 1) * gap) / columns)),
@@ -185,7 +186,7 @@ function connectedLayout(fixtures, width) {
   for (const [i, pool] of pools.entries()) {
     const fs = byPool[i];
     if (!fs.length) continue;
-    const layout = bracketLayout(fs, { cardWidth, gap, pool });
+    const layout = bracketLayout(fs, { cardWidth, gap, pool, compact });
     const x =
       (pool === "G" ? laneColumns : laneColumns - roundCounts[i]) * stride;
     const feeders =
@@ -195,25 +196,17 @@ function connectedLayout(fixtures, width) {
             .map((id) => nodes.find((n) => n.f.id === id))
             .filter(Boolean)
         : [];
-    const finalY = feeders.length
-      ? Math.max(
-          0,
-          Math.round(
-            feeders.reduce((sum, n) => sum + n.y, 0) / feeders.length,
-          ) -
-            TOP -
-            14,
-        )
-      : 0;
-    const y = pool === "G" ? finalY : offsetY;
+    const y = feeders.length
+      ? feeders.reduce((sum, n) => sum + n.y, 0) / feeders.length - layout.nodes[0].y
+      : offsetY + 28;
     if (pool !== "G")
-      lanes.push({ pool, x: 0, y, width: laneColumns * stride - gap });
+      lanes.push({ pool, x: 0, y: offsetY, width: laneColumns * stride - gap });
     for (const n of layout.nodes)
-      nodes.push({ ...n, x: n.x + x, y: n.y + y + 28, round: n.round + round });
+      nodes.push({ ...n, x: n.x + x, y: n.y + y, round: n.round + round });
     for (const [j, group] of layout.groups.entries())
       headings.push({
         x: x + j * stride,
-        y: y + 28,
+        y,
         width: cardWidth,
         round: round + j,
         heading: roundTitle(j, layout.groups.length, pool, group[0].round),
@@ -229,6 +222,7 @@ function connectedLayout(fixtures, width) {
     nodes,
     headings,
     lanes,
+    compact,
     edges: bracketEdges(nodes, true),
     width: columns * stride - gap,
     height: Math.max(offsetY, ...nodes.map((n) => n.y + n.height + 16)),
@@ -337,7 +331,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
       return `${ref.outcome === "loser" ? "Loser" : "Winner"} of ${labels.get(ref.fixture) || "match " + ref.fixture}`;
     return f.status === "bye" ? "Bye" : "To be decided";
   }
-  function sideMarkup(f, side, shootout) {
+  function sideMarkup(f, side) {
     const n = side === "a" ? 0 : 1,
       entry = entries.get(f[side]);
     const won = f.winner != null && f[side] != null && f.winner === f[side];
@@ -371,7 +365,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     return `<span class="bt-side ${won ? "bt-winner" : ""} ${entry ? "" : "bt-unresolved"}" data-entry="${f[side] || ""}">
       <span class="bt-player">${seeds.has(f[side]) ? seedBadge(seeds.get(f[side])) : ""}<span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : "fixture-name-frame"}" ${racket && entry ? "" : "data-scroll-name"} title="${esc(entrant(f, side))}">${identity}</span></span>
       ${fc ? `<span class="bt-team" title="${esc(team?.name || "Club not recorded")}" aria-label="${esc(team?.name || "Club not recorded")}">${team?.image ? `<img src="${esc(team.image)}" alt="" loading="lazy">` : `<span class="bt-club-code">${esc(team?.code || "—")}</span>`}</span>` : ""}
-      ${shootout ? "" : `<span class="bt-score"${score === "" ? ' aria-hidden="true"' : ""}>${esc(score)}</span>`}</span>`;
+      <span class="bt-score"${score === "" ? ' aria-hidden="true"' : ""}>${esc(score)}${score !== "" && f.score?.pens ? ` <small class="bt-penalty">(${f.score.pens[n]})</small>` : ""}</span></span>`;
   }
   function card(n, stacked = false) {
     const f = n.f;
@@ -392,7 +386,8 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
                   ? "Ready to play"
                   : "Upcoming";
     const detail = [
-      f.score?.aet ? "a.e.t." : "",
+      f.score?.legScores ? "Aggregate" : f.aggregate ? "Two-leg aggregate" : "",
+      f.score?.aet && !f.score?.pens ? "a.e.t." : "",
       f.score?.pens ? "Penalties" : "",
       f.conditional && f.status === "waiting" ? "Reset if needed" : "",
     ]
@@ -406,18 +401,18 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
         ? `href="${esc(APP.url("game", { view: "record", fixture: f.id, competition: c.id }))}"`
         : "";
     const games =
-      f.match_id && !f.forfeit && !f.no_contest ? f.score?.games || [] : [];
-    const scoreType =
-      APP.game.kind === "tennis"
+      f.match_id && !f.forfeit && !f.no_contest
+        ? (fc ? f.score?.legScores : f.score?.games) || []
+        : [];
+    const scoreType = fc
+      ? "Leg scores"
+      : APP.game.kind === "tennis"
         ? "Set scores"
         : APP.game.kind === "smash"
           ? "Stocks by game"
           : "Game scores";
     const total = fixtureScoreText(f);
     const pens = f.score?.pens;
-    const scoreStrip = pens
-      ? `<strong class="bt-shootout"><span>${f.a_score}<small class="bt-penalty">(${pens[0]})</small>–<small class="bt-penalty">(${pens[1]})</small>${f.b_score}</span></strong>`
-      : "";
     const scoreLabel = pens
       ? `Match score ${f.a_score} to ${f.b_score}. Penalties ${pens[0]} to ${pens[1]}`
       : games.length
@@ -433,11 +428,10 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     const scoresButton = games.length
       ? `<button type="button" class="bt-score-preview-button" ${forfeitPosition} data-score-button="${f.id}" aria-expanded="false" aria-controls="${container.id}-score-popover" aria-label="${esc(scoreType + " for " + entrant(f, "a") + " versus " + entrant(f, "b"))}">${scoreType}</button>`
       : "";
-    return `<${tag} class="bt-match ${pens ? "bt-with-series" : ""} ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" ${games.length ? `data-score-preview="${f.id}"` : ""} aria-label="${esc(aria)}" style="${position}height:${n.height}px">
+    return `<${tag} class="bt-match ${pens ? "bt-has-penalties" : ""} ${n.right ? "bt-right" : ""} ${f.status === "bye" ? "bt-bye" : ""} ${f.stage === "final" ? "bt-final" : ""} ${f.status === "cancelled" ? "bt-cancelled" : ""}" ${action} ${tag === "article" ? 'tabindex="-1"' : ""} data-bracket-fixture="${f.id}" data-match-round="${n.round}" ${games.length ? `data-score-preview="${f.id}"` : ""} aria-label="${esc(aria)}" style="${position}height:${n.height}px">
       <span class="bt-match-top"><span>${esc(n.label)}</span>${f.match_id || record ? '<span class="bt-open" aria-hidden="true">↗</span>' : ""}</span>
-      ${sideMarkup(f, "a", !!pens)}${sideMarkup(f, "b", !!pens)}
-      ${scoreStrip}
-      <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && !f.forfeit ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${scoresButton}${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" ${forfeitPosition} data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
+      ${sideMarkup(f, "a")}${sideMarkup(f, "b")}
+      <span class="bt-match-bottom"><span>${esc(f.forfeit ? state : detail || state)}</span>${detail && f.match_id && !f.forfeit && !f.score?.legScores ? `<span>${f.result_status === "accepted" ? "Final" : "Pending"}</span>` : ""}</span></${tag}>${scoresButton}${record && c.canManage && declareForfeit ? `<button type="button" class="bt-forfeit" ${forfeitPosition} data-bracket-forfeit="${f.id}" aria-label="Declare forfeit for ${esc(entrant(f, "a"))} versus ${esc(entrant(f, "b"))}">Forfeit</button>` : ""}`;
   }
   container.classList.add("bt-root");
   const views = [
@@ -497,7 +491,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
       c.settings.elimination === "double" && selectedView === "all";
     if (connected) {
       const layout = connectedLayout(fixtures, width);
-      sections.innerHTML = `<section class="bt-section" data-layout="connected">
+      sections.innerHTML = `<section class="bt-section" data-layout="connected" data-compact="${layout.compact}">
         ${roundNav(
           layout.headings.filter((heading) =>
             layout.nodes.some((n) => n.round === heading.round && rendered(n)),
@@ -543,16 +537,17 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           const fitWidth = Math.floor((width - 8 - (count - 1) * gap) / count);
           const stacked = focused && fitWidth < 202;
           const fitted = !focused && (mirrored || fitWidth >= 190);
+          const hasByes = fs.some((f) => f.status === "bye");
           const sparseMobileDraw =
             width < 700 &&
-            fs.some((f) => f.status === "bye") &&
+            hasByes &&
             [...rounds].every(
               (round) =>
                 fs.filter((f) => f.round === round && f.status !== "bye")
                   .length <= 4,
             );
           const compact =
-            !focused && count >= 4 && (fitted || sparseMobileDraw);
+            sparseMobileDraw || (focused && hasByes) || (fitted && (hasByes || count >= 4));
           const cardWidth = focused
             ? Math.max(202, Math.min(380, fitWidth))
             : fitted
@@ -579,7 +574,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
           if (thirdPlace && pool === "W") {
             const final = layout.nodes.at(-1);
             const round = layout.groups.length;
-            const y = final.y + final.height + 20;
+            const y = final.y + final.height + 44;
             layout.nodes.push({
               f: thirdPlace,
               x: final.x,

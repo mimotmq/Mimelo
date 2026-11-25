@@ -20,9 +20,19 @@ export function validatePickleballFormat(bestOf, target) {
     "Standard pickleball uses a single game to 15 or 21; best-of-3 and best-of-5 games are to 11.",
   );
 }
-export function validateScore(kind, format, input, knockout = false) {
+export function validateScore(
+  kind,
+  format,
+  input,
+  knockout = false,
+  aggregate = false,
+) {
   assert(input && typeof input === "object", "Enter a score.");
   const s = structuredClone(input);
+  assert(
+    s.legScores == null || (kind === "fc" && aggregate),
+    "This fixture uses a single score.",
+  );
   if (["tt", "tennis", "pickleball"].includes(kind)) {
     assert(
       s.umpire == null ||
@@ -46,8 +56,29 @@ export function validateScore(kind, format, input, knockout = false) {
     outcome = 0.5,
     margin = 1;
   if (kind === "fc") {
-    a = n(s.a, 99);
-    b = n(s.b, 99);
+    if (aggregate) {
+      assert(
+        Array.isArray(s.legScores) && s.legScores.length === 2,
+        "Enter scores for both legs.",
+      );
+      s.legScores = s.legScores.map((leg) => {
+        assert(
+          leg &&
+            typeof leg === "object" &&
+            leg.a != null &&
+            leg.b != null &&
+            leg.a !== "" &&
+            leg.b !== "",
+          "Enter scores for both legs.",
+        );
+        return { a: n(leg.a, 99), b: n(leg.b, 99) };
+      });
+      a = s.legScores[0].a + s.legScores[1].a;
+      b = s.legScores[0].b + s.legScores[1].b;
+    } else {
+      a = n(s.a, 99);
+      b = n(s.b, 99);
+    }
     s.a = a;
     s.b = b;
     s.aet = !!s.aet;
@@ -56,9 +87,15 @@ export function validateScore(kind, format, input, knockout = false) {
       "Choose both teams.",
     );
     if (s.pens) {
-      assert(a === b, "Penalty shootouts require a tied match score.");
       assert(
-        Array.isArray(s.pens) && s.pens.length === 2,
+        a === b,
+        aggregate
+          ? "Penalty shootouts require a tied aggregate score."
+          : "Penalty shootouts require a tied match score.",
+      );
+      assert(
+        Array.isArray(s.pens) && s.pens.length === 2 &&
+          s.pens.every((goals) => goals != null && String(goals).trim() !== ""),
         "Enter both shootout scores.",
       );
       s.pens = s.pens.map((x) => n(x, 99));

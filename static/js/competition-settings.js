@@ -4,6 +4,7 @@ import {
   defaultTiebreaks,
   playpassOrder,
 } from "./standings-stats.js";
+import { aggregateRounds } from "./aggregate-rounds.js";
 
 export function tiebreakLabels(kind) {
   const catalog = statCatalog(kind);
@@ -131,6 +132,33 @@ export function mountTiebreakEditor(
   });
   render();
   return { read: () => [...order] };
+}
+
+export function mountAggregateRounds(root, selected = []) {
+  root.classList.add("competition-best-of-editor");
+  root.innerHTML = `<details><summary>Two-leg aggregate rounds</summary><p class="hint">Select the rounds that use two legs. Record both legs together. A shootout decides a tied aggregate.</p><div class="competition-best-of-grid">${Object.entries(
+    aggregateRounds,
+  )
+    .reverse()
+    .map(
+      ([size, label]) =>
+        `<label class="check"><input type="checkbox" value="${size}" ${selected.includes(Number(size)) ? "checked" : ""}>${label}</label>`,
+    )
+    .join("")}</div></details>`;
+  return {
+    update({ gameKind, kind, playoffs, elimination }) {
+      root.hidden =
+        gameKind !== "fc" ||
+        elimination !== "single" ||
+        (kind === "league" && !playoffs);
+    },
+    read: () =>
+      root.hidden
+        ? []
+        : [...root.querySelectorAll("input:checked")].map((input) =>
+            Number(input.value),
+          ),
+  };
 }
 
 export function mountBestOfEditor(root, { values = {} } = {}) {

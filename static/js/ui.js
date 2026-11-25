@@ -684,11 +684,14 @@
       return `<div class="${kind === "smash" ? "smash-scoreboard" : "tennis-scoreboard"} ${kind === "tt" ? "tt-scoreboard" : ""}" style="--tennis-set-count:${cols};--tennis-score-columns:minmax(112px,1.8fr) repeat(${cols},minmax(24px,.4fr)) 30px" aria-label="${esc(kind)} scorecard"><div class="tennis-score-row tennis-score-head"><span>Player</span>${s.games.map((_, i) => '<span class="tennis-score-cell">' + (i + 1) + "</span>").join("")}<span class="tennis-score-total-head">${totalLabel}</span></div>${rows}</div>`;
     }
     const team = (n) => clubMark(m.teams?.[n]);
-    const detail = [s.aet ? "a.e.t." : "", s.pens ? "Penalties" : ""]
+    const detail = [
+      ...(s.legScores || []).map((leg, i) => `Leg ${i + 1}: ${leg.a}–${leg.b}`),
+      s.pens ? "Penalties" : s.aet ? "a.e.t." : "",
+    ]
       .filter(Boolean)
       .join(" · ");
     const score = s.pens
-      ? `<span class="score fc-shootout" aria-label="Match score ${m.a_score} to ${m.b_score}. Penalties ${s.pens[0]} to ${s.pens[1]}">${m.a_score}<small>(${s.pens[0]})</small>–<small>(${s.pens[1]})</small>${m.b_score}</span>`
+      ? `<span class="score fc-shootout" aria-label="${s.legScores ? "Aggregate" : "Match"} score ${m.a_score} to ${m.b_score}. Penalties ${s.pens[0]} to ${s.pens[1]}">${m.a_score} <small>(${s.pens[0]})</small>–${m.b_score} <small>(${s.pens[1]})</small></span>`
       : `<span class="score">${m.a_score} - ${m.b_score}</span>`;
     return `<div class="match-summary fc-scoreline"><span class="fc-player">${side(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
   }

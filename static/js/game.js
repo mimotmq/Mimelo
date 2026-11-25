@@ -434,6 +434,9 @@ APP.run(async () => {
     }
     text("#record-title", editing ? "Correct result" : "Record a result");
     const setsGame = g.kind !== "fc";
+    const aggregate =
+      !setsGame && !!(fixed?.f?.aggregate || editing?.score.legScores);
+    let footballScore;
     const pickleball =
       g.kind === "pickleball" ? await import("./pickleball.js") : null;
     if (!setsGame) {
@@ -618,15 +621,68 @@ APP.run(async () => {
       $("#r-comp").innerHTML =
         `<option>${esc(fixed?.c.name || "Friendly")}</option>`;
       $("#r-comp").disabled = true;
-      $("#r-s1").value = editing?.score.a ?? 0;
-      $("#r-s2").value = editing?.score.b ?? 0;
+      if (aggregate) {
+        text('label[for="r-s1"]', "Leg 1 · Player one goals");
+        text('label[for="r-s2"]', "Leg 1 · Player two goals");
+        $("#r-s1")
+          .closest(".form-grid")
+          .insertAdjacentHTML(
+            "afterend",
+            `<div class="form-grid">${[1, 2].map((side) => field(`Leg 2 · Player ${side === 1 ? "one" : "two"} goals`, `leg2-${side}`, "", "number", 'min="0" max="99" required')).join("")}</div>`,
+          );
+        $("#field-leg2-1").value = editing?.score.legScores?.[1]?.a ?? "";
+        $("#field-leg2-2").value = editing?.score.legScores?.[1]?.b ?? "";
+      }
+      $("#r-s1").value = aggregate
+        ? (editing?.score.legScores?.[0]?.a ?? "")
+        : (editing?.score.a ?? 0);
+      $("#r-s2").value = aggregate
+        ? (editing?.score.legScores?.[0]?.b ?? "")
+        : (editing?.score.b ?? 0);
       $("#r-aet").checked = !!editing?.score.aet;
       $("#r-pens").checked = !!editing?.score.pens;
-      $("#pens-fields").hidden = !$("#r-pens").checked;
       $("#r-pen1").value = editing?.score.pens?.[0] ?? 0;
       $("#r-pen2").value = editing?.score.pens?.[1] ?? 0;
-      $("#r-pens").onchange = () =>
-        ($("#pens-fields").hidden = !$("#r-pens").checked);
+      const aggregateTie = aggregate ? document.createElement("p") : null;
+      if (aggregateTie) {
+        aggregateTie.className = "hint";
+        aggregateTie.textContent =
+          "The aggregate is tied. Include any extra-time goals in leg 2. If it is still tied, record the shootout.";
+        aggregateTie.hidden = true;
+        $("#r-pens").closest("label").before(aggregateTie);
+      }
+      footballScore = () => {
+        const scorePair = (a, b) => [$(a).valueAsNumber, $(b).valueAsNumber];
+        const first = scorePair("#r-s1", "#r-s2");
+        const second = aggregate
+          ? scorePair("#field-leg2-1", "#field-leg2-2")
+          : [0, 0];
+        const [a, b] = first.map((goals, i) => goals + second[i]);
+        const complete = [...first, ...second].every(
+          (goals) => Number.isInteger(goals) && goals >= 0 && goals <= 99,
+        );
+        const eligible = complete && a === b;
+        if (aggregateTie) aggregateTie.hidden = !eligible;
+        const pensToggle = $("#r-pens");
+        pensToggle.closest("label").hidden = !eligible;
+        pensToggle.disabled = !eligible;
+        if (!eligible) pensToggle.checked = false;
+        const penalties = pensToggle.checked;
+        $("#pens-fields").hidden = !penalties;
+        $("#r-aet").closest("label").hidden = penalties;
+        return {
+          a,
+          b,
+          complete,
+          teamA: Number($("#r-club1").value),
+          teamB: Number($("#r-club2").value),
+          aet: !penalties && $("#r-aet").checked,
+          ...(aggregate && {
+            legScores: [first, second].map(([a, b]) => ({ a, b })),
+          }),
+          ...(penalties && { pens: scorePair("#r-pen1", "#r-pen2") }),
+        };
+      };
       for (let side = 0; side < 2; side++) {
         const el = $("#r-p" + (side + 1));
         await UI.picker(el, {
@@ -689,7 +745,17 @@ APP.run(async () => {
     text(
       "#sum-comp",
       fixed
-        ? `${fixed.c.name} · ${fixed.f.label} · Best of ${config().bestOf}`
+        ? [
+            fixed.c.name,
+            fixed.f.label,
+            aggregate
+              ? "Two-leg aggregate"
+              : setsGame
+                ? `Best of ${config().bestOf}`
+                : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")
         : "Friendly",
     );
     text("#sum-by", APP.me.name);
@@ -733,18 +799,14 @@ APP.run(async () => {
           "Enter both the played date and start time, or leave both blank.",
         );
       let score;
-      if (!setsGame)
-        score = {
-          a: Number($("#r-s1").value),
-          b: Number($("#r-s2").value),
-          teamA: Number($("#r-club1").value),
-          teamB: Number($("#r-club2").value),
-          aet: $("#r-aet").checked,
-          ...($("#r-pens").checked
-            ? { pens: [Number($("#r-pen1").value), Number($("#r-pen2").value)] }
-            : {}),
-        };
-      else {
+      if (!setsGame) {
+        const { complete, ...result } = footballScore();
+        if (!complete)
+          throw new Error(
+            aggregate ? "Enter goals for both legs." : "Enter both scores.",
+          );
+        score = result;
+      } else {
         const games = [];
         let blank = false;
         for (const row of $$("[data-game-row]")) {
@@ -808,7 +870,10 @@ APP.run(async () => {
         const body = read();
         if (body.sides.flat().some((x) => !x))
           throw new Error("Choose all participants.");
-        if (editing) delete body.fixture;
+        if (editing) {
+          if (aggregate) body.edit = editing.id;
+          else delete body.fixture;
+        }
         const result = await APP.api(`games/${APP.slug}/preview`, body);
         if (version !== projectionVersion) return;
         if (result.pending) throw new Error(result.message);
@@ -862,12 +927,8 @@ APP.run(async () => {
           team ? ` · ${team.overall ?? "Missing"} overall` : "",
         );
       }
-      text(
-        "#sum-score",
-        setsGame
-          ? "—"
-          : Number($("#r-s1").value) + "–" + Number($("#r-s2").value),
-      );
+      const fcScore = footballScore?.();
+      text("#sum-score", fcScore?.complete ? `${fcScore.a}–${fcScore.b}` : "—");
       if (!setsGame) {
         $("#record-fc-score").innerHTML = UI.score({
           participants: ss.flatMap((ids, side) =>
@@ -879,19 +940,9 @@ APP.run(async () => {
           teams: [1, 2].map((n) =>
             APP.teams.get(Number($("#r-club" + n).value)),
           ),
-          score: {
-            aet: $("#r-aet").checked,
-            ...($("#r-pens").checked
-              ? {
-                  pens: [
-                    Number($("#r-pen1").value),
-                    Number($("#r-pen2").value),
-                  ],
-                }
-              : {}),
-          },
-          a_score: Number($("#r-s1").value),
-          b_score: Number($("#r-s2").value),
+          score: fcScore.complete ? fcScore : {},
+          a_score: fcScore.complete ? fcScore.a : "—",
+          b_score: fcScore.complete ? fcScore.b : "—",
         });
       }
       text("#sum-elo", $("#r-elo").checked ? "Elo on" : "Elo off");
@@ -902,7 +953,6 @@ APP.run(async () => {
     });
     form.addEventListener("reset", () =>
       requestAnimationFrame(() => {
-        if ($("#pens-fields")) $("#pens-fields").hidden = !$("#r-pens").checked;
         preview();
       }),
     );

@@ -12,11 +12,13 @@ export function bindFixtureScorePopover(
   const { signal } = abort;
   let active, pinned, hideTimer, scrollFrame;
   const title =
-    kind === "tennis"
-      ? "Set scores"
-      : kind === "smash"
-        ? "Stocks by game"
-        : "Game scores";
+    kind === "fc"
+      ? "Leg scores"
+      : kind === "tennis"
+        ? "Set scores"
+        : kind === "smash"
+          ? "Stocks by game"
+          : "Game scores";
 
   function close() {
     clearTimeout(hideTimer);
@@ -32,7 +34,7 @@ export function bindFixtureScorePopover(
       trigger.dataset.scorePreview || trigger.dataset.scoreButton,
     );
     const fixture = findFixture(id);
-    const games = fixture?.score?.games;
+    const games = fixture?.score?.legScores || fixture?.score?.games;
     if (!games?.length) return;
     clearTimeout(hideTimer);
     if (active?.id === id && !pin) return;
@@ -44,7 +46,7 @@ export function bindFixtureScorePopover(
     pinned = pin;
     button?.setAttribute("aria-expanded", "true");
     panel.innerHTML = `<p class="fixture-score-title">${title}</p><table aria-label="${title}"><thead>
-      <tr><th scope="col"><span class="sr-only">Entrant</span></th>${games.map((_, i) => `<th scope="col">${i + 1}</th>`).join("")}<th scope="col" class="fixture-score-total">Total</th></tr>
+      <tr><th scope="col"><span class="sr-only">Entrant</span></th>${games.map((_, i) => `<th scope="col">${kind === "fc" ? "Leg " : ""}${i + 1}</th>`).join("")}<th scope="col" class="fixture-score-total">${kind === "fc" ? "Aggregate" : "Total"}</th></tr>
       </thead><tbody>${["a", "b"].map((side, i) => `<tr><th scope="row">${esc(names(fixture, side))}</th>${games.map((game) => `<td${game.winner === i ? ' class="fixture-game-winner"' : ""}>${esc(game[side])}</td>`).join("")}<td class="fixture-score-total">${esc(fixture[side + "_score"])}</td></tr>`).join("")}</tbody></table>`;
     panel.hidden = false;
     panel.showPopover();

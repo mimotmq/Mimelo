@@ -182,6 +182,16 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
     assert.equal(await page.locator("#cp-playoffs").isVisible(), true);
     assert.equal(await page.locator("#cp-fixtures").isVisible(), false);
     await visit(`/competition.html?game=eafc27&id=${extra.id}&view=table`);
+    const [groupA, groupB] = await page.locator(".standings-section")
+      .evaluateAll((sections) => sections.map((section) => section.getBoundingClientRect().toJSON()));
+    if (width === 1440) {
+      assert.equal(groupA.top, groupB.top);
+      assert(groupB.left - groupA.right >= 16);
+    } else {
+      assert.equal(groupA.left, groupB.left);
+      assert(groupB.top - groupA.bottom >= 16);
+    }
+    assert(groupA.left >= 12 && groupB.right <= width - 12);
     assert.equal(
       await page.locator("#competition-extra-standings tbody tr").count(),
       2,

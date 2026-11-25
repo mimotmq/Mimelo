@@ -5,6 +5,7 @@ APP.run(async () => {
     mountTiebreakEditor,
     mountColumnEditor,
     mountBestOfEditor,
+    mountAggregateRounds,
     bestOfLengths,
     tiebreakLabels,
   } = await import("./competition-settings.js");
@@ -16,6 +17,7 @@ APP.run(async () => {
     seedBadge,
   } = await import("./competition-bracket.js");
   const { isBracketFixture, bracketSeeds } = await import("./bracket-picks.js");
+  const { aggregateRounds } = await import("./aggregate-rounds.js");
   const { bindFixtureScorePopover } =
     await import("./fixture-score-popover.js");
   const { watchFixtureNames } = await import("./fixture-names.js");
@@ -246,7 +248,6 @@ APP.run(async () => {
       APP.api(`competitions/${id}/projection`),
     ]);
     c = { ...details, projection };
-    $("main").classList.toggle("league-page", c.kind === "league");
     if (c.game !== APP.slug) {
       location.replace("competition.html?game=" + c.game + "&id=" + id);
       return;
@@ -384,20 +385,15 @@ APP.run(async () => {
       label: pool ? `Group ${pool}` : "Standings",
       rows,
     }));
-    const tablesMarkup =
-      Object.entries(c.standings)
-        .map(
-          ([pool, rows]) =>
-            `<h3 class="panel-body">${pool ? "Group " + esc(pool) : "Table"}</h3>` +
-            standings(rows),
-        )
-        .join("") ||
-      UI.empty(
-        c.kind === "knockout"
-          ? "This competition is decided by the bracket."
-          : "Standings appear when the draw is generated.",
-      );
-    tableWrap.innerHTML = legendMarkup + tablesMarkup;
+    const standingsSection = ({ label, rows }) =>
+      `<section class="standings-section"><h3>${esc(label)}</h3>${standings(rows)}</section>`;
+    tableWrap.innerHTML = legendMarkup + (summaryTables.length
+      ? `<div class="standings-grid">${summaryTables.map(standingsSection).join("")}</div>`
+      : UI.empty(
+          c.kind === "knockout"
+            ? "This competition is decided by the bracket."
+            : "Standings appear when the draw is generated.",
+        ));
     if (c.settings.conferenceLayout && c.standings[""]?.length) {
       const views = [],
         divisions = [];
@@ -475,20 +471,13 @@ APP.run(async () => {
             ...views.map(({ label }, i) => [i, label]),
           ],
           current,
-        ) + legendMarkup + "<div data-division-table></div>";
+        ) + legendMarkup + '<div class="standings-grid"></div>';
       const chooser = $("#field-division-table", tableWrap);
-      const divisionTables = $("[data-division-table]", tableWrap);
+      const divisionTables = $(".standings-grid", tableWrap);
       chooser.onchange = () => {
         const showAll = chooser.value === "all";
         const tables = showAll ? divisions : [views[Number(chooser.value)]];
-        divisionTables.dataset.allDivisions = String(showAll);
-        divisionTables.innerHTML = tables
-          .filter(Boolean)
-          .map(
-            ({ label, rows }) =>
-              `<section class="division-standings"><h3>${esc(label)}</h3>${standings(rows)}</section>`,
-          )
-          .join("");
+        divisionTables.innerHTML = tables.filter(Boolean).map(standingsSection).join("");
         updateStandingsLegend();
       };
       chooser.onchange();
@@ -659,9 +648,14 @@ APP.run(async () => {
               : f.match_id || f.forfeit
                 ? fixtureScoreText(f)
                 : "vs";
-            const games = ["tt", "tennis", "pickleball"].includes(APP.game.kind)
-              ? f.score?.games || []
-              : [];
+            const games =
+              (APP.game.kind === "fc"
+                ? f.score?.legScores
+                : ["tt", "tennis", "pickleball"].includes(APP.game.kind)
+                  ? f.score?.games
+                  : null) || [];
+            const scoreLabel =
+              APP.game.kind === "fc" ? "Leg scores" : "Game scores";
             const lineup = (entry) => {
               const players = f.priorLineups?.filter(
                 (p) => p.entry_id === entry,
@@ -692,7 +686,7 @@ APP.run(async () => {
             const content = `${playerSide("a", false)}<strong class="fixture-result">${esc(result)}</strong>${playerSide("b", true)}`;
             const preview = games.length ? `data-score-preview="${f.id}"` : "";
             const scoresButton = games.length
-              ? `<button type="button" class="fixture-score-button" data-score-button="${f.id}" aria-expanded="false" aria-controls="fixture-groups-score-popover">Game scores</button>`
+              ? `<button type="button" class="fixture-score-button" data-score-button="${f.id}" aria-expanded="false" aria-controls="fixture-groups-score-popover">${scoreLabel}</button>`
               : "";
             const resultControl = f.match_id
               ? `<button type="button" class="fixture-match" data-match="${f.match_id}" ${preview}>${content}</button>`
@@ -899,6 +893,17 @@ APP.run(async () => {
       $("#rules-points-copy").append(
         ` Each entrant plays ${games.division} division, ${games.conference} other conference and ${games.cross} interconference games. ${playoffSeeds ? "The organizer set the playoff seeds." : `Each division winner and ${wildcards} wild cards per conference advance. Conference champions meet in the final.`}`,
       );
+    }
+    $("#aggregate-rules")?.remove();
+    if (c.settings.aggregateRounds?.length) {
+      const rounds = [...c.settings.aggregateRounds]
+        .sort((a, b) => b - a)
+        .map((size) => aggregateRounds[size]);
+      const rule = document.createElement("p");
+      rule.id = "aggregate-rules";
+      rule.className = "panel-body";
+      rule.textContent = `Two-leg aggregate rounds include ${rounds.join(", ")}. A shootout decides ties that remain level after extra time.`;
+      $("#cp-rules .formats").before(rule);
     }
     text(
       "#rules-elo-copy",
@@ -1252,7 +1257,7 @@ APP.run(async () => {
                 bestOfLengths(APP.game.kind, c.format).map((n) => [n, n]),
                 c.settings.bestOf,
               )) +
-          "<div data-best-of-stage-editor></div>" +
+          "<div data-best-of-stage-editor></div><div data-aggregate-editor></div>" +
           field(
             "Group count",
             "groupCount",
@@ -1332,6 +1337,7 @@ APP.run(async () => {
                 seeding: f.get("seeding"),
                 bestOf: Number(f.get("bestOf")),
                 bestOfByStage: bestOfEditor.read(),
+                aggregateRounds: aggregateEditor.read(),
                 groupCount: Number(f.get("groupCount")),
                 advance: Number(f.get("advance")),
                 extraCount:
@@ -1356,6 +1362,10 @@ APP.run(async () => {
         $("[data-best-of-stage-editor]", ruleDialog),
         { values: c.settings.bestOfByStage || {} },
       );
+      const aggregateEditor = mountAggregateRounds(
+        $("[data-aggregate-editor]", ruleDialog),
+        c.settings.aggregateRounds,
+      );
       tieEditor = mountTiebreakEditor($("[data-tiebreak-editor]", ruleDialog), {
         kind: APP.game.kind,
         values: c.settings.tieBreaks,
@@ -1370,14 +1380,16 @@ APP.run(async () => {
       );
       function updateRuleFields() {
         const kind = $("#field-kind", ruleDialog).value;
-        bestOfEditor.update({
+        const scoringSettings = {
           gameKind: APP.game.kind,
           kind,
           playoffs: $('[name="playoffs"]', ruleDialog).checked,
           elimination: $("#field-elimination", ruleDialog).value,
           format: $("#field-format", ruleDialog).value,
           defaultBestOf: Number($("#field-bestOf", ruleDialog).value),
-        });
+        };
+        bestOfEditor.update(scoringSettings);
+        aggregateEditor.update(scoringSettings);
         const playoffs = $('[name="playoffs"]', ruleDialog);
         for (const key of ["groupCount", "advance", "extraCount", "extraPlace"])
           $("#field-" + key, ruleDialog).closest(".field").hidden =

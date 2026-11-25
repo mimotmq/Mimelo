@@ -4,8 +4,12 @@ APP.run(async () => {
   if (!d) return;
   const pickleball =
     APP.game.kind === "pickleball" ? await import("./pickleball.js") : null;
-  const { mountTiebreakEditor, mountColumnEditor, mountBestOfEditor } =
-    await import("./competition-settings.js");
+  const {
+    mountTiebreakEditor,
+    mountColumnEditor,
+    mountBestOfEditor,
+    mountAggregateRounds,
+  } = await import("./competition-settings.js");
   let selected = new Map(),
     order = [],
     seeds = new Map(),
@@ -180,6 +184,9 @@ APP.run(async () => {
   bestOfStagesRoot.dataset.bestOfStageEditor = "";
   scoring.append(bestOfStagesRoot);
   const bestOfStages = mountBestOfEditor(bestOfStagesRoot);
+  const aggregateRoot = document.createElement("div");
+  scoring.append(aggregateRoot);
+  const aggregate = mountAggregateRounds(aggregateRoot);
   scoring.insertAdjacentHTML(
     "beforeend",
     '<p class="hint">Results count after acceptance. Elo needs a separate admin checkoff.</p>',
@@ -300,14 +307,16 @@ APP.run(async () => {
     thirdPlace.disabled =
       de || (kind() === "league" && !$("#comp-playoffs").checked);
     thirdPlace.closest("label").hidden = thirdPlace.disabled;
-    bestOfStages.update({
+    const scoringSettings = {
       gameKind: APP.game.kind,
       kind: kind(),
       playoffs: $("#comp-playoffs").checked,
       elimination: $("#comp-elimination").value,
       format: $("#field-competition-format").value,
       defaultBestOf: Number($("#field-competition-best").value),
-    });
+    };
+    bestOfStages.update(scoringSettings);
+    aggregate.update(scoringSettings);
     let fixtures = 0,
       days = 0;
     if (kind() === "knockout") {
@@ -516,6 +525,7 @@ APP.run(async () => {
           seeding: $("#comp-seeding").value,
           bestOf: Number($("#field-competition-best").value),
           bestOfByStage: bestOfStages.read(),
+          aggregateRounds: aggregate.read(),
           target: Number($("#field-competition-target")?.value || 11),
           matchTiebreak:
             $("#field-competition-format").value === "doubles" &&
