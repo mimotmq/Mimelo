@@ -1,24 +1,41 @@
-/* Live game pages; keep the supplied desktop templates intact. */
-.game-mobile-nav {
-  display: none;
+@media (max-width: 1024px), (hover: none) {
+  .game-page .app-head-inner,
+  .game-page .game-switcher { position: static; }
+  .game-page .game-switcher .switcher-menu {
+    inset: 100% 0 auto;
+    border-radius: 0;
+    background: var(--bg);
+    width: auto;
+    max-height: calc(100dvh - var(--header-h) - 20px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .game-page .game-switcher[open] .switcher-menu {
+      animation: game-options-in 150ms ease-out;
+    }
+    @keyframes game-options-in {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  }
 }
-
+/* Live game pages; keep the supplied desktop templates intact. */
 @media (max-width: 700px) {
   .game-page .app-head-inner {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
-    position: relative;
   }
   .game-page .game-switcher {
-    position: static;
-    justify-self: start;
-    max-width: 100%;
+    justify-self: stretch;
+    min-width: 0;
   }
   .game-page .game-switcher > summary {
     display: flex;
     min-height: 44px;
-    max-width: 100%;
+    width: 100%;
+    padding-inline: 12px;
   }
   .game-page .game-switcher [data-game-label] {
     min-width: 0;
@@ -27,10 +44,8 @@
     white-space: nowrap;
   }
   .game-page .switcher-caret {
+    margin-inline-start: auto;
     flex: none;
-  }
-  .game-page .game-switcher .switcher-menu {
-    right: 0;
   }
   .game-page .app-main {
     padding-top: 16px;
@@ -76,32 +91,6 @@
   }
   .game-page .game-identity[data-size="compact"] .game-identity-name {
     font-size: 1.15rem;
-  }
-  .game-mobile-nav {
-    display: flex;
-    gap: 4px;
-    max-width: 100%;
-    overflow-x: auto;
-    margin-bottom: 20px;
-    border-bottom: 1px solid var(--line);
-    scrollbar-width: thin;
-  }
-  .game-mobile-nav a {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1 0 auto;
-    min-height: 44px;
-    padding: 8px;
-    border-bottom: 3px solid transparent;
-    color: var(--muted);
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-  .game-mobile-nav a[aria-current="page"] {
-    border-bottom-color: var(--accent);
-    color: var(--ink);
   }
   .game-page .page-head {
     gap: 16px;

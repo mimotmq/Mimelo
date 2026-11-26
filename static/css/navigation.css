@@ -78,19 +78,39 @@ body:has(.adaptive-navigation) > .site-header { margin-inline-start: calc(-1 * v
   width: 100%;
 }
 @media (max-width: 1024px), (hover: none) {
+  body:has(.adaptive-navigation) { padding-inline-start: 0; }
+  body:has(.adaptive-navigation) > .site-header { margin-inline-start: 0; }
+  .adaptive-navigation .sidebar,
   .adaptive-navigation[data-nav-open="true"] .sidebar {
-    inset: 0 auto 0 0;
-    width: min(300px, 85vw);
-
+    inset: var(--nav-top, 0px) 0 auto;
+    width: 100%;
+    background: var(--bg);
+    max-height: calc(100dvh - var(--nav-top, 0px));
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    transition: opacity 150ms ease, transform 150ms ease;
   }
+  .adaptive-navigation[data-nav-open="false"] .sidebar {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  .adaptive-navigation .sidebar .navigation-edge { display: none; }
+  .home-page .header-actions > .btn-primary { display: none; }
   .site-header .header-actions .navigation-menu.icon-btn {
     display: inline-flex;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
   body:has(.adaptive-navigation) { --rail-width: 52px; --rail-gutter: 4px; }
   .navigation-backdrop {
     display: block;
     position: fixed;
-    inset: 0;
+    inset: var(--nav-top, 0px) 0 0;
     z-index: 70;
     background: rgb(0 0 0 / 0.35);
     opacity: 0;
@@ -102,9 +122,6 @@ body:has(.adaptive-navigation) > .site-header { margin-inline-start: calc(-1 * v
   [data-nav-open="true"] .navigation-backdrop {
     opacity: 1;
     visibility: visible;
-  }
-  body.navigation-modal {
-    overflow: hidden;
   }
   .header-actions:has(.navigation-menu) {
     gap: 6px;

@@ -438,7 +438,7 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   });
   await openNavigation(page);
   assert.equal(
-    await page.locator(".sidebar").getAttribute("aria-modal"),
+    await page.locator(".navigation-menu").getAttribute("aria-expanded"),
     "true",
   );
   await page.keyboard.press("Escape");

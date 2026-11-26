@@ -2,21 +2,6 @@ APP.run(async () => {
   const { $, $$, esc, text, button, field, select } = UI,
     g = APP.game;
   document.body.classList.add("game-page");
-  const mobileNav = document.createElement("nav");
-  mobileNav.className = "game-mobile-nav";
-  mobileNav.setAttribute("aria-label", "Game views");
-  mobileNav.innerHTML = [
-    ["overview", "Overview"],
-    ["matches", "Matches"],
-    ["rankings", "Rankings"],
-    ["competitions", "Competitions"],
-  ]
-    .map(
-      ([name, label]) =>
-        `<a href="${esc(APP.url("game", { view: name }))}" data-view="${name}">${label}</a>`,
-    )
-    .join("");
-  $(".game-identity").after(mobileNav);
   let view = APP.params.get("view") || "overview",
     format = "singles",
     matchStatus = "";

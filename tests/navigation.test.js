@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
 
-test("navigation starts as an icon rail and expands for mouse, keyboard and touch", async (t) => {
+test("desktop rail and mobile header menu support mouse, keyboard and touch", async (t) => {
   const app = await createApp({ database: ":memory:" });
   t.after(() => app.close());
   const pw = await passwordHash("NavigationPassword!");
@@ -151,12 +151,23 @@ test("navigation starts as an icon rail and expands for mouse, keyboard and touc
     await page.locator('.main-nav a[href="players.html"]').count(),
     1,
   );
-  for (const width of [390, 820]) {
+  for (const width of [320, 390, 820]) {
     await page.emulateMedia({
       reducedMotion: width === 390 ? "reduce" : "no-preference",
     });
     await page.setViewportSize({ width, height: 1000 });
+    await visit("/");
+    assert.equal(await page.locator(".header-actions button:visible").count(), 1);
+    assert.equal(await menu.evaluate(el => getComputedStyle(el).backgroundColor), "rgba(0, 0, 0, 0)");
     await visit("/game.html?game=smash");
+    const picker = page.locator(".game-switcher summary");
+    await picker.click();
+    const options = page.locator(".switcher-menu");
+    const bounds = await options.boundingBox();
+    assert.equal(bounds.x, 0);
+    assert.equal(bounds.width, width);
+    await page.keyboard.press("Escape");
+    assert.equal(await options.isVisible(), false);
     assert.equal(await shell.getAttribute("data-nav-open"), "false");
     assert.equal(
       await menu.isVisible(),
@@ -181,15 +192,12 @@ test("navigation starts as an icon rail and expands for mouse, keyboard and touc
     );
     assert(await menu.evaluate((el) => !!el.closest(".site-header")));
     await menu.click();
-    assert.equal(await sidebar.getAttribute("aria-modal"), "true");
-    assert(await page.locator("main").evaluate((el) => el.inert));
-    await page.keyboard.press("Shift+Tab");
-    assert(
-      await sidebar
-        .locator("a:visible")
-        .last()
-        .evaluate((el) => el === document.activeElement),
-    );
+    assert.equal(await edge.isVisible(), false);
+    assert.equal(await sidebar.isVisible(), true);
+    assert.equal((await sidebar.boundingBox()).width, width);
+    await menu.click();
+    assert.equal(await sidebar.isVisible(), false);
+    await menu.click();
     await page.keyboard.press("Escape");
     assert.equal(await shell.getAttribute("data-nav-open"), "false");
     assert(await menu.evaluate((el) => el === document.activeElement));
@@ -200,7 +208,7 @@ test("navigation starts as an icon rail and expands for mouse, keyboard and touc
     await page.waitForFunction(
       () =>
         getComputedStyle(document.querySelector(".sidebar")).visibility ===
-        "visible",
+        "hidden",
     );
     assert(
       await page.evaluate(

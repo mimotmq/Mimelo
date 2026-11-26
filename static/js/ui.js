@@ -542,16 +542,13 @@
 
       for (const opener of [menu, edge])
         opener.setAttribute("aria-expanded", String(open));
-      const modal = open && mobile.matches;
-      content.inert = modal;
-      $(".site-header")?.toggleAttribute("inert", modal);
-      document.body.classList.toggle("navigation-modal", modal);
-      sidebar.toggleAttribute("aria-modal", modal);
-      if (modal) {
-        sidebar.setAttribute("role", "dialog");
-        sidebar.setAttribute("aria-modal", "true");
-      } else sidebar.removeAttribute("role");
-      if (focus && open) edge.focus({ preventScroll: true });
+      menu.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+      menu.innerHTML = icon(open ? "close" : "menu", 20);
+      sidebar.inert = mobile.matches && !open;
+      if (focus && open) {
+        const target = mobile.matches ? sidebar.querySelector(".side-link") : edge;
+        target.focus({ preventScroll: true });
+      }
       if (!open && (focus || restoreFocus)) {
         restoringFocus = true;
         if (!mobile.matches && !focus) {
@@ -626,20 +623,10 @@
         event.preventDefault();
         render(false, true);
       }
-      if (event.key === "Tab" && mobile.matches) {
-        const items = [...sidebar.querySelectorAll("a,button")].filter(
-          (el) => el.getClientRects().length && !el.disabled,
-        );
-        const first = items[0],
-          last = items.at(-1);
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
+    });
+    document.addEventListener("focusin", (event) => {
+      if (mobile.matches && open && event.target !== menu && !sidebar.contains(event.target))
+        render(false);
     });
     const header = $(".site-header");
     const headerObserver = new ResizeObserver(() =>
@@ -1114,6 +1101,23 @@
     }
     text("[data-game-label]", g.name);
     const switcherMenu = $(".switcher-menu");
+    const switcher = switcherMenu?.closest("details");
+    if (switcher) {
+      const summary = switcher.querySelector("summary");
+      summary.setAttribute("aria-label", "Switch game, current game: " + g.name);
+      function dismissOutside(event) {
+        if (switcher.open && !switcher.contains(event.target)) switcher.open = false;
+      }
+      document.addEventListener("pointerdown", dismissOutside);
+      document.addEventListener("focusin", dismissOutside);
+      switcher.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && switcher.open) {
+          switcher.open = false;
+          summary.focus();
+          event.stopPropagation();
+        }
+      });
+    }
     const pickleball = APP.games.find((game) => game.slug === "pickleball");
     if (switcherMenu && pickleball) {
       const link = document.createElement("a");
@@ -1207,13 +1211,6 @@
       (b) => (b.onclick = () => b.closest("dialog")?.close()),
     );
     $$(".sample-tag,.demo-note").forEach((e) => e.remove());
-    if ($("#menu-btn"))
-      $("#menu-btn").onclick = () => {
-        const open = $("#menu-btn").getAttribute("aria-expanded") === "true";
-        $("#menu-btn").setAttribute("aria-expanded", !open);
-        $("#mobile-nav").hidden = open;
-        $("#mobile-nav").dataset.open = String(!open);
-      };
     const bell = $('button[aria-label="Notifications"]');
     if (bell) {
       bell.hidden = !APP.me;

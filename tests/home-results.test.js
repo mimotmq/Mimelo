@@ -233,8 +233,8 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
       await viewport.evaluate(
         (el) => {
           const bounds = el.getBoundingClientRect();
-          const rail = document.querySelector(".sidebar").getBoundingClientRect();
-          return Math.abs(bounds.left - rail.right) <= 1 && Math.abs(bounds.right - innerWidth) <= 1;
+          const railWidth = parseFloat(getComputedStyle(document.body).paddingInlineStart);
+          return Math.abs(bounds.left - railWidth) <= 1 && Math.abs(bounds.right - innerWidth) <= 1;
         },
       ),
       "The broadcast strip spans the available width beside the navigation rail.",

@@ -260,11 +260,11 @@ test("pickleball records, ratings, competitions and mobile score entry work in s
         );
       assert.equal(stats[0], stats[1]);
       assert(stats[2] > stats[0]);
-      await page.locator('.game-mobile-nav [data-view="rankings"]').click();
+      await page.locator(".navigation-menu").click();
     } else {
       assert.equal(await page.locator(".game-mobile-nav").isVisible(), false);
-      await page.locator('.sidebar [data-view="rankings"]').click();
     }
+    await page.locator('.sidebar [data-view="rankings"]').click();
     await page.locator(".game-ranking-row").first().waitFor();
     await page.locator("#field-ranking-format").selectOption("doubles");
     await page.waitForFunction(
@@ -285,7 +285,8 @@ test("pickleball records, ratings, competitions and mobile score entry work in s
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await visit("/game.html?game=pickleball&view=rankings");
-  await page.locator('.game-mobile-nav [data-view="matches"]').click();
+  await page.locator(".navigation-menu").click();
+  await page.locator('.sidebar [data-view="matches"]').click();
   await page.locator(".match-record").first().waitFor();
   assert.match(page.url(), /game=pickleball&view=matches/);
   await page.locator('#match-filters [data-status="accepted"]').click();
@@ -303,7 +304,7 @@ test("pickleball records, ratings, competitions and mobile score entry work in s
     .locator('[data-view-panel="rankings"]')
     .waitFor({ state: "visible" });
   assert.equal(
-    await page.locator('.game-mobile-nav [aria-current="page"]').textContent(),
+    await page.locator('.sidebar [data-view][aria-current="page"]').getAttribute("aria-label"),
     "Rankings",
   );
   await visit("/game.html?game=pickleball&view=competitions");
