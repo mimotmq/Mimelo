@@ -26,6 +26,11 @@
 .match-result-trigger .fc-scoreline .score {
   font-size: 1.5rem;
 }
+.match-result-trigger .fc-scoreline .score:not(.fc-shootout) {
+  min-width: 6ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .fc-scoreline .fc-shootout {
   white-space: nowrap;
 }
@@ -100,6 +105,12 @@ dialog.dialog.match-overview-dialog {
   gap: 5px;
   overflow-wrap: anywhere;
 }
+.match-overview-side:last-child .match-overview-person {
+  flex-direction: row-reverse;
+}
+.match-overview-side:last-child .match-overview-person > span:last-child {
+  justify-items: end;
+}
 .match-before-elo {
   font-size: 0.8rem;
   color: var(--muted);
@@ -149,6 +160,21 @@ dialog.dialog.match-overview-dialog {
 .fc-overview-team:nth-child(2) { text-align: right; }
 .fc-overview-line .fc-player { font-weight: 700; }
 .fc-overview-line .fc-player:last-child { text-align: left; }
+@media (min-width: 701px) {
+  :is(.fc-overview-line, .match-result-trigger .fc-scoreline) .match-score-person {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  :is(.fc-overview-line, .match-result-trigger .fc-scoreline) .fc-player:last-child .match-score-person {
+    flex-direction: row-reverse;
+  }
+  .fc-overview-line .match-score-person .avatar {
+    width: 40px;
+    height: 40px;
+    font-size: .8rem;
+  }
+}
 .match-overview-score .tennis-score-row {
   min-height: 48px;
   font-size: 1rem;
@@ -303,6 +329,9 @@ dialog.dialog.match-overview-dialog {
   background: var(--accent-soft);
 }
 @media (max-width: 700px) {
+  :is(.fc-overview-line, .match-result-trigger .fc-scoreline) .match-score-person > span:first-child {
+    display: none;
+  }
   .match-table .match-result {
     min-width: 0;
   }

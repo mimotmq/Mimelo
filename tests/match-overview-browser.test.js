@@ -164,7 +164,15 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
       });
     await page.keyboard.press("Escape");
     await visit("eafc27");
+    const mini = page.locator(`#matches-body [data-match="${football.id}"]`);
+    assert.equal(await mini.locator(".fc-player .avatar").count(), 2);
+    assert.equal(await mini.locator(".fc-player .avatar").first().isVisible(), width > 700);
     dialog = await open(football.id);
+    assert.equal(await dialog.locator(".match-overview-identities .avatar").count(), 2);
+    assert.equal(
+      await dialog.locator(".match-overview-side:last-child .match-overview-person").evaluate((el) => getComputedStyle(el).flexDirection),
+      "row-reverse",
+    );
     assert.equal(await dialog.locator(".match-odds-outcome").count(), 3);
     const oddsY = await dialog
       .locator(".match-odds-outcome > b")

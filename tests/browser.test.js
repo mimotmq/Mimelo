@@ -476,13 +476,13 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     1,
   );
   assert.deepEqual(await scoreline.locator(":scope > *").allTextContents(), [
-    "Browser Player 0",
+    "BPBrowser Player 0",
     "Alpha Club",
     "ALPAlpha Club",
     "6 - 1",
     "BETBeta Club",
     "Beta Club",
-    "Browser Player 1",
+    "BPBrowser Player 1",
   ]);
   const scoreBox = await scoreline.locator(".score").boundingBox();
   const lineBox = await scoreline.boundingBox();

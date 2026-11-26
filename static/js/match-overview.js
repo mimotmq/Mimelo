@@ -25,7 +25,7 @@ export function renderMatchOverview(
     `<div class="match-overview-side">${members(side)
       .map(
         (player) =>
-          `<a class="match-overview-person" href="player.html?player=${player.id}">${["tennis", "tt", "pickleball"].includes(context.kind) ? UI.avatar(player.name, "avatar-sm", player.photo) : ""}<span>${esc(player.name)}${["tennis", "tt", "pickleball"].includes(context.kind) ? UI.nationalityFlags(player) : ""}</span></a>`,
+          `<a class="match-overview-person" href="player.html?player=${player.id}">${UI.avatar(player.name, "avatar-sm", player.photo)}<span>${esc(player.name)}${["tennis", "tt", "pickleball"].includes(context.kind) ? UI.nationalityFlags(player) : ""}</span></a>`,
       )
       .join(
         "",

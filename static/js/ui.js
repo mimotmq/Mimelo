@@ -711,14 +711,14 @@
       .filter(Boolean)
       .join(" · ");
     const separator = s.aet && !s.pens
-      ? '<span class="fc-score-separator">–<small class="fc-extra-time">a.e.t.</small></span>'
+      ? '<span class="fc-score-separator">-<small class="fc-extra-time">a.e.t.</small></span>'
       : "-";
     const score = s.pens
-      ? `<span class="score fc-shootout">${redCards(s.redCards?.[0])}${m.a_score} <small>(${s.pens[0]})</small>–${m.b_score} <small>(${s.pens[1]})</small>${redCards(s.redCards?.[1])}</span>`
+      ? `<span class="score fc-shootout">${redCards(s.redCards?.[0])}${m.a_score} <small>(${s.pens[0]})</small> - ${m.b_score} <small>(${s.pens[1]})</small>${redCards(s.redCards?.[1])}</span>`
       : `<span class="score">${redCards(s.redCards?.[0])}${m.a_score} ${separator} ${m.b_score}${redCards(s.redCards?.[1])}</span>`;
     if (options.overview)
-      return `<div class="match-summary fc-scoreline fc-overview-line${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${side(0)}</span><span class="fc-overview-team">${esc(m.teams?.[0]?.name || "—")}</span>${team(0)}${score}${team(1)}<span class="fc-overview-team">${esc(m.teams?.[1]?.name || "—")}</span><span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
-    return `<div class="match-summary fc-scoreline${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${side(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
+      return `<div class="match-summary fc-scoreline fc-overview-line${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${sideWithPhotos(0)}</span><span class="fc-overview-team">${esc(m.teams?.[0]?.name || "—")}</span>${team(0)}${score}${team(1)}<span class="fc-overview-team">${esc(m.teams?.[1]?.name || "—")}</span><span class="fc-player">${sideWithPhotos(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
+    return `<div class="match-summary fc-scoreline${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${options.mini ? sideWithPhotos(0) : side(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${options.mini ? sideWithPhotos(1) : side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
   }
   function redCards(count) {
     const n = Number.isInteger(count) ? Math.max(0, Math.min(5, count)) : 0;
@@ -757,7 +757,7 @@
           .join(" + "),
       )
       .join(" vs ");
-    return `<a class="match-result-trigger" data-match="${match.id}" href="${esc(APP.url("game", { game: match.game, view: "matches", match: match.id }))}" aria-label="${esc("View match: " + names)}">${score(match)}</a>`;
+    return `<a class="match-result-trigger" data-match="${match.id}" href="${esc(APP.url("game", { game: match.game, view: "matches", match: match.id }))}" aria-label="${esc("View match: " + names)}">${score(match, { mini: true })}</a>`;
   }
   function status(m) {
     return m.forfeit
