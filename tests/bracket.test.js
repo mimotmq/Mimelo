@@ -286,7 +286,7 @@ test("connected tournament cards mirror on desktop, swipe by round on mobile, an
   );
   assert.equal(
     await page.locator("dialog .fc-shootout").innerText(),
-    "2 (5)–2 (4)",
+    "2 (5) - 2 (4)",
   );
   await page.locator("dialog[open] .dialog-close").click();
   await page.setViewportSize({ width: 390, height: 844 });

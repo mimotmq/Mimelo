@@ -640,7 +640,7 @@ test("long EAFC names stay readable in mobile match cards and dialogs", async (t
       );
     }
     const checkName = async (scope) => {
-      const name = scope.locator(".fc-player").first();
+      const name = scope.locator(".fc-player .match-score-person > span:last-child").first();
       assert.equal(await name.innerText(), "Bashar Fakhreddin");
       assert(
         await name.evaluate(
