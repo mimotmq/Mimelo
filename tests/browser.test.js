@@ -378,6 +378,9 @@ test("public browsing, optional-email signup and all sport recording forms", asy
     // Opening fetches the catalog before showing the dialog.
     await page.locator("#team-dialog").waitFor({ state: "visible" });
     assert.equal(await page.locator("#team-results [data-team]").count(), 2);
+    const flag = await page.locator("#team-results [data-team]").first().evaluate((el) => ({ image: getComputedStyle(el, "::before").backgroundImage, opacity: Number(getComputedStyle(el, "::before").opacity) }));
+    assert.match(flag.image, /flags\/england\.svg/);
+    assert(flag.opacity > 0 && flag.opacity < 0.4);
     assert.equal(
       await page
         .locator("#team-results [data-team]")
@@ -474,11 +477,16 @@ test("public browsing, optional-email signup and all sport recording forms", asy
   );
   assert.deepEqual(await scoreline.locator(":scope > *").allTextContents(), [
     "Browser Player 0",
-    "ALP",
+    "Alpha Club",
+    "ALPAlpha Club",
     "6 - 1",
-    "BET",
+    "BETBeta Club",
+    "Beta Club",
     "Browser Player 1",
   ]);
+  const scoreBox = await scoreline.locator(".score").boundingBox();
+  const lineBox = await scoreline.boundingBox();
+  assert(Math.abs(scoreBox.x + scoreBox.width / 2 - lineBox.x - lineBox.width / 2) < 2);
   await page.locator('dialog[open] [data-action="edit"]').click();
   await page.waitForURL(/edit=/);
   await ready();

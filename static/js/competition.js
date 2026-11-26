@@ -16,6 +16,10 @@ APP.run(async () => {
     sourceRef,
     seedBadge,
   } = await import("./competition-bracket.js");
+  const fixtureScoreMarkup = (f, value) =>
+    APP.game.kind === "fc" && f.score?.aet && !f.score?.pens && f.match_id && !f.forfeit
+      ? esc(value).replace("–", '<span class="fc-score-separator">–<small class="fc-extra-time">a.e.t.</small></span>').replace(" a.e.t.", "")
+      : esc(value);
   const { isBracketFixture, bracketSeeds } = await import("./bracket-picks.js");
   const { aggregateRounds } = await import("./aggregate-rounds.js");
   const { bindFixtureScorePopover } =
@@ -658,7 +662,7 @@ APP.run(async () => {
               .map((f) => {
                 const score =
                   f.status === "completed" ? fixtureScoreText(f) : "vs";
-                const line = `<span>${esc(name(f.a))}</span><strong>${esc(score)}</strong><span>${esc(name(f.b))}</span>`;
+                const line = `<span>${esc(name(f.a))}</span><strong>${APP.game.kind === "fc" && f.match_id && !f.forfeit ? UI.redCards(f.score?.redCards?.[0]) : ""}${fixtureScoreMarkup(f, score)}${APP.game.kind === "fc" && f.match_id && !f.forfeit ? UI.redCards(f.score?.redCards?.[1]) : ""}</strong><span>${esc(name(f.b))}</span>`;
                 return `<li>${f.match_id ? `<button type="button" class="overview-fixture-line" data-match="${f.match_id}">${line}</button>` : `<div class="overview-fixture-line">${line}</div>`}</li>`;
               })
               .join("")}</ul>`
@@ -735,7 +739,7 @@ APP.run(async () => {
                   .join("") || esc(placeholder)
               }</span>`;
             };
-            const content = `${playerSide("a", false)}<strong class="fixture-result">${esc(result)}</strong>${playerSide("b", true)}`;
+            const content = `${playerSide("a", false)}<strong class="fixture-result">${APP.game.kind === "fc" && f.match_id && !f.forfeit ? UI.redCards(f.score?.redCards?.[0]) : ""}${fixtureScoreMarkup(f, result)}${APP.game.kind === "fc" && f.match_id && !f.forfeit ? UI.redCards(f.score?.redCards?.[1]) : ""}</strong>${playerSide("b", true)}`;
             const preview = games.length ? `data-score-preview="${f.id}"` : "";
             const scoresButton = games.length
               ? `<button type="button" class="fixture-score-button" data-score-button="${f.id}" aria-expanded="false" aria-controls="fixture-groups-score-popover">${scoreLabel}</button>`

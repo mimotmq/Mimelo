@@ -3,7 +3,6 @@ APP.run(async () => {
     g = APP.game;
   document.body.classList.add("game-page");
   let view = APP.params.get("view") || "overview",
-    format = "singles",
     matchStatus = "";
   const valid = [
     "overview",
@@ -15,6 +14,21 @@ APP.run(async () => {
     "review",
   ];
   if (!valid.includes(view)) view = "overview";
+  const hasDoubles = ["tennis", "smash", "pickleball"].includes(g.kind);
+  if (hasDoubles) {
+    text("#tab-elo", "Singles");
+    text("#panel-elo h2", "Singles Elo ratings");
+    $("#tab-doubles").hidden = false;
+    if (g.kind === "pickleball") {
+      $("#tab-elo").setAttribute("aria-selected", "false");
+      $("#tab-elo").tabIndex = -1;
+      $("#panel-elo").hidden = true;
+      $("#tab-doubles").setAttribute("aria-selected", "true");
+      $("#tab-doubles").tabIndex = 0;
+      $("#panel-doubles").hidden = false;
+    }
+    UI.tabs($("#tab-elo").closest('[role="tablist"]').parentElement);
+  }
   text(
     "#overview-sub",
     `${g.name}: independent ratings, competitions, and match records.`,
@@ -54,24 +68,6 @@ APP.run(async () => {
       a.href = "admin.html?game=" + APP.slug;
       a.hidden = !APP.admin();
     });
-  if (["tennis", "smash", "pickleball"].includes(g.kind)) {
-    const f = document.createElement("div");
-    f.className = "filter-row";
-    f.innerHTML = select(
-      "Rating format",
-      "ranking-format",
-      [
-        ["singles", "Singles"],
-        ["doubles", "Doubles"],
-      ],
-      format,
-    );
-    $("#panel-elo .panel-head").after(f);
-    $("#field-ranking-format").onchange = async (e) => {
-      format = e.target.value;
-      await rankings();
-    };
-  }
   const matchRows = (rows) =>
     rows
       .map(
@@ -91,12 +87,13 @@ APP.run(async () => {
     );
   }
   async function overview() {
-    const [s, r, recent, pending, tournaments] = await Promise.all([
+    const [s, r, recent, pending, tournaments, doubles] = await Promise.all([
       APP.api(`games/${APP.slug}/summary`),
       APP.api(`games/${APP.slug}/rankings?limit=5`),
       APP.api(`matches?game=${APP.slug}&limit=5`),
       APP.api(`matches?game=${APP.slug}&status=submitted&limit=5`),
       APP.api(`games/${APP.slug}/recent-competitions`),
+      hasDoubles ? APP.api(`games/${APP.slug}/rankings?format=doubles&limit=5`) : null,
     ]);
     $("#overview-competitions").hidden = !tournaments.length;
     $("#overview-competition-list").innerHTML = tournaments.map((c) =>
@@ -127,6 +124,16 @@ APP.run(async () => {
         )
         .join("") ||
       '<tr><td colspan="5">The first Elo checkoff starts the rankings.</td></tr>';
+    if (hasDoubles) {
+      text("#overview-table-title", "Singles Elo rankings");
+      let section = $("#overview-doubles");
+      if (!section) {
+        section = document.createElement("div");
+        section.id = "overview-doubles";
+        $("#overview-table").closest(".table-wrap").after(section);
+      }
+      section.innerHTML = `<h3 class="panel-body">Doubles Elo rankings</h3><div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Elo</th><th>W</th><th>L</th></tr></thead><tbody>${doubles.rows.map((p) => `<tr><td>${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num">${UI.elo(p)}</td><td>${p.w || 0}</td><td>${p.l || 0}</td></tr>`).join("") || '<tr><td colspan="5">No rated doubles results yet.</td></tr>'}</tbody></table></div>`;
+    }
     $("#overview-activity").innerHTML =
       recent.rows
         .map(
@@ -180,23 +187,30 @@ APP.run(async () => {
       200,
     );
   };
-  async function rankings(offset = 0) {
-    const result = await APP.api(
-      `games/${APP.slug}/rankings?format=${format}&offset=${offset}`,
-    );
-    const table = $("#elo-body").closest("table");
-    table.classList.add("game-ranking-table");
-    $("thead", table).innerHTML =
-      "<tr><th>#</th><th>Player</th><th>Elo</th><th>Peak</th><th>W</th><th>D</th><th>L</th></tr>";
-    $("#elo-body").innerHTML =
-      result.rows
-        .map(
-          (p) =>
-            `<tr class="game-ranking-row"><td data-label="Rank">${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num" data-label="Elo">${UI.elo(p)}</td><td data-label="Peak">${UI.peak(p)}</td><td data-label="W">${p.w || 0}</td><td data-label="D">${p.d || 0}</td><td data-label="L">${p.l || 0}</td></tr>`,
-        )
-        .join("") ||
-      '<tr><td colspan="7">No rated results in this format yet.</td></tr>';
-    UI.pager($("#panel-elo"), result, rankings);
+  async function rankings() {
+    const formats = hasDoubles ? ["singles", "doubles"] : ["singles"];
+    const panel = $("#panel-elo");
+    let tables = $("#ranking-tables");
+    if (!tables) {
+      tables = document.createElement("div");
+      tables.id = "ranking-tables";
+      panel.querySelector(".table-wrap").replaceWith(tables);
+    }
+    const doublesTables = $("#panel-doubles .ranking-tables");
+    const markup = (format) => `<section class="ranking-format-table" data-format="${format}"><div class="table-wrap"><table class="game-ranking-table"><thead><tr><th>#</th><th>Player</th><th>Elo</th><th>Peak</th><th>W</th><th>D</th><th>L</th></tr></thead><tbody${format === "singles" ? ' id="elo-body"' : ""}></tbody></table></div></section>`;
+    tables.innerHTML = markup("singles");
+    doublesTables.innerHTML = hasDoubles ? markup("doubles") : "";
+    await Promise.all(formats.map(async (format) => {
+      const section = (format === "singles" ? tables : doublesTables).querySelector(`[data-format="${format}"]`);
+      const load = async (offset = 0) => {
+        const result = await APP.api(`games/${APP.slug}/rankings?format=${format}&offset=${offset}`);
+        $("tbody", section).innerHTML = result.rows.map((p) =>
+          `<tr class="game-ranking-row"><td data-label="Rank">${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num" data-label="Elo">${UI.elo(p)}</td><td data-label="Peak">${UI.peak(p)}</td><td data-label="W">${p.w || 0}</td><td data-label="D">${p.d || 0}</td><td data-label="L">${p.l || 0}</td></tr>`
+        ).join("") || '<tr><td colspan="7">No rated results in this format yet.</td></tr>';
+        UI.pager(section, result, load);
+      };
+      await load();
+    }));
     const comps = await APP.api(`competitions?game=${APP.slug}&limit=100`);
     const leagues = comps.rows.filter((c) =>
       ["league", "groups"].includes(c.kind),
@@ -429,6 +443,34 @@ APP.run(async () => {
     const aggregate =
       !setsGame && !!(fixed?.f?.aggregate || editing?.score.legScores);
     let footballScore;
+    const countryCodes = new Map();
+    if (!setsGame) {
+      try {
+        const response = await fetch("catalogs/countries.json");
+        if (response.ok)
+          for (const country of await response.json())
+            countryCodes.set(country.name.toLowerCase(), country.code.toLowerCase());
+      } catch { /* Teams remain selectable without flag backgrounds. */ }
+    }
+    const teamFlag = (team) => {
+      if (!team) return "";
+      if (/rest\s+of\s+(the\s+)?world/i.test(`${team.league} ${team.nation}`))
+        return "assets/flags/rest-of-world.svg";
+      if (/international|national teams?/i.test(`${team.league} ${team.nation}`))
+        return "assets/flags/international.svg";
+      const nation = (team.nation || "").trim().toLowerCase();
+      const code = ({ england: "england", scotland: "scotland", "united states": "us", "south korea": "kr" })[nation] || countryCodes.get(nation);
+      return code ? `assets/flags/${code}.svg` : "";
+    };
+    const teamFlagStyle = (team) => {
+      const flag = teamFlag(team);
+      return flag ? `url("${new URL(flag, document.baseURI).href}")` : "none";
+    };
+    const paintTeam = (button, team) => {
+      const mark = $(".team-picker-mark", button);
+      mark.innerHTML = team ? UI.catalogVisual(team) : "—";
+      button.style.setProperty("--team-flag", teamFlagStyle(team));
+    };
     const pickleball =
       g.kind === "pickleball" ? await import("./pickleball.js") : null;
     if (!setsGame) {
@@ -643,6 +685,8 @@ APP.run(async () => {
       $("#r-pens").checked = !!editing?.score.pens;
       $("#r-pen1").value = editing?.score.pens?.[0] ?? 0;
       $("#r-pen2").value = editing?.score.pens?.[1] ?? 0;
+      $("#r-red1").value = editing?.score.redCards?.[0] ?? 0;
+      $("#r-red2").value = editing?.score.redCards?.[1] ?? 0;
       const aggregateTie = aggregate ? document.createElement("p") : null;
       if (aggregateTie) {
         aggregateTie.className = "hint";
@@ -676,6 +720,7 @@ APP.run(async () => {
           complete,
           teamA: Number($("#r-club1").value),
           teamB: Number($("#r-club2").value),
+          redCards: scorePair("#r-red1", "#r-red2"),
           aet: !penalties && $("#r-aet").checked,
           ...(aggregate && {
             legScores: [first, second].map(([a, b]) => ({ a, b })),
@@ -702,7 +747,6 @@ APP.run(async () => {
           APP.teams.get(selected)?.name || "Choose team",
         );
         text("#team-btn" + (side + 1) + "-meta", "Overall required for Elo");
-        $("#team-btn" + (side + 1) + " .monogram").textContent = "—";
         const setTeam = (t) => {
           if (t) APP.teams.set(t.id, t);
           $("#r-club" + (side + 1)).value = t?.id || "";
@@ -713,8 +757,7 @@ APP.run(async () => {
               ? `${t.league} · ${t.overall ?? "Missing"} overall`
               : "Overall required for Elo",
           );
-          $("#team-btn" + (side + 1) + " .monogram").textContent =
-            t?.code || "—";
+          paintTeam($("#team-btn" + (side + 1)), t);
         };
         const lastTeam = async () =>
           el.value
@@ -937,6 +980,7 @@ APP.run(async () => {
             ids.map((id) => ({
               side,
               name: APP.players.get(id)?.name || "Choose player",
+              photo: APP.players.get(id)?.photo,
             })),
           ),
           teams: [1, 2].map((n) =>
@@ -1022,7 +1066,7 @@ APP.run(async () => {
           r.rows
             .map(
               (t) =>
-                `<button class="team-option" type="button" data-team="${t.id}" aria-pressed="${selected?.id === t.id}" title="${esc([t.name, t.league, t.nation, `${t.overall ?? "Missing"} overall`].filter(Boolean).join(" · "))}"><span class="monogram">${esc(t.code)}</span><span class="team-option-copy"><b>${esc(t.name)}</b>${t.league ? `<span>${esc(t.league)}</span>` : ""}<span>${esc([t.nation, `${t.overall ?? "Missing"} overall`].filter(Boolean).join(" · "))}</span></span></button>`,
+                `<button class="team-option" type="button" data-team="${t.id}" aria-pressed="${selected?.id === t.id}" style="--team-flag: ${esc(teamFlagStyle(t))}" title="${esc([t.name, t.league, t.nation, `${t.overall ?? "Missing"} overall`].filter(Boolean).join(" · "))}"><span class="team-picker-mark">${UI.catalogVisual(t)}</span><span class="team-option-copy"><b>${esc(t.name)}</b>${t.league ? `<span>${esc(t.league)}</span>` : ""}<span>${esc([t.nation, `${t.overall ?? "Missing"} overall`].filter(Boolean).join(" · "))}</span></span></button>`,
             )
             .join("") ||
           '<div class="team-empty">No matching teams. Try another search or filter.</div>';
@@ -1087,7 +1131,7 @@ APP.run(async () => {
           "#team-btn" + side + "-meta",
           `${selected.league} · ${selected.overall ?? "Missing"} overall`,
         );
-        $("#team-btn" + side + " .monogram").textContent = selected.code;
+        paintTeam($("#team-btn" + side), selected);
         d.close();
         preview();
       };

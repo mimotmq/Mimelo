@@ -4,6 +4,14 @@ import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
 import { validateScore } from "../server/scoring.js";
 
+test("EA FC red card counts are preserved and limited to five per side", () => {
+  const input = { a: 2, b: 1, teamA: 1, teamB: 2, redCards: [5, 2] };
+  assert.deepEqual(validateScore("fc", "singles", input).score.redCards, [5, 2]);
+  for (const redCards of [[6, 0], [-1, 0], [1.5, 0], [1], ["1", 0]])
+    assert.throws(() => validateScore("fc", "singles", { ...input, redCards }));
+  assert.equal(validateScore("fc", "singles", { ...input, redCards: undefined }).score.redCards, undefined);
+});
+
 test("adjusted table tennis scores preserve the umpire and require a reason", () => {
   const input = {
     bestOf: 3,

@@ -265,16 +265,22 @@ test("pickleball records, ratings, competitions and mobile score entry work in s
       assert.equal(await page.locator(".game-mobile-nav").isVisible(), false);
     }
     await page.locator('.sidebar [data-view="rankings"]').click();
-    await page.locator(".game-ranking-row").first().waitFor();
-    await page.locator("#field-ranking-format").selectOption("doubles");
-    await page.waitForFunction(
-      () => document.querySelectorAll(".game-ranking-row").length === 4,
-    );
+    await page.locator('#panel-doubles .game-ranking-row').first().waitFor();
+    assert.equal(await page.locator("#tab-doubles").getAttribute("aria-selected"), "true");
+    assert.equal(await page.locator('.ranking-format-table[data-format="doubles"] .game-ranking-row').count(), 4);
+    assert.equal(await page.locator('.ranking-format-table[data-format="singles"]').count(), 1);
+    await page.locator("#tab-elo").click();
+    assert.equal(await page.locator("#panel-elo").isVisible(), true);
+    assert.equal(await page.locator("#panel-doubles").isVisible(), false);
+    await page.locator("#tab-league").click();
+    assert.equal(await page.locator("#panel-league").isVisible(), true);
+    assert.equal(await page.locator("#panel-elo").isVisible(), false);
+    await page.locator("#tab-doubles").click();
     await fits();
     if (width <= 700)
       assert(
         await page
-          .locator("#panel-elo .table-wrap")
+          .locator("#panel-doubles .table-wrap").first()
           .evaluate((e) => e.scrollWidth <= e.clientWidth + 1),
       );
     if (width === 390)

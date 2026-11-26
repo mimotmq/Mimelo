@@ -669,25 +669,30 @@
           "</div>"
       : "";
   }
-  function score(m) {
+  function score(m, options = {}) {
+    const kind = m.rules?.kind || m.context?.kind || APP.games?.find((g) => g.slug === m.game)?.kind || APP.game?.kind;
+    const showPhotos = ["tennis", "tt", "pickleball"].includes(kind);
     const side = (n) =>
       m.participants
         .filter((p) => p.side === n)
         .map((p) => esc(p.name))
         .join(" + ");
+    const sideWithPhotos = (n) => m.participants
+      .filter((p) => p.side === n)
+      .map((p) => `<span class="match-score-person"><span aria-hidden="true">${avatar(p.name, "avatar-xs", p.photo)}</span><span>${esc(p.name)}</span></span>`)
+      .join('<span class="score-pair-separator"> + </span>');
     const s = m.score;
     if (m.forfeit && !s.games)
-      return `<div class="match-summary"><span>${side(0)}</span><b>Forfeit</b><span>${side(1)}</span></div>`;
+      return `<div class="match-summary"><span>${showPhotos ? sideWithPhotos(0) : side(0)}</span><b>Forfeit</b><span>${showPhotos ? sideWithPhotos(1) : side(1)}</span></div>`;
     if (s.games) {
-      const kind = m.rules?.kind || APP.game.kind,
-        cols = s.games.length,
+      const cols = s.games.length,
         totalLabel = kind === "tennis" ? "Sets" : "Games";
       const identities = (side) =>
         m.participants
           .filter((player) => player.side === side)
           .map(
             (player) =>
-              `<span class="score-player-identity"><span>${esc(player.name)}</span>${["tennis", "tt", "pickleball"].includes(kind) ? UI.nationalityFlags?.(player) || "" : ""}</span>`,
+              `<span class="score-player-identity">${showPhotos ? `<span aria-hidden="true">${avatar(player.name, "avatar-xs", player.photo)}</span>` : ""}<span>${esc(player.name)}</span>${showPhotos ? UI.nationalityFlags?.(player) || "" : ""}</span>`,
           )
           .join('<span class="score-pair-separator"> + </span>');
       const rows = [0, 1]
@@ -701,18 +706,27 @@
     const team = (n) => clubMark(m.teams?.[n]);
     const detail = [
       ...(s.legScores || []).map((leg, i) => `Leg ${i + 1}: ${leg.a}–${leg.b}`),
-      s.pens ? "Penalties" : s.aet ? "a.e.t." : "",
+      s.pens ? "Penalties" : "",
     ]
       .filter(Boolean)
       .join(" · ");
+    const separator = s.aet && !s.pens
+      ? '<span class="fc-score-separator">–<small class="fc-extra-time">a.e.t.</small></span>'
+      : "-";
     const score = s.pens
-      ? `<span class="score fc-shootout" aria-label="${s.legScores ? "Aggregate" : "Match"} score ${m.a_score} to ${m.b_score}. Penalties ${s.pens[0]} to ${s.pens[1]}">${m.a_score} <small>(${s.pens[0]})</small>–${m.b_score} <small>(${s.pens[1]})</small></span>`
-      : `<span class="score">${m.a_score} - ${m.b_score}</span>`;
-    return `<div class="match-summary fc-scoreline"><span class="fc-player">${side(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
+      ? `<span class="score fc-shootout">${redCards(s.redCards?.[0])}${m.a_score} <small>(${s.pens[0]})</small>–${m.b_score} <small>(${s.pens[1]})</small>${redCards(s.redCards?.[1])}</span>`
+      : `<span class="score">${redCards(s.redCards?.[0])}${m.a_score} ${separator} ${m.b_score}${redCards(s.redCards?.[1])}</span>`;
+    if (options.overview)
+      return `<div class="match-summary fc-scoreline fc-overview-line${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${side(0)}</span><span class="fc-overview-team">${esc(m.teams?.[0]?.name || "—")}</span>${team(0)}${score}${team(1)}<span class="fc-overview-team">${esc(m.teams?.[1]?.name || "—")}</span><span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
+    return `<div class="match-summary fc-scoreline${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${side(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
+  }
+  function redCards(count) {
+    const n = Number.isInteger(count) ? Math.max(0, Math.min(5, count)) : 0;
+    return n ? `<span class="red-cards" aria-label="${n} red ${n === 1 ? "card" : "cards"}">${'<span class="red-card" aria-hidden="true"></span>'.repeat(n)}</span>` : "";
   }
   function clubMark(team) {
     return team
-      ? `<span class="match-team-label" title="${esc(team.name)}" aria-label="${esc(team.name)}">${catalogVisual(team)}</span>`
+      ? `<span class="match-team-label" title="${esc(team.name)}" aria-label="${esc(team.name)}">${catalogVisual(team)}<span class="match-team-name">${esc(team.name)}</span></span>`
       : '<span class="match-team-label" aria-label="No club selected">—</span>';
   }
 
@@ -761,7 +775,7 @@
     const { renderMatchOverview } = await import("./match-overview.js");
     const d = dialog(
       "Match result",
-      renderMatchOverview(m, { score, status, smashDetails, button }),
+      renderMatchOverview(m, { score: (match) => score(match, { overview: true }), status, smashDetails, button }),
     );
     d.classList.add("match-overview-dialog");
     $(".dialog-head h2", d).id = "match-overview-title-" + m.id;
@@ -995,6 +1009,7 @@
     tabs,
     picker,
     score,
+    redCards,
     resultCard,
     status,
     matchDialog,
@@ -1031,7 +1046,12 @@
       .fc-scoreline { display: inline-grid; grid-template-columns: minmax(0,1fr) auto auto auto minmax(0,1fr); align-items: center; gap: 8px; max-width: 100%; }
       .fc-scoreline .fc-player { overflow-wrap: anywhere; min-width: 0; line-height: 1.5; }
       .fc-scoreline .fc-player:first-child { text-align: right; }
+      .match-score-person { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; }
+      .match-score-person > span:last-child { min-width: 0; overflow-wrap: anywhere; }
       .fc-scoreline .score { white-space: nowrap; }
+      .fc-after-extra-time { padding-bottom: .8em; }
+      .fc-score-separator { position: relative; display: inline-block; }
+      .fc-extra-time { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); font: 500 .55rem/1 sans-serif; color: var(--muted); white-space: nowrap; }
       .fc-scoreline .catalog-stock-icon { width: 30px; height: 30px; }
       .fc-scoreline .catalog-image-fallback { background: transparent; width: auto; min-width: 28px; }
       .match-score-detail { margin-top: 5px; font-size: .76rem; }
@@ -1066,6 +1086,9 @@
       .catalog-image-copy p { font-size: .78rem; color: var(--muted); }
       .catalog-image-copy .form-actions { flex-wrap: wrap; margin-top: 8px; }
       .match-team-label, .match-fighter-label { display: flex; align-items: center; gap: 8px; font-size: .78rem; }
+      .match-team-name { display: none; }
+      .red-cards { display: inline-flex; gap: 2px; margin: 0 4px; vertical-align: middle; }
+      .red-card { display: inline-block; width: 5px; height: 8px; background: #dc2626; border-radius: 1px; }
       .match-stock-icons { display: flex; justify-content: center; flex-wrap: wrap; }
       .match-stock-icons .catalog-stock-icon { width: 24px; height: 24px; font-size: .55rem; }
       .match-fighter-list { display: grid; gap: 8px; margin-top: 12px; }

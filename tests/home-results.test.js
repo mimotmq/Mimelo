@@ -86,7 +86,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
     let score;
     if (game.startsWith("eafc")) {
       const teams = (await call("GET", "/api/teams/" + game)).rows;
-      score = { a: 2, b: 1, teamA: teams[0].id, teamB: teams[1].id };
+      score = { a: 2, b: 1, teamA: teams[0].id, teamB: teams[1].id, ...(game === "eafc26" ? { aet: true } : {}) };
     } else
       score = {
         bestOf: 1,
@@ -270,10 +270,13 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
       await football.locator(".fc-scoreline .catalog-stock-icon").count(),
       2,
     );
-    assert.equal(
-      await football.locator(".fc-scoreline .score").innerText(),
-      "2 - 1",
-    );
+    const separator = football.locator(".fc-score-separator");
+    const extraTime = football.locator(".fc-extra-time");
+    assert.equal(await extraTime.innerText(), "a.e.t.");
+    const dashBox = await separator.boundingBox();
+    const labelBox = await extraTime.boundingBox();
+    assert(Math.abs(dashBox.x + dashBox.width / 2 - labelBox.x - labelBox.width / 2) < 1);
+    assert(labelBox.y >= dashBox.y + dashBox.height - 1);
     assert.match(
       await football
         .locator(".match-team-label")

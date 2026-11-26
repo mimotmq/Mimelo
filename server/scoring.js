@@ -58,6 +58,9 @@ export function validateScore(
     outcome = 0.5,
     margin = 1;
   if (kind === "fc") {
+    if (s.redCards != null) {
+      assert(Array.isArray(s.redCards) && s.redCards.length === 2 && s.redCards.every((v) => Number.isInteger(v) && v >= 0 && v <= 5), "Enter between 0 and 5 red cards for each side.");
+    }
     if (aggregate) {
       assert(
         Array.isArray(s.legScores) && s.legScores.length === 2,

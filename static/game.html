@@ -207,6 +207,7 @@
       <div class="filter-row">
         <div class="segmented" role="tablist" aria-label="Ranking type">
           <button type="button" role="tab" id="tab-elo" aria-controls="panel-elo" aria-selected="true">Elo ratings</button>
+          <button type="button" role="tab" id="tab-doubles" aria-controls="panel-doubles" aria-selected="false" tabindex="-1" hidden>Doubles</button>
           <button type="button" role="tab" id="tab-league" aria-controls="panel-league" aria-selected="false" tabindex="-1">League table</button>
         </div>
       </div>
@@ -219,6 +220,11 @@
             <tbody id="elo-body"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="panel" id="panel-doubles" role="tabpanel" aria-labelledby="tab-doubles" hidden>
+        <div class="panel-head"><div><h2>Doubles Elo ratings</h2></div><span class="chip">All time</span></div>
+        <div class="ranking-tables"></div>
       </div>
 
       <div class="panel" id="panel-league" role="tabpanel" aria-labelledby="tab-league" hidden>
@@ -295,7 +301,7 @@
                   <div class="field">
                     <label for="team-btn1">Team</label>
                     <button class="team-picker-btn" type="button" id="team-btn1" aria-haspopup="dialog">
-                      <span class="monogram">ARS</span>
+                      <span class="team-picker-mark">—</span>
                       <span class="team-btn-copy"><b id="team-btn1-name">Arsenal</b><small id="team-btn1-meta">Premier League · England</small></span>
                       <span class="switcher-caret" data-icon="chevron" data-size="16"></span>
                     </button>
@@ -308,7 +314,7 @@
                   <div class="field">
                     <label for="team-btn2">Team</label>
                     <button class="team-picker-btn" type="button" id="team-btn2" aria-haspopup="dialog">
-                      <span class="monogram">LIV</span>
+                      <span class="team-picker-mark">—</span>
                       <span class="team-btn-copy"><b id="team-btn2-name">Liverpool</b><small id="team-btn2-meta">Premier League · England</small></span>
                       <span class="switcher-caret" data-icon="chevron" data-size="16"></span>
                     </button>
@@ -316,15 +322,26 @@
                   </div>
                 </div>
                 <p class="hint">Teams are chosen per match. Pick a side, then choose Men or Women, filter by nation or league, and search by club name. Each player starts with the team they used last.</p>
+                <div class="fc-score-entry">
+                  <div class="fc-score-inputs">
+                    <div class="form-grid">
+                      <div class="field"><label for="r-s1">Player one score</label><input class="input" id="r-s1" type="number" inputmode="numeric" min="0" max="99" value="2"></div>
+                      <div class="field"><label for="r-s2">Player two score</label><input class="input" id="r-s2" type="number" inputmode="numeric" min="0" max="99" value="1"></div>
+                    </div>
+                  </div>
+                  <div class="fc-score-options">
+                    <label class="check"><input type="checkbox" id="r-aet"><span class="check-copy"><b>Went to extra time</b></span></label>
+                    <label class="check"><input type="checkbox" id="r-pens"><span class="check-copy"><b>Decided on penalties</b></span></label>
+                    <div class="form-grid" id="pens-fields" hidden>
+                      <div class="field"><label for="r-pen1">Player one pens</label><input class="input" id="r-pen1" type="number" min="0" max="20" value="5"></div>
+                      <div class="field"><label for="r-pen2">Player two pens</label><input class="input" id="r-pen2" type="number" min="0" max="20" value="4"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-section-title">Red cards</div>
                 <div class="form-grid">
-                  <div class="field">
-                    <label for="r-s1">Player one score</label>
-                    <input class="input" id="r-s1" type="number" inputmode="numeric" min="0" max="99" value="2">
-                  </div>
-                  <div class="field">
-                    <label for="r-s2">Player two score</label>
-                    <input class="input" id="r-s2" type="number" inputmode="numeric" min="0" max="99" value="1">
-                  </div>
+                  <div class="field"><label for="r-red1">Player one red cards</label><input class="input" id="r-red1" type="number" min="0" max="5" step="1" value="0"></div>
+                  <div class="field"><label for="r-red2">Player two red cards</label><input class="input" id="r-red2" type="number" min="0" max="5" step="1" value="0"></div>
                 </div>
                 <div class="field">
                   <label for="r-note">Note <span class="muted">(optional)</span></label>
@@ -334,12 +351,6 @@
 
               <div class="form-section">
                 <div class="form-section-title">Match rules</div>
-                <label class="check"><input type="checkbox" id="r-aet"><span class="check-copy"><b>Went to extra time</b><span>Show a.e.t. next to the score.</span></span></label>
-                <label class="check"><input type="checkbox" id="r-pens"><span class="check-copy"><b>Decided on penalties</b><span>Adds a shootout score to the record.</span></span></label>
-                <div class="form-grid" id="pens-fields" hidden>
-                  <div class="field"><label for="r-pen1">Player one pens</label><input class="input" id="r-pen1" type="number" min="0" max="20" value="5"></div>
-                  <div class="field"><label for="r-pen2">Player two pens</label><input class="input" id="r-pen2" type="number" min="0" max="20" value="4"></div>
-                </div>
                 <label class="check"><input type="checkbox" id="r-elo" checked><span class="check-copy"><b>Counts for Elo</b><span>Uncheck for a friendly or a cup match that should not move ratings.</span></span></label>
               </div>
 

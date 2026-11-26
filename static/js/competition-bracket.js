@@ -365,7 +365,7 @@ export function renderBracket(container, c, { UI, APP, declareForfeit }) {
     return `<span class="bt-side ${won ? "bt-winner" : ""} ${entry ? "" : "bt-unresolved"}" data-entry="${f[side] || ""}">
       <span class="bt-player">${seeds.has(f[side]) ? seedBadge(seeds.get(f[side])) : ""}<span class="bt-avatars ${doubles ? "bt-pair" : ""}" aria-hidden="true">${photos}</span><span class="bt-player-name ${racket && entry ? "bt-racket-identity" : "fixture-name-frame"}" ${racket && entry ? "" : "data-scroll-name"} title="${esc(entrant(f, side))}">${identity}</span></span>
       ${fc ? `<span class="bt-team" title="${esc(team?.name || "Club not recorded")}" aria-label="${esc(team?.name || "Club not recorded")}">${team?.image ? `<img src="${esc(team.image)}" alt="" loading="lazy">` : `<span class="bt-club-code">${esc(team?.code || "—")}</span>`}</span>` : ""}
-      <span class="bt-score"${score === "" ? ' aria-hidden="true"' : ""}>${esc(score)}${score !== "" && f.score?.pens ? ` <small class="bt-penalty">(${f.score.pens[n]})</small>` : ""}</span></span>`;
+      <span class="bt-score"${score === "" ? ' aria-hidden="true"' : ""}>${fc && score !== "" && !f.forfeit ? UI.redCards(f.score?.redCards?.[n]) : ""}${esc(score)}${score !== "" && f.score?.pens ? ` <small class="bt-penalty">(${f.score.pens[n]})</small>` : ""}</span></span>`;
   }
   function card(n, stacked = false) {
     const f = n.f;

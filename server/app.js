@@ -16,7 +16,7 @@ import sharp from "sharp";
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
 import { ratedRating, ratingProgress } from "./ratings.js";
-import { registerCatalogImages } from "./catalog-images.js";
+import { registerCatalogImages, catalogImage } from "./catalog-images.js";
 import { registerBadgeImport } from "./badge-import.js";
 import { deleteCompetition } from "./competition-deletion.js";
 import { replacePlayer, fixturePlayers } from "./competitions.js";
@@ -570,13 +570,14 @@ export async function createApp(options = {}) {
   app.get("/api/players/:id/last-team", async (req) => {
     const id = integer(req.params.id, 1),
       g = game(req.query.game || "eafc27");
-    return (
+    const team = (
       db
         .prepare(
           "SELECT t.* FROM matches m JOIN match_players mp ON mp.match_id=m.id JOIN teams t ON t.id=CASE WHEN mp.side=0 THEN json_extract(m.score,'$.teamA') ELSE json_extract(m.score,'$.teamB') END WHERE mp.player_id=? AND m.game=? AND m.status<>'voided' ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 1",
         )
         .get(id, g.slug) || null
     );
+    return team ? { ...team, image: catalogImage(db, g.slug, "team", team.code) } : null;
   });
   app.get("/api/players/:id/record", async (req) => {
     const id = integer(req.params.id, 1),
@@ -666,7 +667,7 @@ export async function createApp(options = {}) {
       .prepare("SELECT * FROM teams WHERE game=? AND id=?")
       .get(req.params.game, integer(req.params.id, 1));
     assert(t, "Team not found.", 404);
-    return t;
+    return { ...t, image: catalogImage(db, req.params.game, "team", t.code) };
   });
   app.get("/api/teams/:game", async (req) => {
     game(req.params.game);
@@ -703,7 +704,8 @@ export async function createApp(options = {}) {
             where +
             " ORDER BY name LIMIT ? OFFSET ?",
         )
-        .all(...values, limit, offset),
+        .all(...values, limit, offset)
+        .map((team) => ({ ...team, image: catalogImage(db, req.params.game, "team", team.code) })),
       limit,
       offset,
       filters,

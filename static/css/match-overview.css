@@ -124,6 +124,31 @@ dialog.dialog.match-overview-dialog {
   width: 44px;
   height: 44px;
 }
+.match-overview-score .match-team-label {
+  flex-direction: column;
+  text-align: center;
+  min-width: 0;
+  max-width: 10rem;
+  position: relative;
+  justify-self: center;
+}
+.match-overview-score .match-team-name {
+  display: none;
+}
+.match-overview-score .fc-overview-line {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto auto minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.fc-overview-team {
+  min-width: 0;
+  color: var(--muted);
+  font-size: .8rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.fc-overview-team:nth-child(2) { text-align: right; }
+.fc-overview-line .fc-player { font-weight: 700; }
+.fc-overview-line .fc-player:last-child { text-align: left; }
 .match-overview-score .tennis-score-row {
   min-height: 48px;
   font-size: 1rem;
@@ -308,7 +333,7 @@ dialog.dialog.match-overview-dialog {
   .match-overview-score {
     padding: 16px 10px;
   }
-  .match-overview-score .fc-scoreline {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) {
     font-size: 0.9rem;
     gap: 6px;
   }
@@ -402,40 +427,58 @@ dialog.dialog.match-overview-dialog {
 }
 @media (max-width: 640px) {
   .match-result-trigger .fc-scoreline,
-  .match-overview-score .fc-scoreline {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     row-gap: 8px;
   }
   .match-result-trigger .fc-scoreline .fc-player,
-  .match-overview-score .fc-scoreline .fc-player {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) .fc-player {
     text-align: center;
   }
   .match-result-trigger .fc-scoreline > :nth-child(1),
-  .match-overview-score .fc-scoreline > :nth-child(1) {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) > :nth-child(1) {
     grid-column: 1;
     grid-row: 1;
   }
   .match-result-trigger .fc-scoreline > :nth-child(5),
-  .match-overview-score .fc-scoreline > :nth-child(5) {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) > :nth-child(5) {
     grid-column: 3;
     grid-row: 1;
   }
   .match-result-trigger .fc-scoreline > :nth-child(2),
-  .match-overview-score .fc-scoreline > :nth-child(2) {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) > :nth-child(2) {
     grid-column: 1;
     grid-row: 2;
     justify-self: center;
   }
   .match-result-trigger .fc-scoreline > :nth-child(4),
-  .match-overview-score .fc-scoreline > :nth-child(4) {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) > :nth-child(4) {
     grid-column: 3;
     grid-row: 2;
     justify-self: center;
   }
   .match-result-trigger .fc-scoreline .score,
-  .match-overview-score .fc-scoreline .score {
+  .match-overview-score .fc-scoreline:not(.fc-overview-line) .score {
     grid-column: 2;
     grid-row: 1 / 3;
+  }
+  .match-overview-score .fc-overview-line {
+    grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
+    gap: 6px 4px;
+    font-size: .72rem;
+  }
+  .match-overview-score .fc-overview-line > :nth-child(1) { grid-column: 1 / 3; grid-row: 1; text-align: center; }
+  .match-overview-score .fc-overview-line > :nth-child(2) { grid-column: 1; grid-row: 2; }
+  .match-overview-score .fc-overview-line > :nth-child(3) { grid-column: 2; grid-row: 2; }
+  .match-overview-score .fc-overview-line > :nth-child(4) { grid-column: 3; grid-row: 2; }
+  .match-overview-score .fc-overview-line > :nth-child(5) { grid-column: 4; grid-row: 2; }
+  .match-overview-score .fc-overview-line > :nth-child(6) { grid-column: 5; grid-row: 2; }
+  .match-overview-score .fc-overview-line > :nth-child(7) { grid-column: 4 / 6; grid-row: 1; text-align: center; }
+  .match-overview-score .fc-overview-team {
+    font-size: .66rem;
+  }
+  .match-overview-score .fc-overview-line .score {
+    font-size: 1.35rem;
   }
   .record-timing {
     padding: 16px 12px;

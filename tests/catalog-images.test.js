@@ -583,6 +583,9 @@ test("catalog uploads validate permissions, persist associations, and enrich his
 test("badges can be reused across codes and genders without uploading again", async (t) => {
   const h = await setup(t);
   const image = await h.upload("/api/games/eafc27/images/team/AAA");
+  const pickerTeam = (await h.call("GET", "/api/teams/eafc27?q=AAA")).rows[0];
+  assert.equal(pickerTeam.image, image.image);
+  assert.equal((await h.call("GET", `/api/teams/eafc27/${pickerTeam.id}`)).image, image.image);
   const library = await h.call("GET", "/api/team-badges");
   assert.equal(library.total, 1);
   const badge_id = library.rows[0].id;

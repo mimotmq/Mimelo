@@ -1,4 +1,16 @@
+.team-option, .team-picker-btn { position: relative; isolation: isolate; overflow: hidden; }
+.team-option::before, .team-picker-btn::before { content: ""; position: absolute; inset: 0; z-index: 0; background: var(--team-flag, none) center / cover no-repeat; opacity: .22; filter: grayscale(.55); pointer-events: none; }
+.team-option > *, .team-picker-btn > * { position: relative; z-index: 1; }
+.team-picker-mark { display: grid; place-items: center; width: 34px; height: 34px; flex: none; }
+.team-picker-mark .catalog-stock-icon { width: 34px; height: 34px; object-fit: contain; }
+.team-picker-mark .catalog-image-fallback { font-size: .62rem; }
+
 /* Small scores should occupy small fields in every recording form. */
+#record-form { container-type: inline-size; }
+.fc-score-entry { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px 24px; }
+.fc-score-inputs, .fc-score-options { display: grid; gap: 10px; min-width: 0; }
+.fc-score-options { padding-top: 2px; }
+.fc-score-options .check { margin: 0; }
 #record-form input[type="number"] {
   width: 4.5rem;
   min-height: 42px;
@@ -29,6 +41,9 @@
 }
 #record-form:not(.smash-form) .live-game-row h4 {
   margin: 0;
+}
+@container (min-width: 500px) {
+  #record-form.tennis-form .live-game-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 .smash-form #record-config {
   grid-template-columns: minmax(110px, 160px);
