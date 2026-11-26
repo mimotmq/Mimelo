@@ -165,8 +165,11 @@ test("clicking a result opens a large historical overview with form, h2h, odds a
     await page.keyboard.press("Escape");
     await visit("eafc27");
     const mini = page.locator(`#matches-body [data-match="${football.id}"]`);
-    assert.equal(await mini.locator(".fc-player .avatar").count(), 2);
-    assert.equal(await mini.locator(".fc-player .avatar").first().isVisible(), width > 700);
+    assert.deepEqual(
+      await mini.locator(".fc-player").allTextContents(),
+      football.participants.map((player) => player.name),
+    );
+    assert.equal(await mini.locator(".fc-player .avatar").count(), 0);
     dialog = await open(football.id);
     assert.equal(await dialog.locator(".match-overview-identities .avatar").count(), 2);
     assert.equal(

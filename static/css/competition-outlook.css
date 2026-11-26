@@ -367,12 +367,118 @@ a.fixture-match {
 .app-body:has(> .competition-page) {
   width: min(1560px, calc(100% - clamp(24px, 5vw, 112px)));
 }
-.competition-page > :is(.game-identity, .breadcrumb, .player-hero, .filter-row) {
-  width: 100%;
-  margin-inline: auto;
+.competition-page > .game-identity,
+.game-page .app-main:has([data-view-panel="competitions"]:not([hidden])) > .game-identity {
+  display: none;
 }
-.competition-page .segmented[role="tablist"] {
+.competition-masthead {
+  display: grid;
+  gap: clamp(16px, 4vw, 48px);
+  align-items: center;
+  margin-block: 16px 24px;
+}
+.competition-title h1 {
+  font: 700 clamp(2rem, 4.1vw, 3.65rem)/1.05 var(--font-display);
+  letter-spacing: -.035em;
+}
+.competition-masthead-progress {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: .9rem;
+}
+.competition-masthead-progress strong,
+.competition-leader strong,
+.competition-facts b { color: var(--ink); }
+.competition-leader {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: .85rem;
+}
+.competition-facts {
+  display: flex;
   flex-wrap: wrap;
+  gap: 5px 16px;
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: .78rem;
+}
+.competition-facts li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .35em;
+}
+.competition-artwork { margin: 0; min-width: 0; }
+.competition-banner {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  object-position: left center;
+}
+.competition-page .competition-section-nav {
+  margin: 0 0 18px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.competition-section-nav .segmented[role="tablist"] {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0 clamp(8px, 2vw, 22px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.competition-section-nav .segmented [role="tab"] {
+  flex: 0 0 auto;
+  min-height: 44px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding-inline: 4px;
+}
+.competition-section-nav .segmented [aria-selected="true"] {
+  background: transparent;
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+}
+.competition-page > .panel[role="tabpanel"],
+.competition-overview-grid > .panel,
+.competition-page #cp-overview > #cp-bracket {
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.competition-page :is([role="tabpanel"], .competition-overview-grid > .panel) > .panel-head {
+  padding-inline: 0;
+}
+.competition-overview-grid > .panel > .panel-body { padding-inline: 0; }
+.competition-overview-grid .panel-head [data-overview-view] {
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+}
+.competition-overview-grid .panel-head [data-overview-view]:hover {
+  text-decoration: underline;
+}
+@media (min-width: 701px) {
+  .competition-masthead:has(.competition-artwork:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .competition-banner { object-position: right center; }
+}
+@media (min-width: 1025px) {
+  .competition-page .competition-section-nav {
+    position: sticky;
+    top: var(--nav-top, 68px);
+    z-index: 15;
+  }
 }
 .competition-title {
   display: flex;
@@ -411,10 +517,6 @@ a.fixture-match {
   margin-right: 6px;
   border-radius: 50%;
   background: var(--success);
-}
-@media (min-width: 701px) {
-  .competition-page .segmented[role="tablist"] { width: 100%; }
-  .competition-page .segmented [role="tab"] { flex: 1 1 auto; }
 }
 #cp-overview {
   display: grid;
@@ -670,14 +772,6 @@ button.overview-fixture-line:hover {
 #fixture-groups .fixture-away .fixture-person {
   justify-content: flex-end;
 }
-.competition-banner {
-  display: block;
-  width: auto;
-  max-width: 100%;
-  max-height: 340px;
-  border-radius: var(--radius-md);
-  margin: 12px auto;
-}
 .competition-trophy {
   display: block;
   max-width: min(100%, 420px);
@@ -771,23 +865,7 @@ label.prediction-choice { cursor: pointer; }
 .competition-page #cp-table .panel-head {
   padding-block: 10px;
 }
-body:has(.competition-page #ct-overview[aria-selected="false"]) .game-identity,
-.competition-page:has(#ct-overview[aria-selected="false"]) :is(.player-elo, .player-stats, .player-hero-sub),
-.competition-page #table-chip {
-  display: none;
-}
-.competition-page:has(#ct-overview[aria-selected="false"]) .player-hero {
-  padding: 12px 16px;
-}
-.competition-page:has(#ct-overview[aria-selected="false"]) .player-hero-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-.competition-page:has(#ct-overview[aria-selected="false"]) .player-flairs {
-  margin-top: 6px;
-}
-.competition-page:has(#ct-overview[aria-selected="false"]) .player-hero + .filter-row {
-  margin-top: 12px !important;
-}
+.competition-page #table-chip { display: none; }
 .competition-page #comp-table-wrap {
   padding: 6px 12px 12px;
 }
@@ -1022,4 +1100,51 @@ body:has(.competition-page #ct-overview[aria-selected="false"]) .game-identity,
     55%, 80% { transform: translateX(var(--name-scroll)); }
     100% { transform: translateX(0); }
   }
+}
+
+/* Match the compact ranking rows on touch-sized screens. */
+@media (max-width: 700px) {
+  .competition-standings-table th,
+  .competition-standings-table td { padding-block: 14px; }
+  .competition-standings-table .player-cell { gap: 8px; }
+  .competition-standings-table .player-cell .avatar { width: 32px; height: 32px; font-size: .75rem; }
+  .competition-standings-table .player-cell .name { font-size: .875rem; white-space: normal; overflow-wrap: anywhere; }
+}
+
+#competition-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+.competition-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(44px, 11vw, 112px) 20px;
+  gap: clamp(6px, 2.4vw, 28px);
+  align-items: center;
+  padding: clamp(14px, 2vw, 28px) 4px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+.competition-list-item:hover { color: var(--accent); }
+.competition-list-copy h2 {
+  font: 700 clamp(1.25rem, 2.6vw, 1.9rem)/1.12 var(--font-display);
+  letter-spacing: -.02em;
+  overflow-wrap: anywhere;
+  margin-bottom: 6px;
+}
+.competition-list-copy p {
+  color: var(--muted);
+  font-size: .85rem;
+}
+.competition-list-copy p + p { margin-top: 3px; }
+.competition-list-trophy {
+  width: 100%;
+  height: clamp(48px, 8vw, 92px);
+  object-fit: contain;
+}
+.competition-list-arrow { grid-column: 3; }
+.competition-list-item:not(:has(.competition-list-trophy)) .competition-list-copy {
+  grid-column: 1 / 3;
 }

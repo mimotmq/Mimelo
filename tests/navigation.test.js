@@ -161,13 +161,18 @@ test("desktop rail and mobile header menu support mouse, keyboard and touch", as
     assert.equal(await menu.evaluate(el => getComputedStyle(el).backgroundColor), "rgba(0, 0, 0, 0)");
     await visit("/game.html?game=smash");
     const picker = page.locator(".game-switcher summary");
+    if (width <= 700) {
+      assert(await page.locator(".navigation-menu-label").isVisible());
+      assert((await menu.boundingBox()).width >= (await picker.boundingBox()).width);
+      assert(await picker.locator("[data-logo-27]").isVisible());
+    }
     await picker.click();
     const options = page.locator(".switcher-menu");
     const bounds = await options.boundingBox();
     assert.equal(bounds.x, 0);
     assert.equal(bounds.width, width);
     await page.keyboard.press("Escape");
-    assert.equal(await options.isVisible(), false);
+    await options.waitFor({ state: "hidden" });
     assert.equal(await shell.getAttribute("data-nav-open"), "false");
     assert.equal(
       await menu.isVisible(),

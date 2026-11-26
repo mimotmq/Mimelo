@@ -184,7 +184,7 @@ APP.run(async () => {
     const rows = result.rows
       .map((m) => {
         const entry = m.ledger.find((l) => l.player_id === id);
-        return `<tr><td>${UI.date(m.played_at ?? m.submitted)}</td><td>${UI.resultCard(m)}</td><td>${esc(m.competition_name || "Friendly")}</td><td>${UI.status(m)}</td><td>${entry ? UI.rating(entry.delta) : "—"}</td></tr>`;
+        return `<tr><td>${UI.date(m.played_at ?? m.submitted)}</td><td>${UI.resultCard(m, { namesOnly: true })}</td><td>${esc(m.competition_name || "Friendly")}</td><td>${UI.status(m)}</td><td>${entry ? UI.rating(entry.delta) : "—"}</td></tr>`;
       })
       .join("");
     for (const body of ["#recent-body", "#all-matches-body"]) {

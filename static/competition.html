@@ -42,8 +42,8 @@
     <span data-comp-name>Winter League</span>
   </div>
 
-  <section class="player-hero" aria-labelledby="comp-title">
-    <div class="player-hero-grid">
+  <section class="competition-masthead" aria-labelledby="comp-title">
+    <div class="competition-heading-copy">
       <div class="competition-title">
         <h1 id="comp-title" data-comp-name></h1>
         <button type="button" id="comp-info-button" popovertarget="comp-info" aria-label="Tournament information">ⓘ</button>
@@ -53,23 +53,21 @@
           <div data-comp-blurb></div>
         </div>
       </div>
-      <div class="player-elo">
-        <div class="value" data-comp-played>38</div>
-        <div class="label">of 56 matches played</div>
-        <div class="peak">Leader: <span data-comp-leader>Alex Rivera</span></div>
-      </div>
+      <p class="competition-masthead-progress"><strong data-comp-played></strong> <span data-comp-progress-label></span></p>
+      <p class="competition-leader"><span data-comp-leader-label>Leader</span> <strong data-comp-leader></strong></p>
+      <ul class="competition-facts" aria-label="Competition statistics">
+        <li><b data-comp-players></b> <span>Players</span></li>
+        <li><b data-comp-played-stat></b> <span>Played</span></li>
+        <li><b data-comp-matchdays></b> <span>Matchdays</span></li>
+        <li><b data-comp-rounds></b> <span>Rounds</span></li>
+      </ul>
     </div>
-    <img class="competition-banner" id="comp-banner" hidden alt="">
-    <div class="player-stats">
-      <div class="player-stat"><b data-comp-players>8</b><span>Players</span></div>
-      <div class="player-stat"><b data-comp-fixtures>56</b><span>Fixtures</span></div>
-      <div class="player-stat"><b data-comp-played-stat>38</b><span>Played</span></div>
-      <div class="player-stat"><b data-comp-matchdays>14</b><span>Matchdays</span></div>
-      <div class="player-stat"><b data-comp-rounds>2</b><span>Rounds</span></div>
-    </div>
+    <figure class="competition-artwork" hidden>
+      <img class="competition-banner" id="comp-banner" alt="">
+    </figure>
   </section>
 
-  <div class="filter-row" style="margin-top:22px;">
+  <div class="filter-row competition-section-nav">
     <div class="segmented" role="tablist" aria-label="Competition views">
       <button type="button" role="tab" id="ct-table" aria-controls="cp-table" aria-selected="true">Table</button>
       <button type="button" role="tab" id="ct-fixtures" aria-controls="cp-fixtures" aria-selected="false" tabindex="-1">Fixtures</button>

@@ -3,12 +3,8 @@ import { getCompetition, standings } from "./competitions.js";
 import { ESTABLISHED_MATCHES } from "./ratings.js";
 
 const earlier =
-  "(COALESCE(m.played_at,m.submitted) < ? OR (COALESCE(m.played_at,m.submitted) = ? AND m.id < ?))";
-const cutoff = (match) => [
-  match.played_at ?? match.submitted,
-  match.played_at ?? match.submitted,
-  match.id,
-];
+  "(SELECT position FROM match_chronology WHERE id=m.id) < (SELECT position FROM match_chronology WHERE id=?)";
+const cutoff = (match) => [match.id];
 
 function sideCondition(ids, params) {
   params.push(ids[0]);
@@ -37,7 +33,7 @@ function ratingBefore(db, match, playerId) {
     ? null
     : db
         .prepare(
-          `SELECT l.after FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? AND m.game=? AND m.format=? AND ${earlier} ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 1`,
+          `SELECT l.after FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? AND m.game=? AND m.format=? AND ${earlier} ORDER BY (SELECT position FROM match_chronology WHERE id=m.id) DESC LIMIT 1`,
         )
         .get(playerId, match.game, match.format, ...cutoff(match));
   const count = db
@@ -55,7 +51,7 @@ function form(db, match, ids) {
   const query = previousMatches(db, match, [ids]);
   return db
     .prepare(
-      `SELECT m.*, (SELECT side FROM match_players WHERE match_id=m.id AND player_id=?) player_side ${query.sql} ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 5`,
+      `SELECT m.*, (SELECT side FROM match_players WHERE match_id=m.id AND player_id=?) player_side ${query.sql} ORDER BY (SELECT position FROM match_chronology WHERE id=m.id) DESC LIMIT 5`,
     )
     .all(ids[0], ...query.params)
     .map((m) => {

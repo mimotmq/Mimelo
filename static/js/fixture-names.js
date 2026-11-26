@@ -42,9 +42,10 @@ export function watchFixtureNames(root) {
 // These labels are rendered again when tabs, search results and scores change.
 export function watchPageNames(root) {
   const selector = [
-    ".recent-competition strong", ".competition-card h2", ".player-cell .name",
+    ".recent-competition strong", ".player-cell .name",
     ".board-player .nm", ".team-option-copy b", ".team-picker-btn b",
-    ".player-option-copy b", ".smash-pick-copy b", ".score-player-identity > span:first-child",
+    ".player-option-copy b", ".smash-pick-copy b",
+    ".score-player-identity > span:first-child:not(.match-result-trigger *)",
     ".game-switcher [data-game-label]", ".elo-projection-row > span",
   ].join(",");
   const sizes = new ResizeObserver((entries) => {

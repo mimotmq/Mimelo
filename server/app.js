@@ -573,7 +573,7 @@ export async function createApp(options = {}) {
     const team = (
       db
         .prepare(
-          "SELECT t.* FROM matches m JOIN match_players mp ON mp.match_id=m.id JOIN teams t ON t.id=CASE WHEN mp.side=0 THEN json_extract(m.score,'$.teamA') ELSE json_extract(m.score,'$.teamB') END WHERE mp.player_id=? AND m.game=? AND m.status<>'voided' ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 1",
+          "SELECT t.* FROM matches m JOIN match_players mp ON mp.match_id=m.id JOIN teams t ON t.id=CASE WHEN mp.side=0 THEN json_extract(m.score,'$.teamA') ELSE json_extract(m.score,'$.teamB') END WHERE mp.player_id=? AND m.game=? AND m.status<>'voided' ORDER BY (SELECT position FROM match_chronology WHERE id=m.id) DESC LIMIT 1",
         )
         .get(id, g.slug) || null
     );
@@ -603,7 +603,7 @@ export async function createApp(options = {}) {
       .get(id, g.slug, format);
     const history = db
       .prepare(
-        "SELECT l.*,m.submitted,m.played_at FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? AND m.game=? AND m.format=? ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 200",
+        "SELECT l.*,m.submitted,m.played_at FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? AND m.game=? AND m.format=? ORDER BY (SELECT position FROM match_chronology WHERE id=m.id) DESC LIMIT 200",
       )
       .all(id, g.slug, format);
     const teams =
@@ -642,7 +642,7 @@ export async function createApp(options = {}) {
         .map((r) => ratedRating(db, r)),
       history: db
         .prepare(
-          "SELECT l.*,m.game,m.format,m.submitted,m.played_at FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 200",
+          "SELECT l.*,m.game,m.format,m.submitted,m.played_at FROM ledger l JOIN matches m ON m.id=l.match_id WHERE l.player_id=? ORDER BY (SELECT position FROM match_chronology WHERE id=m.id) DESC LIMIT 200",
         )
         .all(id),
     };
@@ -816,7 +816,7 @@ export async function createApp(options = {}) {
     if (!req.user) return db.prepare("SELECT id,name FROM competitions WHERE game=? ORDER BY created DESC,id DESC LIMIT 3").all(slug);
     const played = db.prepare(`SELECT c.id,c.name FROM competitions c JOIN matches m ON m.competition_id=c.id
       JOIN match_players p ON p.match_id=m.id WHERE c.game=? AND p.player_id=? AND m.status!='voided' AND m.forfeit=0
-      ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 1`).get(slug, req.user.player_id);
+      ORDER BY (SELECT position FROM match_chronology WHERE id=m.id) DESC LIMIT 1`).get(slug, req.user.player_id);
     const updated = db.prepare(`SELECT c.id,c.name FROM competitions c JOIN competition_activity a ON a.competition_id=c.id
       WHERE c.game=? ORDER BY a.updated DESC,c.id DESC LIMIT 1`).get(slug);
     const viewed = db.prepare(`SELECT c.id,c.name FROM competitions c JOIN competition_views v ON v.competition_id=c.id
@@ -1392,6 +1392,7 @@ export async function createApp(options = {}) {
         );
         audit(db, user, "fixture.withdrawal-no-contest", f.id, { entry });
       }
+      rebuild(db, c.game, c.format);
       audit(db, user, "competition.withdraw", c.id, { entry });
       progress(db, getCompetition(db, c.id));
       return { ok: true };
@@ -1757,7 +1758,7 @@ export async function createApp(options = {}) {
   app.get("/api/recent-results", async (req) => ({
     rows: db
       .prepare(
-        "SELECT * FROM matches WHERE status='accepted' ORDER BY accepted DESC,id DESC LIMIT 5",
+        "SELECT m.* FROM matches m JOIN match_chronology t ON t.id=m.id WHERE m.status='accepted' ORDER BY t.position DESC LIMIT 5",
       )
       .all()
       .map((match) => serializeMatch(db, match, req.user)),
@@ -1800,7 +1801,7 @@ export async function createApp(options = {}) {
         .get(...values).n,
       rows: db
         .prepare(
-          `SELECT m.* FROM matches m WHERE ${where} ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT ? OFFSET ?`,
+          `SELECT m.* FROM matches m WHERE ${where} ORDER BY (SELECT position FROM match_chronology WHERE id=m.id) DESC LIMIT ? OFFSET ?`,
         )
         .all(...values, limit, offset)
         .map((m) => serializeMatch(db, m, req.user)),
@@ -1834,7 +1835,7 @@ export async function createApp(options = {}) {
     return tx(() => {
       const rows = db
         .prepare(
-          "SELECT id,revision,format FROM matches WHERE game=? AND status='accepted' AND elo_enabled=1 AND elo_checked IS NULL AND forfeit=0 ORDER BY COALESCE(played_at,submitted),id",
+          "SELECT id,revision,format FROM matches WHERE game=? AND status='accepted' AND elo_enabled=1 AND elo_checked IS NULL AND forfeit=0 ORDER BY (SELECT position FROM match_chronology WHERE id=matches.id)",
         )
         .all(req.params.game);
       for (const row of rows)

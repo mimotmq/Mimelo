@@ -268,6 +268,7 @@ test("pickleball records, ratings, competitions and mobile score entry work in s
     await page.locator('#panel-doubles .game-ranking-row').first().waitFor();
     assert.equal(await page.locator("#tab-doubles").getAttribute("aria-selected"), "true");
     assert.equal(await page.locator('.ranking-format-table[data-format="doubles"] .game-ranking-row').count(), 4);
+    assert.match(await page.locator('#panel-doubles td[data-label="Record"]').first().innerText(), /^\d+-\d+$/);
     assert.equal(await page.locator('.ranking-format-table[data-format="singles"]').count(), 1);
     await page.locator("#tab-elo").click();
     assert.equal(await page.locator("#panel-elo").isVisible(), true);

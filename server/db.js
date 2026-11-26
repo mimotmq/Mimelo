@@ -171,6 +171,26 @@ export function openDb(path) {
       INSERT INTO migrations VALUES(11);
     `);
   })();
+  // Connected overlaps form a single sortable group. This makes the ordering
+  // deterministic even when A overlaps B and B overlaps C, but A misses C.
+  db.exec(`CREATE TEMP VIEW match_chronology AS
+    WITH intervals AS (
+      SELECT id,game,format,submitted,duration_minutes,
+        COALESCE(played_at,submitted) AS start,
+        COALESCE(played_at,submitted)+COALESCE(duration_minutes,0)*60000 AS finish
+      FROM matches WHERE status<>'voided'
+    ), bounds AS (
+      SELECT *,MAX(finish) OVER (ORDER BY start,id
+        ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS previous_end
+      FROM intervals
+    ), groups AS (
+      SELECT *,SUM(CASE WHEN previous_end IS NULL OR start>previous_end THEN 1 ELSE 0 END)
+        OVER (ORDER BY start,id) AS grp FROM bounds
+    ), grouped AS (
+      SELECT *,MIN(start) OVER (PARTITION BY grp) AS group_start FROM groups
+    )
+    SELECT id,ROW_NUMBER() OVER (ORDER BY group_start,grp,
+      duration_minutes IS NULL,duration_minutes,submitted,id) AS position FROM grouped`);
   return db;
 }
 export const json = (v, fallback = {}) => {

@@ -197,7 +197,7 @@ APP.run(async () => {
       panel.querySelector(".table-wrap").replaceWith(tables);
     }
     const doublesTables = $("#panel-doubles .ranking-tables");
-    const markup = (format) => `<section class="ranking-format-table" data-format="${format}"><div class="table-wrap"><table class="game-ranking-table"><thead><tr><th>#</th><th>Player</th><th>Elo</th><th>Peak</th><th>W</th><th>D</th><th>L</th></tr></thead><tbody${format === "singles" ? ' id="elo-body"' : ""}></tbody></table></div></section>`;
+    const markup = (format) => `<section class="ranking-format-table" data-format="${format}"><div class="table-wrap"><table class="game-ranking-table"><thead><tr><th>#</th><th>Player</th><th>Elo</th><th>Peak</th><th title="${g.kind === "fc" ? "Wins–draws–losses" : "Wins–losses"}">Record</th></tr></thead><tbody${format === "singles" ? ' id="elo-body"' : ""}></tbody></table></div></section>`;
     tables.innerHTML = markup("singles");
     doublesTables.innerHTML = hasDoubles ? markup("doubles") : "";
     await Promise.all(formats.map(async (format) => {
@@ -205,8 +205,8 @@ APP.run(async () => {
       const load = async (offset = 0) => {
         const result = await APP.api(`games/${APP.slug}/rankings?format=${format}&offset=${offset}`);
         $("tbody", section).innerHTML = result.rows.map((p) =>
-          `<tr class="game-ranking-row"><td data-label="Rank">${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num" data-label="Elo">${UI.elo(p)}</td><td data-label="Peak">${UI.peak(p)}</td><td data-label="W">${p.w || 0}</td><td data-label="D">${p.d || 0}</td><td data-label="L">${p.l || 0}</td></tr>`
-        ).join("") || '<tr><td colspan="7">No rated results in this format yet.</td></tr>';
+          `<tr class="game-ranking-row"><td data-label="Rank">${p.rank}</td><td>${UI.playerLink(p)}</td><td class="num" data-label="Elo">${UI.elo(p)}</td><td data-label="Peak">${UI.peak(p)}</td><td data-label="Record">${p.w || 0}-${g.kind === "fc" ? `${p.d || 0}-` : ""}${p.l || 0}</td></tr>`
+        ).join("") || '<tr><td colspan="5">No rated results in this format yet.</td></tr>';
         UI.pager(section, result, load);
       };
       await load();
@@ -265,10 +265,16 @@ APP.run(async () => {
     );
     $("#competition-grid").innerHTML =
       result.rows
-        .map(
-          (c) =>
-            `<a class="competition-card panel" href="${APP.url("competition", { id: c.id })}"><div class="panel-body"><div class="tag-row"><span class="chip">${esc(c.kind)}</span><span class="status status-live">${esc(c.state)}</span><span class="chip">${esc(c.format)}</span></div><h2 style="margin:16px 0">${esc(c.name)}</h2><p class="sub">${UI.count(c.entry_count, "entry", "entries")} · ${c.played} of ${UI.count(c.fixture_count, "fixture")} complete</p><span class="link-arrow">Open competition ${UI.icon("arrow", 16)}</span></div></a>`,
-        )
+        .map((c) => {
+          const kind = { league: "League", knockout: "Knockout", groups: "Groups & knockout" }[c.kind];
+          const state = { registration: "Registration open", closed: "Registration closed", active: "In progress", completed: "Complete" }[c.state];
+          const title = `<h2>${esc(c.name)}</h2>`;
+          const format = c.format === "doubles" ? "Doubles" : "Singles";
+          const progress = c.fixture_count
+            ? ` · ${c.played} of ${UI.count(c.fixture_count, "fixture")} complete`
+            : "";
+          return `<a class="competition-list-item" href="${APP.url("competition", { id: c.id })}"><div class="competition-list-copy">${title}<p>${esc(kind || c.kind)} · ${format} · ${esc(state || c.state)}</p><p>${UI.count(c.entry_count, "entry", "entries")}${progress}</p></div>${c.trophy ? `<img class="competition-list-trophy" src="${esc(c.trophy)}" alt="" loading="lazy">` : ""}<span class="competition-list-arrow" aria-hidden="true">${UI.icon("arrow", 20)}</span></a>`;
+        })
         .join("") || UI.empty("No competitions yet. Create the first one.");
     UI.pager($("[data-view-panel=competitions]"), result, competitions);
   }

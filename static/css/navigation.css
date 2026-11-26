@@ -62,6 +62,7 @@ body:has(.adaptive-navigation) > .site-header { margin-inline-start: calc(-1 * v
   opacity: 0;
 }
 .navigation-menu.icon-btn { display: none; }
+.navigation-menu-label { display: none; }
 .navigation-edge {
   margin-bottom: 8px;
   border-radius: 11px;

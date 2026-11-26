@@ -168,6 +168,14 @@ function snapshot(db, m) {
   });
 }
 export function rebuild(db, game, format) {
+  // A newly entered interval can join overlap groups across games, changing
+  // the relative order of rated matches in any pool.
+  const pools = db.prepare("SELECT DISTINCT game,format FROM matches WHERE elo_checked IS NOT NULL").all();
+  if (!pools.some((pool) => pool.game === game && pool.format === format))
+    pools.push({ game, format });
+  for (const pool of pools) rebuildPool(db, pool.game, pool.format);
+}
+function rebuildPool(db, game, format) {
   db.prepare(
     "DELETE FROM ledger WHERE match_id IN(SELECT id FROM matches WHERE game=? AND format=?)",
   ).run(game, format);
@@ -179,18 +187,12 @@ export function rebuild(db, game, format) {
         "SELECT elo,peak FROM ratings WHERE game=? AND format=? AND player_id=?",
       )
       .get(game, format, id) || { elo: 1000, peak: 1000 };
-  let cursorTime = -1,
-    cursorId = 0;
-  while (true) {
-    const batch = db
-      .prepare(
-        "SELECT * FROM matches WHERE game=? AND format=? AND status='accepted' AND elo_enabled=1 AND elo_checked IS NOT NULL AND forfeit=0 AND (COALESCE(played_at,submitted)>? OR (COALESCE(played_at,submitted)=? AND id>?)) ORDER BY COALESCE(played_at,submitted),id LIMIT 500",
-      )
-      .all(game, format, cursorTime, cursorTime, cursorId);
-    if (!batch.length) break;
+  const batch = db.prepare(`SELECT m.* FROM matches m
+    JOIN match_chronology t ON t.id=m.id
+    WHERE m.game=? AND m.format=? AND m.status='accepted' AND m.elo_enabled=1
+      AND m.elo_checked IS NOT NULL AND m.forfeit=0 ORDER BY t.position`).all(game, format);
+  {
     for (const m of batch) {
-      cursorTime = m.played_at ?? m.submitted;
-      cursorId = m.id;
       const ps = members(db, m.id);
       const a = ps.filter((p) => p.side === 0),
         b = ps.filter((p) => p.side === 1);
@@ -583,6 +585,7 @@ export function submit(db, game, body, user) {
       side,
       user.id,
     );
+  rebuild(db, game, format);
   audit(db, user, "match.submit", id);
   notify(
     db,
@@ -660,6 +663,7 @@ export function edit(db, id, body, user, voided = false) {
       "UPDATE matches SET fixture_id=NULL,status='voided',revision=revision+1 WHERE id=?",
     ).run(id);
     remember(db, getMatch(db, id), user);
+    rebuild(db, m.game, m.format);
     audit(db, user, "forfeit.void", id);
     return serializeMatch(db, getMatch(db, id), user);
   }
@@ -775,7 +779,7 @@ export function correctKnockoutForfeit(db, matchId, revision, user) {
   ).run(match.id);
   db.prepare("DELETE FROM confirmations WHERE match_id=?").run(match.id);
   remember(db, getMatch(db, match.id), user);
-  if (match.elo_checked) rebuild(db, match.game, match.format);
+  rebuild(db, match.game, match.format);
   audit(db, user, "fixture.forfeit.correct", fixture.id, {
     matchId: match.id,
     winnerEntry: fixture.winner,
@@ -883,6 +887,7 @@ export function forfeit(
       );
   remember(db, getMatch(db, id), user);
   resultProgress(db, getMatch(db, id));
+  rebuild(db, c.game, c.format);
   audit(db, user, "fixture.forfeit", f.id, { winnerEntry });
   return serializeMatch(db, getMatch(db, id), user);
 }
@@ -895,14 +900,16 @@ export function upgradeRatings(db) {
       .prepare("SELECT 1 FROM migrations WHERE version=3")
       .get();
     const peaks = db.prepare("SELECT 1 FROM migrations WHERE version=4").get();
-    if (adaptive && peaks) return;
+    const chronology = db.prepare("SELECT 1 FROM migrations WHERE version=12").get();
+    if (adaptive && peaks && chronology) return;
     const pools = db
       .prepare(
         "SELECT DISTINCT game,format FROM matches WHERE elo_checked IS NOT NULL",
       )
       .all();
-    for (const pool of pools) rebuild(db, pool.game, pool.format);
+    for (const pool of pools) rebuildPool(db, pool.game, pool.format);
     db.prepare("INSERT OR IGNORE INTO migrations VALUES(3)").run();
     db.prepare("INSERT OR IGNORE INTO migrations VALUES(4)").run();
+    db.prepare("INSERT OR IGNORE INTO migrations VALUES(12)").run();
   })();
 }

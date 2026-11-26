@@ -543,7 +543,7 @@
       for (const opener of [menu, edge])
         opener.setAttribute("aria-expanded", String(open));
       menu.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
-      menu.innerHTML = icon(open ? "close" : "menu", 20);
+      menu.innerHTML = icon(open ? "close" : "menu", 20) + '<span class="navigation-menu-label">Sections</span>';
       sidebar.inert = mobile.matches && !open;
       if (focus && open) {
         const target = mobile.matches ? sidebar.querySelector(".side-link") : edge;
@@ -671,28 +671,30 @@
   }
   function score(m, options = {}) {
     const kind = m.rules?.kind || m.context?.kind || APP.games?.find((g) => g.slug === m.game)?.kind || APP.game?.kind;
-    const showPhotos = ["tennis", "tt", "pickleball"].includes(kind);
+    const racquet = ["tennis", "tt", "pickleball"].includes(kind);
+    const showScorePhotos = racquet && !options.namesOnly && !(options.mini && m.format === "doubles");
     const side = (n) =>
       m.participants
         .filter((p) => p.side === n)
         .map((p) => esc(p.name))
         .join(" + ");
-    const sideWithPhotos = (n) => m.participants
+    const sideWithPhotos = (n, photos = true) => m.participants
       .filter((p) => p.side === n)
-      .map((p) => `<span class="match-score-person"><span aria-hidden="true">${avatar(p.name, "avatar-xs", p.photo)}</span><span>${esc(p.name)}</span></span>`)
+      .map((p) => `<span class="match-score-person">${photos ? `<span aria-hidden="true">${avatar(p.name, "avatar-xs", p.photo)}</span>` : ""}<span>${esc(p.name)}</span></span>`)
       .join('<span class="score-pair-separator"> + </span>');
     const s = m.score;
     if (m.forfeit && !s.games)
-      return `<div class="match-summary"><span>${showPhotos ? sideWithPhotos(0) : side(0)}</span><b>Forfeit</b><span>${showPhotos ? sideWithPhotos(1) : side(1)}</span></div>`;
+      return `<div class="match-summary"><span>${showScorePhotos ? sideWithPhotos(0) : side(0)}</span><b>Forfeit</b><span>${showScorePhotos ? sideWithPhotos(1) : side(1)}</span></div>`;
     if (s.games) {
       const cols = s.games.length,
-        totalLabel = kind === "tennis" ? "Sets" : "Games";
+        totalLabel = kind === "tennis" ? "Sets" : "Games",
+        playerLabel = options.mini && m.format === "doubles" ? "Pair" : "Player";
       const identities = (side) =>
         m.participants
           .filter((player) => player.side === side)
           .map(
             (player) =>
-              `<span class="score-player-identity">${showPhotos ? `<span aria-hidden="true">${avatar(player.name, "avatar-xs", player.photo)}</span>` : ""}<span>${esc(player.name)}</span>${showPhotos ? UI.nationalityFlags?.(player) || "" : ""}</span>`,
+              `<span class="score-player-identity">${showScorePhotos ? `<span aria-hidden="true">${avatar(player.name, "avatar-xs", player.photo)}</span>` : ""}<span>${esc(player.name)}</span>${racquet ? UI.nationalityFlags?.(player) || "" : ""}</span>`,
           )
           .join('<span class="score-pair-separator"> + </span>');
       const rows = [0, 1]
@@ -701,7 +703,7 @@
             `<div class="tennis-score-row ${m.winner === n ? "match-winner" : ""}"><span class="tennis-score-player"><span title="${side(n)}">${identities(n)}</span></span>${s.games.map((g, i) => `<span class="tennis-score-cell ${g.winner === n ? "set-winner" : ""}">${kind === "smash" ? '<span class="match-stock-icons">' + fighterIcons(m, i, n) + "</span>" : ""}${n === 0 ? g.a : g.b}${g.tb ? "<sup>" + g.tb[n] + "</sup>" : ""}${kind === "smash" && g.winner === n && g.jv ? `<sup class="jv">JV${1 + Math.abs(g.a - g.b)}</sup>` : ""}${g.suddenDeath ? "<sup>SD</sup>" : ""}</span>`).join("")}<span class="tennis-score-total">${n === 0 ? m.a_score : m.b_score}</span></div>`,
         )
         .join("");
-      return `<div class="${kind === "smash" ? "smash-scoreboard" : "tennis-scoreboard"} ${kind === "tt" ? "tt-scoreboard" : ""}" style="--tennis-set-count:${cols};--tennis-score-columns:minmax(112px,1.8fr) repeat(${cols},minmax(24px,.4fr)) 30px" aria-label="${esc(kind)} scorecard"><div class="tennis-score-row tennis-score-head"><span>Player</span>${s.games.map((_, i) => '<span class="tennis-score-cell">' + (i + 1) + "</span>").join("")}<span class="tennis-score-total-head">${totalLabel}</span></div>${rows}</div>`;
+      return `<div class="${kind === "smash" ? "smash-scoreboard" : "tennis-scoreboard"} ${kind === "tt" ? "tt-scoreboard" : ""}" data-score-games="${cols}" style="--tennis-set-count:${cols};--tennis-score-columns:minmax(112px,1.8fr) repeat(${cols},minmax(24px,.4fr)) 30px" aria-label="${esc(kind)} scorecard"><div class="tennis-score-row tennis-score-head"><span>${playerLabel}</span>${s.games.map((_, i) => '<span class="tennis-score-cell">' + (i + 1) + "</span>").join("")}<span class="tennis-score-total-head">${totalLabel}</span></div>${rows}</div>`;
     }
     const team = (n) => clubMark(m.teams?.[n]);
     const detail = [
@@ -718,7 +720,8 @@
       : `<span class="score">${redCards(s.redCards?.[0])}${m.a_score} ${separator} ${m.b_score}${redCards(s.redCards?.[1])}</span>`;
     if (options.overview)
       return `<div class="match-summary fc-scoreline fc-overview-line${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${sideWithPhotos(0)}</span><span class="fc-overview-team">${esc(m.teams?.[0]?.name || "—")}</span>${team(0)}${score}${team(1)}<span class="fc-overview-team">${esc(m.teams?.[1]?.name || "—")}</span><span class="fc-player">${sideWithPhotos(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
-    return `<div class="match-summary fc-scoreline${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${options.mini ? sideWithPhotos(0) : side(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${options.mini ? sideWithPhotos(1) : side(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
+    const player = options.mini ? (n) => sideWithPhotos(n, false) : side;
+    return `<div class="match-summary fc-scoreline${s.aet && !s.pens ? " fc-after-extra-time" : ""}"><span class="fc-player">${player(0)}</span>${team(0)}${score}${team(1)}<span class="fc-player">${player(1)}</span></div>${detail ? `<div class="muted match-score-detail">${esc(detail)}</div>` : ""}`;
   }
   function redCards(count) {
     const n = Number.isInteger(count) ? Math.max(0, Math.min(5, count)) : 0;
@@ -748,7 +751,7 @@
       });
     });
   }
-  function resultCard(match) {
+  function resultCard(match, { namesOnly = false } = {}) {
     const names = [0, 1]
       .map((side) =>
         match.participants
@@ -757,7 +760,7 @@
           .join(" + "),
       )
       .join(" vs ");
-    return `<a class="match-result-trigger" data-match="${match.id}" href="${esc(APP.url("game", { game: match.game, view: "matches", match: match.id }))}" aria-label="${esc("View match: " + names)}">${score(match, { mini: true })}</a>`;
+    return `<a class="match-result-trigger" data-match="${match.id}" href="${esc(APP.url("game", { game: match.game, view: "matches", match: match.id }))}" aria-label="${esc("View match: " + names)}">${score(match, { mini: true, namesOnly })}</a>`;
   }
   function status(m) {
     return m.forfeit
@@ -1077,8 +1080,7 @@
       }
       .catalog-stock-icon { display: inline-block; width: 40px; height: 40px; flex: none; object-fit: contain; vertical-align: middle; }
       .catalog-stage-photo { display: block; width: 100%; max-width: 320px; aspect-ratio: 16 / 9; object-fit: contain; border-radius: var(--radius-sm); background: var(--surface-2); }
-      img.catalog-stock-icon, img.catalog-stage-photo, img.directory-avatar { background: transparent; }
-      .avatar:has(> img), .player-id .avatar:has(> img) { background: transparent; }
+      img.catalog-stock-icon, img.catalog-stage-photo { background: transparent; }
       .catalog-image-fallback { display: inline-grid; place-items: center; background: var(--surface-3); color: var(--muted); font-size: .7rem; }
       .catalog-image-row { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--line); }
       .catalog-image-row > .catalog-stage-photo { width: 120px; flex: none; }
@@ -1128,6 +1130,10 @@
     if (switcher) {
       const summary = switcher.querySelector("summary");
       summary.setAttribute("aria-label", "Switch game, current game: " + g.name);
+      switcherMenu.inert = !switcher.open;
+      switcher.addEventListener("toggle", () => {
+        switcherMenu.inert = !switcher.open;
+      });
       function dismissOutside(event) {
         if (switcher.open && !switcher.contains(event.target)) switcher.open = false;
       }
@@ -1183,7 +1189,7 @@
     });
     const switchLogo = $(".game-switcher [data-logo-27]");
     if (switchLogo)
-      switchLogo.innerHTML = `<img src="assets/brand/${esc(g.logo)}" alt="${esc(g.name)}">`;
+      switchLogo.innerHTML = `<img src="assets/brand/${esc(g.logo)}" alt="">`;
     $$("a.header-user").forEach((a) => {
       a.href = APP.me
         ? "account.html"

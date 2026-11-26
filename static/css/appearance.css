@@ -18,6 +18,17 @@
 .avatar-editor .avatar img {
   border-radius: inherit;
 }
+:is(.avatar, .avatar-stack .avatar, .player-id .avatar, .last-approved-band .avatar):has(> img),
+img.directory-avatar {
+  background: transparent;
+  box-shadow: none;
+}
+.home-players .avatar-stack:has(.avatar > img) {
+  gap: 4px;
+}
+.home-players .avatar-stack:has(.avatar > img) .avatar {
+  margin-inline-start: 0;
+}
 
 /* Tiny universal transition durations can delay inherited visibility on load. */
 @media (prefers-reduced-motion: reduce) {

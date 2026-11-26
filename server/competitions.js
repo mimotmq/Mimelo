@@ -797,6 +797,10 @@ export function standings(
   const ids = new Set(fs.flatMap((f) => [f.a, f.b]).filter(Boolean));
   const rosters = new Map(entries(db, c.id).map((e) => [e.id, e]));
   const cutoff = before && (before.played_at ?? before.submitted);
+  const earlierMatchIds = before
+    ? new Set(db.prepare(`SELECT id FROM match_chronology WHERE position <
+        (SELECT position FROM match_chronology WHERE id=?)`).all(before.id).map((row) => row.id))
+    : null;
   const rows = [...ids].map((id) => {
     const roster = rosters.get(id);
     const players = roster.players.slice();
@@ -856,12 +860,7 @@ export function standings(
         c.settings.countNoContestForPct &&
         (!before || (f.scheduled && f.scheduled < cutoff))
       );
-    const when = f.played_at ?? f.submitted;
-    return (
-      !before ||
-      (f.match_status === "accepted" &&
-        (when < cutoff || (when === cutoff && f.match_id < before.id)))
-    );
+    return !before || (f.match_status === "accepted" && earlierMatchIds.has(f.match_id));
   });
   for (const f of completed) {
     const a = by.get(f.a),

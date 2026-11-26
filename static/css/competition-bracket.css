@@ -249,6 +249,9 @@ a.bt-match:hover {
   font-size: 0.5rem;
   border: 2px solid var(--surface);
 }
+.bt-pair .avatar:has(> img) {
+  border-color: transparent;
+}
 .bt-pair .avatar + .avatar {
   margin-left: -9px;
   margin-top: 8px;

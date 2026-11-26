@@ -117,7 +117,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
       await call("POST", `/api/matches/${match.id}/accept`, { revision: 1 });
     return match;
   }
-  const older = await result("tennis");
+  const older = await result("eafc27");
   const latest = [];
   for (const game of ["eafc27", "eafc26", "smash", "tennis", "tt"])
     latest.push(await result(game));
@@ -125,7 +125,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
   const voided = await result("tt");
   await call("DELETE", `/api/matches/${voided.id}`, { revision: 1 });
   const now = Date.now();
-  // Acceptance order deliberately differs from submission order, including a tie.
+  // Acceptance order deliberately differs from the time the matches were recorded.
   app.db
     .prepare("UPDATE matches SET accepted=?,submitted=? WHERE id=?")
     .run(now - 10000, now + 10000, older.id);
@@ -134,7 +134,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
       .prepare("UPDATE matches SET accepted=?,submitted=? WHERE id=?")
       .run(now - (i < 2 ? 0 : i * 1000), now - (5 - i) * 2000, match.id),
   );
-  const expected = [latest[1], latest[0], ...latest.slice(2)].map((m) => m.id);
+  const expected = [older, ...latest.slice().reverse().slice(0, 4)].map((m) => m.id);
   const feed = (await call("GET", "/api/recent-results")).rows;
   assert.deepEqual(
     feed.map((m) => m.id),
@@ -145,7 +145,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
     feed.every(
       (m) =>
         m.status === "accepted" &&
-        ![older.id, submitted.id, voided.id].includes(m.id),
+        ![submitted.id, voided.id].includes(m.id),
     ),
   );
   // The existing game-scoped match API keeps its normal behavior.
@@ -400,7 +400,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
       .first();
     await viewport.hover();
     await firstLink.click();
-    await page.waitForURL(/game=eafc26.*match=/);
+    await page.waitForURL(/game=eafc27.*match=/);
   }
   // Two results must still fill a wide strip all the way through the loop.
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -430,7 +430,7 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
     "Repeated results cover the viewport even just before wrapping.",
   );
   await page.locator(".recent-results-copy a").first().click();
-  await page.waitForURL(/game=eafc26.*match=/);
+  await page.waitForURL(/game=eafc27.*match=/);
   await page.unroute("**/api/recent-results");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(base);
@@ -451,5 +451,11 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
       .evaluate((el) => getComputedStyle(el).animationName),
     "none",
   );
+  await call("POST", `/api/matches/${older.id}/elo`, { revision: 1 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(base + "/game.html?game=eafc27&view=rankings");
+  await page.waitForFunction(() => document.body.dataset.ready === "true");
+  await page.locator('#elo-body td[data-label="Record"]').first().waitFor();
+  assert.match(await page.locator('#elo-body td[data-label="Record"]').first().innerText(), /^\d+-\d+-\d+$/);
   assert.deepEqual(errors, []);
 });

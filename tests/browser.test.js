@@ -647,7 +647,7 @@ test("long EAFC names stay readable in mobile match cards and dialogs", async (t
           (el) =>
             el.clientHeight <= parseFloat(getComputedStyle(el).lineHeight) * 3,
         ),
-        "Full names should fit in at most three lines",
+        `Full names should fit in at most three lines at ${width}px`,
       );
     };
     await checkName(row);

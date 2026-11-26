@@ -111,6 +111,10 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
     },
   });
   await call(`competitions/${extra.id}/draw`, {});
+  const banner = "/assets/brand/ea-fc-27.png";
+  const trophy = "/assets/brand/m-crest.png";
+  app.db.prepare("UPDATE competitions SET banner=?,trophy=? WHERE id=?")
+    .run(banner, trophy, league.id);
   async function visit(route) {
     await page.goto(base + route);
     await page.waitForFunction(() => document.body.dataset.ready === "true");
@@ -128,9 +132,13 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
     await page.keyboard.press("Escape");
     await info.waitFor({ state: "hidden" });
     if (width === 1440) {
-      const bounds = await Promise.all([".player-hero", "[role=tablist]", "#cp-table"]
+      const bounds = await Promise.all([".competition-masthead", "[role=tablist]", "#cp-table"]
         .map((selector) => page.locator(selector).first().boundingBox()));
       assert(bounds.every((box) => Math.abs(box.width - bounds[2].width) <= 1));
+      await page.getByRole("tab", { name: "Overview", exact: true }).click();
+      assert.deepEqual(await page.locator(".competition-masthead").boundingBox(), bounds[0]);
+      assert.deepEqual(await page.getByRole("tablist").boundingBox(), bounds[1]);
+      await page.getByRole("tab", { name: "Standings", exact: true }).click();
     } else {
       const row = page.locator("#comp-table-wrap tbody tr").first();
       assert((await row.boundingBox()).height >= 52);
@@ -228,6 +236,10 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
       /1 advance from position 3/,
     );
     await visit("/game.html?game=eafc27&view=competitions");
+    const listing = page.locator(".competition-list-item").filter({ hasText: league.name });
+    assert.equal(await listing.getByRole("heading").innerText(), league.name);
+    assert.equal(await listing.locator(".competition-list-trophy").getAttribute("src"), trophy);
+    assert.equal(await page.locator(".competition-list-trophy").count(), 1);
     await page
       .getByRole("button", { name: "New competition", exact: true })
       .click();

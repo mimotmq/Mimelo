@@ -270,3 +270,63 @@ test("played times order historical context and rating replay; omitted times ret
     before,
   );
 });
+
+
+test("overlapping late results recalculate Elo and historical context in the shared order", async (t) => {
+  const { app, users, call } = await setup(t);
+  const base = Date.now() - 86400000;
+  async function submit(start, duration) {
+    const m = await call("POST", "/api/games/tennis/matches", {
+      sides: [[users[1].player_id], [users[2].player_id]],
+      score: { bestOf: 1, games: [{ a: 6, b: 2 }] },
+      played_at: base + start * 60000, duration_minutes: duration,
+    });
+    await call("POST", `/api/matches/${m.id}/accept`, { revision: 1 });
+    await call("POST", `/api/matches/${m.id}/elo`, { revision: 1 });
+    return m;
+  }
+  const long = await submit(0, 90);
+  const unknown = await submit(30, null);
+  const short = await submit(20, 20);
+  const chronological = [short.id, long.id, unknown.id];
+  const list = await call("GET", `/api/matches?game=tennis&player=${users[1].player_id}`);
+  assert.deepEqual(list.rows.map((m) => m.id), [...chronological].reverse());
+  const home = await call("GET", "/api/recent-results");
+  assert.deepEqual(home.rows.map((m) => m.id), [...chronological].reverse());
+  const ledger = (id) => app.db.prepare("SELECT * FROM ledger WHERE match_id=? AND player_id=?").get(id, users[1].player_id);
+  assert.equal(ledger(short.id).before, 1000);
+  assert.equal(ledger(long.id).before, ledger(short.id).after);
+  assert.equal(ledger(unknown.id).before, ledger(long.id).after);
+  const context = (await call("GET", `/api/matches/${long.id}`)).context;
+  assert.equal(context.h2h.meetings, 1);
+  assert.deepEqual(context.sides[0].form.map((m) => m.id), [short.id]);
+  assert.equal(context.sides[0].ratings[0].elo, ledger(short.id).after);
+  assert.equal(context.sides[0].ratings[0].rated_matches, 1);
+});
+
+
+test("a late match in another game can connect overlapping periods and recalculate Elo", async (t) => {
+  const { app, users, call } = await setup(t);
+  const base = Date.now() - 86400000;
+  async function tennis(start, duration) {
+    const m = await call("POST", "/api/games/tennis/matches", {
+      sides: [[users[1].player_id], [users[2].player_id]],
+      score: { bestOf: 1, games: [{ a: 6, b: 2 }] },
+      played_at: base + start * 60000, duration_minutes: duration,
+    });
+    await call("POST", `/api/matches/${m.id}/accept`, { revision: 1 });
+    await call("POST", `/api/matches/${m.id}/elo`, { revision: 1 });
+    return m;
+  }
+  const long = await tennis(0, 20);
+  const short = await tennis(40, 10);
+  const before = (id) => app.db.prepare("SELECT before FROM ledger WHERE match_id=? AND player_id=?").get(id, users[1].player_id).before;
+  assert.equal(before(long.id), 1000);
+  await call("POST", "/api/games/tt/matches", {
+    sides: [[users[1].player_id], [users[2].player_id]],
+    score: { bestOf: 1, target: 11, games: [{ a: 11, b: 3 }] },
+    played_at: base + 10 * 60000, duration_minutes: 35,
+  });
+  assert.equal(before(short.id), 1000);
+  assert.notEqual(before(long.id), 1000);
+});

@@ -11,12 +11,39 @@
     overscroll-behavior: contain;
   }
   @media (prefers-reduced-motion: no-preference) {
-    .game-page .game-switcher[open] .switcher-menu {
-      animation: game-options-in 150ms ease-out;
+    @supports selector(details::details-content) and (transition-behavior: allow-discrete) {
+      .game-page .game-switcher::details-content {
+        position: absolute;
+        inset: 100% 0 auto;
+        z-index: 50;
+        transition: content-visibility 150ms allow-discrete;
+      }
+      .game-page .game-switcher .switcher-menu {
+        position: static;
+        transition: opacity 150ms ease, transform 150ms ease;
+      }
+      .game-page .game-switcher:not([open])::details-content {
+        pointer-events: none;
+      }
+      .game-page .game-switcher:not([open]) .switcher-menu {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      @starting-style {
+        .game-page .game-switcher[open] .switcher-menu {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+      }
     }
-    @keyframes game-options-in {
-      from { opacity: 0; transform: translateY(-5px); }
-      to { opacity: 1; transform: translateY(0); }
+    @supports not (selector(details::details-content) and (transition-behavior: allow-discrete)) {
+      .game-page .game-switcher[open] .switcher-menu {
+        animation: game-options-in 150ms ease;
+      }
+      @keyframes game-options-in {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
     }
   }
 }
@@ -24,7 +51,7 @@
 @media (max-width: 700px) {
   .game-page .app-head-inner {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto minmax(0, 1fr);
     gap: 8px;
   }
   .game-page .game-switcher {
@@ -33,20 +60,51 @@
   }
   .game-page .game-switcher > summary {
     display: flex;
+    justify-content: center;
     min-height: 44px;
     width: 100%;
-    padding-inline: 12px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+  }
+  .game-page .game-switcher > summary .logo-plate[data-logo-27] {
+    display: block;
+    width: 56px;
+    height: 36px;
+    padding: 0;
+  }
+  .game-page .game-switcher > summary .logo-plate img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
   .game-page .game-switcher [data-game-label] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .game-page .switcher-caret {
-    margin-inline-start: auto;
-    flex: none;
+  .game-page .game-switcher > summary .switcher-caret {
+    display: none;
   }
+  .game-page .header-actions:has(.navigation-menu) {
+    width: 100%;
+    min-width: 0;
+  }
+  .game-page .header-actions .navigation-menu.icon-btn {
+    flex: 1;
+    width: auto;
+    min-width: 44px;
+    justify-content: center;
+    gap: 6px;
+  }
+  .game-page .navigation-menu-label { display: inline; font-size: .8rem; font-weight: 600; }
   .game-page .app-main {
     padding-top: 16px;
   }
@@ -239,26 +297,26 @@
     padding-inline: 8px;
     font-size: 0.875rem;
   }
-  .game-page :is(.match-result, .dialog) .tennis-score-row {
+  .game-page .dialog .tennis-score-row {
     grid-template-columns: repeat(var(--tennis-set-count), minmax(0, 1fr)) 44px !important;
     gap: 6px;
     padding-block: 8px;
   }
-  .game-page :is(.match-result, .dialog) .tennis-score-player {
+  .game-page .dialog .tennis-score-player {
     grid-column: 1 / -1;
     white-space: normal;
   }
   .game-page
-    :is(.match-result, .dialog)
+    .dialog
     .tennis-score-player
     > span:last-child {
     overflow: visible;
     text-overflow: clip;
   }
-  .game-page :is(.match-result, .dialog) .tennis-score-head > span:first-child {
+  .game-page .dialog .tennis-score-head > span:first-child {
     display: none;
   }
-  .game-page :is(.match-result, .dialog) .tennis-score-total-head {
+  .game-page .dialog .tennis-score-total-head {
     white-space: nowrap;
   }
   .game-page .game-ranking-table {
@@ -277,7 +335,7 @@
   }
   .game-page .game-ranking-row {
     display: grid;
-    grid-template-columns: 24px minmax(0, 1fr) repeat(3, auto);
+    grid-template-columns: 24px minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
     padding: 14px 12px;
@@ -297,7 +355,7 @@
     font-family: var(--font-mono);
   }
   .game-page .game-ranking-row td:nth-child(2) {
-    grid-column: 2 / 5;
+    grid-column: 2;
   }
   .game-page .game-ranking-row td:nth-child(3) {
     text-align: right;
@@ -305,6 +363,10 @@
   }
   .game-page .game-ranking-row td:nth-child(4) {
     grid-column: 2;
+  }
+  .game-page .game-ranking-row td:nth-child(5) {
+    grid-column: 3;
+    text-align: right;
   }
   .game-page .game-ranking-row td:nth-child(n + 4) {
     color: var(--muted);

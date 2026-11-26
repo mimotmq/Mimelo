@@ -159,26 +159,8 @@ APP.run(async () => {
     return showPredictions();
   }
   UI.tabs(competitionTabs.parentElement);
-  let previousTabTop;
-  for (const event of ["click", "keydown"]) {
-    competitionTabs.addEventListener(event, () => {
-      previousTabTop = !initialView && selectedSection() === "overview"
-        ? competitionTabs.getBoundingClientRect().top : null;
-    }, true);
-    competitionTabs.addEventListener(event, () => {
-      const top = previousTabTop;
-      queueMicrotask(() => {
-        syncSection();
-        if (top === null || selectedSection() === "overview") return;
-        requestAnimationFrame(() => {
-          if (selectedSection() === "overview") return;
-          const headerBottom = $(".site-header").getBoundingClientRect().bottom;
-          const target = Math.max(headerBottom + 8, Math.min(top, innerHeight - competitionTabs.offsetHeight));
-          window.scrollBy({ top: competitionTabs.getBoundingClientRect().top - target, behavior: "instant" });
-        });
-      });
-    });
-  }
+  for (const event of ["click", "keydown"])
+    competitionTabs.addEventListener(event, () => queueMicrotask(syncSection));
   overviewPanel.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-overview-view]");
     if (!trigger) return;
@@ -312,7 +294,7 @@ APP.run(async () => {
     document.title = c.name + " · " + APP.game.name + " · mimELo";
     text("[data-comp-name]", c.name);
     const banner = $("#comp-banner");
-    banner.hidden = !c.banner;
+    banner.closest("figure").hidden = !c.banner;
     if (c.banner) {
       banner.src = c.banner;
       banner.alt = c.name + " banner";
@@ -366,10 +348,12 @@ APP.run(async () => {
     const done = c.fixtures.filter((f) => f.status === "completed").length;
     text("[data-comp-played]", done);
     text(
-      ".player-elo .label",
+      "[data-comp-progress-label]",
       `of ${UI.count(c.fixtures.filter((f) => !["cancelled", "bye"].includes(f.status)).length, "match", "matches")} completed`,
     );
     const leaders = c.kind === "league" ? c.standings?.[""] || [] : [];
+    text("[data-comp-leader-label]", c.champion ? "Winner" : "Leader");
+    $(".competition-leader").hidden = !c.champion && !leaders[0]?.played;
     text(
       "[data-comp-leader]",
       c.champion
@@ -381,10 +365,6 @@ APP.run(async () => {
             : "Undecided",
     );
     text("[data-comp-players]", c.players);
-    text(
-      "[data-comp-fixtures]",
-      c.fixtures.filter((f) => !["cancelled", "bye"].includes(f.status)).length,
-    );
     text(
       "[data-comp-played-stat]",
       c.fixtures.filter(
@@ -406,9 +386,8 @@ APP.run(async () => {
     text("[data-comp-rounds]", c.settings.legs);
     if (c.kind === "league") text("[data-comp-rounds] + span", "Meetings");
     if (c.kind === "knockout") {
-      text("[data-comp-fixtures] + span", "Matches");
       text("[data-comp-matchdays] + span", "Rounds");
-      $("[data-comp-rounds]").closest(".player-stat").hidden = true;
+      $("[data-comp-rounds]").closest("li").hidden = true;
     }
     text("#crumb-game", APP.game.name);
     text("#table-heading", c.name + " standings");

@@ -5,7 +5,7 @@ export const ESTABLISHED_MATCHES = 8;
 
 export function ratingProgress(db, game, format, playerId, through = null) {
   const timeline = through
-    ? " AND (COALESCE(m.played_at,m.submitted) < ? OR (COALESCE(m.played_at,m.submitted) = ? AND m.id <= ?))"
+    ? " AND (SELECT position FROM match_chronology WHERE id=m.id) <= (SELECT position FROM match_chronology WHERE id=?)"
     : "";
   const { n } = db
     .prepare(
@@ -18,8 +18,6 @@ export function ratingProgress(db, game, format, playerId, through = null) {
       format,
       ...(through
         ? [
-            through.played_at ?? through.submitted,
-            through.played_at ?? through.submitted,
             through.id,
           ]
         : []),

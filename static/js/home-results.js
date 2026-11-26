@@ -1,19 +1,20 @@
 export function renderHomeResults(band, matches) {
   if (!band) return;
   const { $, esc, score } = UI;
-  band.setAttribute("aria-label", "Recently accepted results across all games");
+  band.setAttribute("aria-label", "Recently played results across all games");
   const panel = $(".hero-result", band);
   panel.classList.add("recent-results-panel");
-  const acceptedDate = new Intl.DateTimeFormat(undefined, {
+  const playedDate = new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
-  panel.innerHTML = `<div class="recent-results-heading"><div><h2>Recently accepted</h2><p>Across all games · Latest ${matches.length}</p></div><button class="recent-results-pause" type="button" aria-label="Pause automatic scrolling"><span>Pause</span></button></div><div class="recent-results-viewport" tabindex="0" role="region" aria-label="Latest accepted results"><div class="recent-results-track"><ol class="recent-results-list">${matches
+  panel.innerHTML = `<div class="recent-results-heading"><div><h2>Recently played</h2><p>Across all games · Latest ${matches.length}</p></div><button class="recent-results-pause" type="button" aria-label="Pause automatic scrolling"><span>Pause</span></button></div><div class="recent-results-viewport" tabindex="0" role="region" aria-label="Latest played results"><div class="recent-results-track"><ol class="recent-results-list">${matches
     .map((match) => {
       const game = APP.games.find((game) => game.slug === match.game);
-      return `<li class="recent-result" data-match="${match.id}" data-game="${esc(match.game)}"><a href="${esc(APP.url("game", { game: match.game, view: "matches", match: match.id }))}"><div class="recent-result-meta"><b>${esc(game.name)}</b><time datetime="${new Date(match.accepted).toISOString()}" title="Accepted ${esc(acceptedDate.format(match.accepted))}">${esc(acceptedDate.format(match.accepted))}</time></div><div class="recent-result-score"><img class="recent-result-watermark" src="assets/brand/${esc(game.logo)}" alt="" aria-hidden="true">${score(match)}</div>${match.competition_name ? `<small class="recent-result-competition">${esc(match.competition_name)}</small>` : ""}</a></li>`;
+      const played = match.played_at ?? match.submitted;
+      return `<li class="recent-result" data-match="${match.id}" data-game="${esc(match.game)}"><a href="${esc(APP.url("game", { game: match.game, view: "matches", match: match.id }))}"><div class="recent-result-meta"><b>${esc(game.name)}</b><time datetime="${new Date(played).toISOString()}" title="${match.played_at != null ? "Played" : "Entered"} ${esc(playedDate.format(played))}">${esc(playedDate.format(played))}</time></div><div class="recent-result-score"><img class="recent-result-watermark" src="assets/brand/${esc(game.logo)}" alt="" aria-hidden="true">${score(match)}</div>${match.competition_name ? `<small class="recent-result-competition">${esc(match.competition_name)}</small>` : ""}</a></li>`;
     })
     .join(
       "",
