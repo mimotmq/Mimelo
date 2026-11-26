@@ -138,6 +138,39 @@ export function openDb(path) {
     );
     db.prepare("INSERT INTO migrations VALUES(10)").run();
   })();
+  db.transaction(() => {
+    if (db.prepare("SELECT 1 FROM migrations WHERE version=11").get()) return;
+    db.exec(`
+      CREATE TABLE competition_views(account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        competition_id INTEGER NOT NULL REFERENCES competitions(id) ON DELETE CASCADE, viewed INTEGER NOT NULL,
+        PRIMARY KEY(account_id,competition_id));
+      CREATE TABLE competition_activity(competition_id INTEGER PRIMARY KEY REFERENCES competitions(id) ON DELETE CASCADE, updated INTEGER NOT NULL);
+      INSERT INTO competition_activity
+        SELECT competition_id, MAX(stamp) FROM (
+          SELECT id AS competition_id, created AS stamp FROM competitions
+          UNION ALL SELECT c.id,a.created FROM audit a JOIN competitions c ON c.id=a.subject WHERE a.action LIKE 'competition.%'
+          UNION ALL SELECT f.competition_id,a.created FROM audit a JOIN fixtures f ON f.id=a.subject WHERE a.action LIKE 'fixture.%'
+          UNION ALL SELECT m.competition_id,MAX(m.submitted,COALESCE(m.accepted,0),COALESCE(m.elo_checked,0)) FROM matches m WHERE m.competition_id IS NOT NULL
+          UNION ALL SELECT m.competition_id,r.created FROM revisions r JOIN matches m ON m.id=r.match_id WHERE m.competition_id IS NOT NULL
+        ) GROUP BY competition_id;
+    `);
+    for (const table of ["competitions", "fixtures", "matches", "entrants", "entrant_players", "qualifications"]) {
+      for (const event of table === "competitions" ? ["INSERT", "UPDATE"] : ["INSERT", "UPDATE", "DELETE"]) {
+        const row = event === "DELETE" ? "OLD" : "NEW";
+        const id = table === "competitions" ? row + ".id" : row + ".competition_id";
+        db.exec(`CREATE TRIGGER activity_${table}_${event} AFTER ${event} ON ${table}
+          BEGIN INSERT INTO competition_activity SELECT id,CAST(unixepoch('subsec')*1000 AS INTEGER)
+            FROM competitions WHERE id=${id}
+            ON CONFLICT(competition_id) DO UPDATE SET updated=excluded.updated; END`);
+      }
+    }
+    db.exec(`
+      CREATE TRIGGER activity_fixture_substitute AFTER INSERT ON audit WHEN NEW.action='fixture.substitute'
+      BEGIN UPDATE competition_activity SET updated=NEW.created
+        WHERE competition_id=(SELECT competition_id FROM fixtures WHERE id=NEW.subject); END;
+      INSERT INTO migrations VALUES(11);
+    `);
+  })();
   return db;
 }
 export const json = (v, fallback = {}) => {

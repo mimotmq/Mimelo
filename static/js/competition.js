@@ -58,6 +58,41 @@ APP.run(async () => {
       predictionPanel.innerHTML = `<p class="panel-body" role="alert">${esc(error.message)}</p>`;
     }
   }
+  const info = $("#comp-info");
+  const infoButton = $("#comp-info-button");
+  let hideInfoTimer;
+  function positionInfo() {
+    if (!info.matches(":popover-open")) return;
+    const button = infoButton.getBoundingClientRect();
+    info.style.left = Math.max(8, Math.min(button.left, document.documentElement.clientWidth - info.offsetWidth - 8)) + "px";
+    info.style.top = (button.bottom + info.offsetHeight + 8 <= innerHeight
+      ? button.bottom + 4 : Math.max(8, button.top - info.offsetHeight - 4)) + "px";
+  }
+  function showInfo() {
+    clearTimeout(hideInfoTimer);
+    info.showPopover();
+    positionInfo();
+  }
+  function scheduleHide() {
+    clearTimeout(hideInfoTimer);
+    hideInfoTimer = setTimeout(() => {
+      if (!infoButton.matches(":focus-visible, :hover") && !info.matches(":hover")) info.hidePopover();
+    }, 150);
+  }
+  infoButton.addEventListener("pointerenter", (event) => {
+    if (event.pointerType === "mouse") showInfo();
+  });
+  infoButton.addEventListener("focus", () => {
+    if (infoButton.matches(":focus-visible")) showInfo();
+  });
+  infoButton.addEventListener("blur", scheduleHide);
+  infoButton.addEventListener("pointerleave", (event) => {
+    if (event.pointerType === "mouse") scheduleHide();
+  });
+  info.addEventListener("pointerleave", scheduleHide);
+  info.addEventListener("toggle", positionInfo);
+  window.addEventListener("resize", positionInfo);
+  window.addEventListener("scroll", positionInfo, true);
   const competitionTabs = predictionTab.closest("[role=tablist]");
   const bracketPanel = $("#cp-bracket");
   const bracketAnchor = document.createComment("Bracket panel position");
@@ -120,8 +155,26 @@ APP.run(async () => {
     return showPredictions();
   }
   UI.tabs(competitionTabs.parentElement);
-  for (const event of ["click", "keydown"])
-    competitionTabs.addEventListener(event, () => queueMicrotask(syncSection));
+  let previousTabTop;
+  for (const event of ["click", "keydown"]) {
+    competitionTabs.addEventListener(event, () => {
+      previousTabTop = !initialView && selectedSection() === "overview"
+        ? competitionTabs.getBoundingClientRect().top : null;
+    }, true);
+    competitionTabs.addEventListener(event, () => {
+      const top = previousTabTop;
+      queueMicrotask(() => {
+        syncSection();
+        if (top === null || selectedSection() === "overview") return;
+        requestAnimationFrame(() => {
+          if (selectedSection() === "overview") return;
+          const headerBottom = $(".site-header").getBoundingClientRect().bottom;
+          const target = Math.max(headerBottom + 8, Math.min(top, innerHeight - competitionTabs.offsetHeight));
+          window.scrollBy({ top: competitionTabs.getBoundingClientRect().top - target, behavior: "instant" });
+        });
+      });
+    });
+  }
   overviewPanel.addEventListener("click", (event) => {
     const trigger = event.target.closest("[data-overview-view]");
     if (!trigger) return;
@@ -290,6 +343,7 @@ APP.run(async () => {
           ? " · " + c.settings.elimination + " elimination"
           : ""),
     );
+    $("[data-comp-status]").dataset.state = c.state;
     text(
       "[data-comp-status]",
       {
@@ -370,8 +424,6 @@ APP.run(async () => {
       c.kind === "league" ? "Playoff bracket" : "Knockout bracket",
     );
     predictionTab.hidden = !c.fixtures.some(isBracketFixture);
-    $("#record-link").href = APP.url("game", { view: "record" });
-    $("#record-link").hidden = true;
     const selectedDivision = $("#field-division-table")?.value || "all";
     const tableWrap = $("#comp-table-wrap");
     const legendMarkup = '<div data-standings-legend></div>';
@@ -1545,4 +1597,5 @@ APP.run(async () => {
     load().catch((e) => UI.toast(e.message)),
   );
   await load();
+  if (APP.me && c.game === APP.slug) await APP.api(`competitions/${id}/viewed`, {});
 });

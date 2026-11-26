@@ -94,7 +94,6 @@
     <div class="side-group">
       <div class="side-label">Group</div>
       <nav class="side-nav">
-        <a class="side-link" href="players.html"><span data-icon="users" data-size="19"></span> Players</a>
         <a class="side-link" href="game.html?view=review" data-view="review"><span data-icon="shield" data-size="19"></span> Admin review <span class="side-badge" id="review-badge">3</span></a>
         <a class="side-link" href="admin.html"><span data-icon="settings" data-size="19"></span> Game settings</a>
       </nav>
@@ -128,6 +127,10 @@
         <div class="stat-card card"><div class="label">Pending review</div><div class="value" id="stat-pending">3</div><div class="foot" id="stat-pending-foot">Waiting for a game admin</div></div>
       </div>
 
+      <section class="panel" id="overview-competitions" hidden>
+        <div class="panel-head"><h2>Recent competitions</h2><a class="panel-link" href="game.html?view=competitions">All competitions</a></div>
+        <div id="overview-competition-list"></div>
+      </section>
       <div class="dashboard-grid">
         <div class="panel">
           <div class="panel-head">

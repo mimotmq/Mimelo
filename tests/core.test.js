@@ -1094,3 +1094,27 @@ test("tournament deletion enforces game scope, preserves organizer registration 
     404,
   );
 });
+
+test("game overview distinguishes recent play, updates and personal visits", async (t) => {
+  const { call, users: [admin, player] } = await harness(t);
+  const create = (name) => call(admin, "POST", "/api/competitions", {
+    game: "tennis", kind: "knockout", name,
+    entries: [[admin.player_id], [player.player_id]], settings: { bestOf: 1 },
+  });
+  const played = await create("Played cup");
+  const draw = await call(admin, "POST", `/api/competitions/${played.id}/draw`, {});
+  await call(admin, "POST", "/api/games/tennis/matches", {
+    fixture: draw.fixtures[0].id, score: { games: [{ a: 6, b: 2 }] },
+  });
+  const viewed = await create("Viewed cup");
+  const updated = await create("Updated cup");
+  await call(player, "POST", `/api/competitions/${viewed.id}/viewed`, {});
+  const recent = (who) => call(who, "GET", "/api/games/tennis/recent-competitions");
+  assert.deepEqual((await recent(player)).map(c => [c.id, c.labels]), [
+    [played.id, ["Last played"]], [updated.id, ["Latest update"]], [viewed.id, ["Last viewed"]],
+  ]);
+  await call(player, "POST", `/api/competitions/${played.id}/viewed`, {});
+  assert.deepEqual((await recent(player))[0].labels, ["Last played", "Last viewed"]);
+  assert(!(await recent(admin)).some(c => c.labels.includes("Last viewed")));
+  assert.deepEqual((await recent(null)).map(c => c.id), [updated.id, viewed.id, played.id]);
+});

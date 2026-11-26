@@ -808,6 +808,32 @@ export async function createApp(options = {}) {
     });
     return { imported: rows.length };
   });
+  app.get("/api/games/:slug/recent-competitions", async (req) => {
+    const slug = req.params.slug;
+    game(slug);
+    if (!req.user) return db.prepare("SELECT id,name FROM competitions WHERE game=? ORDER BY created DESC,id DESC LIMIT 3").all(slug);
+    const played = db.prepare(`SELECT c.id,c.name FROM competitions c JOIN matches m ON m.competition_id=c.id
+      JOIN match_players p ON p.match_id=m.id WHERE c.game=? AND p.player_id=? AND m.status!='voided' AND m.forfeit=0
+      ORDER BY COALESCE(m.played_at,m.submitted) DESC,m.id DESC LIMIT 1`).get(slug, req.user.player_id);
+    const updated = db.prepare(`SELECT c.id,c.name FROM competitions c JOIN competition_activity a ON a.competition_id=c.id
+      WHERE c.game=? ORDER BY a.updated DESC,c.id DESC LIMIT 1`).get(slug);
+    const viewed = db.prepare(`SELECT c.id,c.name FROM competitions c JOIN competition_views v ON v.competition_id=c.id
+      WHERE c.game=? AND v.account_id=? ORDER BY v.viewed DESC,c.id DESC LIMIT 1`).get(slug, req.user.id);
+    const rows = new Map();
+    for (const [label, competition] of [["Last played", played], ["Latest update", updated], ["Last viewed", viewed]]) {
+      if (!competition) continue;
+      if (!rows.has(competition.id)) rows.set(competition.id, { ...competition, labels: [] });
+      rows.get(competition.id).labels.push(label);
+    }
+    return [...rows.values()];
+  });
+  app.post("/api/competitions/:id/viewed", async (req) => {
+    const user = signed(req);
+    const c = getCompetition(db, req.params.id);
+    db.prepare(`INSERT INTO competition_views VALUES(?,?,?) ON CONFLICT(account_id,competition_id)
+      DO UPDATE SET viewed=excluded.viewed`).run(user.id, c.id, Date.now());
+    return { ok: true };
+  });
   app.get("/api/competitions", async (req) => {
     const { limit, offset } = page(req.query),
       g = req.query.game || "eafc27";

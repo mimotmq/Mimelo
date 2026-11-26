@@ -63,7 +63,9 @@ APP.run(async () => {
   $$("a.side-link")
     .filter((a) => /settings/i.test(a.textContent))
     .forEach((a) => {
-      a.textContent = "Game administration";
+      a.innerHTML = UI.icon("settings", 19) + '<span class="rail-caption">Game administration</span>';
+      a.title = "Game administration";
+      a.setAttribute("aria-label", a.title);
       a.href = "admin.html?game=" + APP.slug;
       a.hidden = !APP.admin();
     });
@@ -104,12 +106,17 @@ APP.run(async () => {
     );
   }
   async function overview() {
-    const [s, r, recent, pending] = await Promise.all([
+    const [s, r, recent, pending, tournaments] = await Promise.all([
       APP.api(`games/${APP.slug}/summary`),
       APP.api(`games/${APP.slug}/rankings?limit=5`),
       APP.api(`matches?game=${APP.slug}&limit=5`),
       APP.api(`matches?game=${APP.slug}&status=submitted&limit=5`),
+      APP.api(`games/${APP.slug}/recent-competitions`),
     ]);
+    $("#overview-competitions").hidden = !tournaments.length;
+    $("#overview-competition-list").innerHTML = tournaments.map((c) =>
+      `<a class="recent-competition" href="${APP.url("competition", { id: c.id })}"><strong>${esc(c.name)}</strong>${c.labels ? `<small>${esc(c.labels.join(" · "))}</small>` : ""}</a>`,
+    ).join("");
     text("#stat-players", s.players);
     text("#stat-matches", s.matches);
     text("#stat-pending", (s.pending || 0) + (s.elo_pending || 0));

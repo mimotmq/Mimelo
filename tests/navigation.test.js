@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 import { createApp } from "../server/app.js";
 import { register, passwordHash } from "../server/auth.js";
 
-test("overview navigation stays pinned; detail drawers support hover, keyboard and touch", async (t) => {
+test("navigation starts as an icon rail and expands for mouse, keyboard and touch", async (t) => {
   const app = await createApp({ database: ":memory:" });
   t.after(() => app.close());
   const pw = await passwordHash("NavigationPassword!");
@@ -69,14 +69,23 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
     edge = page.locator(".navigation-edge"),
     menu = page.locator(".navigation-menu");
   await visit("/game.html?game=smash");
-  assert.equal(await shell.getAttribute("data-nav-mode"), "pinned");
-  assert.equal(await sidebar.getAttribute("aria-hidden"), "false");
+  assert.equal(await shell.getAttribute("data-nav-mode"), "drawer");
+  assert.equal(await shell.getAttribute("data-nav-open"), "false");
   assert.equal(await page.locator(".navigation-toggle").count(), 0);
   assert.equal(await menu.isVisible(), false);
+  assert.equal(await sidebar.getByRole("link", { name: "Matches" }).isVisible(), true);
+  const recentName = page.locator("#overview-competition-list strong");
+  assert.equal(await recentName.innerText(), "Navigation Cup");
+  await recentName.evaluate(el => { el.style.maxWidth = "40px"; });
+  await page.waitForFunction(() =>
+    document.querySelector("#overview-competition-list [data-name-overflow] .fixture-name-text")?.getAnimations().length > 0,
+  );
+  await recentName.evaluate(el => el.style.removeProperty("max-width"));
+  await page.waitForFunction(() => !document.querySelector("#overview-competition-list [data-name-overflow]"));
   await page.screenshot({ path: "artifacts/navigation-overview-desktop.png" });
   await sidebar.locator('[data-view="matches"]').click();
   assert.equal(await shell.getAttribute("data-nav-mode"), "drawer");
-  assert.equal(await sidebar.getAttribute("aria-hidden"), "true");
+  assert.equal(await shell.getAttribute("data-nav-open"), "false");
   // Measure the layout after the asynchronous matches view has finished rendering.
   await page
     .locator("#matches-body")
@@ -85,6 +94,8 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
   await page.evaluate(() => document.fonts.ready);
   const closedMain = await page.locator("main").boundingBox();
   await page.locator("main").click({ position: { x: 500, y: 100 } });
+  const rankingsLink = sidebar.getByRole("link", { name: "Rankings", exact: true });
+  const closedIcon = await rankingsLink.locator("svg").boundingBox();
   await page.mouse.move(2, 200);
   await page.waitForFunction(
     () => document.querySelector(".app-body").dataset.navOpen === "true",
@@ -94,18 +105,31 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
     closedMain,
     "Hover drawer overlays the page without moving content.",
   );
-  await sidebar.getByRole("link", { name: "Rankings", exact: true }).hover();
+  await rankingsLink.hover();
+  await sidebar.evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)));
+  assert.deepEqual(await rankingsLink.locator("svg").boundingBox(), closedIcon);
+  await edge.click();
+  await page.mouse.move(700, 400);
+  await page.locator("main").click({ position: { x: 500, y: 100 } });
+  assert.equal(await edge.getAttribute("aria-label"), "Collapse navigation");
+  assert.equal(await shell.getAttribute("data-nav-open"), "true");
+  await edge.click();
+  assert.equal(await shell.getAttribute("data-nav-open"), "false");
+  await page.mouse.move(700, 400);
+  await rankingsLink.hover();
+  await sidebar.evaluate(el => Promise.all(el.getAnimations({subtree: true}).map(a => a.finished)));
+  assert.equal(await sidebar.evaluate(el => el.getBoundingClientRect().bottom), 1000);
   await page.screenshot({ path: "artifacts/navigation-hover-desktop.png" });
   await page.mouse.move(700, 400);
   await page.waitForFunction(
     () => document.querySelector(".app-body").dataset.navOpen === "false",
   );
   await edge.focus();
-  assert.equal(await sidebar.getAttribute("aria-hidden"), "false");
+  assert.equal(await shell.getAttribute("data-nav-open"), "true");
   await page.keyboard.press("Tab");
   assert(await sidebar.evaluate((el) => el.contains(document.activeElement)));
   await page.keyboard.press("Escape");
-  assert.equal(await sidebar.getAttribute("aria-hidden"), "true");
+  assert.equal(await shell.getAttribute("data-nav-open"), "false");
   assert(await edge.evaluate((el) => el === document.activeElement));
   await visit("/competition.html?game=smash&id=" + competition.json().id);
   assert.equal(await shell.getAttribute("data-nav-mode"), "drawer");
@@ -120,7 +144,7 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
   await visit("/player.html?game=smash&player=" + user.player_id);
   assert.equal(
     await shell.count(),
-    0,
+    1,
     "Player profiles use the global site navigation",
   );
   assert.equal(
@@ -133,7 +157,7 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
     });
     await page.setViewportSize({ width, height: 1000 });
     await visit("/game.html?game=smash");
-    assert.equal(await sidebar.getAttribute("aria-hidden"), "true");
+    assert.equal(await shell.getAttribute("data-nav-open"), "false");
     assert.equal(
       await menu.isVisible(),
       true,
@@ -167,16 +191,16 @@ test("overview navigation stays pinned; detail drawers support hover, keyboard a
         .evaluate((el) => el === document.activeElement),
     );
     await page.keyboard.press("Escape");
-    assert.equal(await sidebar.getAttribute("aria-hidden"), "true");
+    assert.equal(await shell.getAttribute("data-nav-open"), "false");
     assert(await menu.evaluate((el) => el === document.activeElement));
     await menu.click();
     await sidebar.locator('[data-view="record"]').click();
-    assert.equal(await sidebar.getAttribute("aria-hidden"), "true");
+    assert.equal(await shell.getAttribute("data-nav-open"), "false");
     assert.equal(await page.locator("main").evaluate((el) => el.inert), false);
     await page.waitForFunction(
       () =>
         getComputedStyle(document.querySelector(".sidebar")).visibility ===
-        "hidden",
+        "visible",
     );
     assert(
       await page.evaluate(

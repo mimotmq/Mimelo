@@ -44,15 +44,14 @@
 
   <section class="player-hero" aria-labelledby="comp-title">
     <div class="player-hero-grid">
-      <div>
-        <h1 id="comp-title" data-comp-name>Winter League</h1>
-        <div class="player-flairs" data-comp-meta>
-          <span class="chip" data-comp-kind>League</span>
-          <span class="chip" data-comp-format>Double round robin</span>
-          <span class="chip" data-comp-status>In progress</span>
-          <span class="chip" data-comp-custom hidden>Custom</span>
+      <div class="competition-title">
+        <h1 id="comp-title" data-comp-name></h1>
+        <button type="button" id="comp-info-button" popovertarget="comp-info" aria-label="Tournament information">ⓘ</button>
+        <div id="comp-info" popover aria-label="Tournament information">
+          <strong data-comp-status></strong>
+          <div><span data-comp-kind></span> · <span data-comp-format></span></div>
+          <div data-comp-blurb></div>
         </div>
-        <p class="player-hero-sub" data-comp-blurb>Everyone plays everyone twice. Three points for a win; Elo moves after every approved match.</p>
       </div>
       <div class="player-elo">
         <div class="value" data-comp-played>38</div>
@@ -79,10 +78,7 @@
       <button type="button" role="tab" id="ct-rules" aria-controls="cp-rules" aria-selected="false" tabindex="-1">Rules</button>
       <button type="button" role="tab" id="ct-about" aria-controls="cp-about" aria-selected="false" tabindex="-1">About</button>
     </div>
-    <div class="comp-actions">
-      <button class="btn btn-danger-quiet" type="button" id="delete-comp" hidden><span data-icon="close" data-size="18"></span> Delete</button>
-      <a class="btn btn-primary" href="game.html?view=record" id="record-link"><span data-icon="plus" data-size="18"></span> Record result</a>
-    </div>
+
   </div>
 
   <div class="panel" id="cp-table" role="tabpanel" aria-labelledby="ct-table">
@@ -124,7 +120,7 @@
   </div>
   <div class="panel" id="cp-about" role="tabpanel" aria-labelledby="ct-about" hidden>
     <div class="panel-head"><div><h2>About this competition</h2></div></div>
-    <div class="panel-body"><h3>Tournament organizers</h3><div id="comp-organizers"></div><div id="comp-description"></div><div id="comp-trophy"></div><button class="btn btn-outline" id="edit-comp-details" hidden>Edit tournament details</button></div>
+    <div class="panel-body"><h3>Tournament organizers</h3><div id="comp-organizers"></div><button class="btn btn-danger-quiet" type="button" id="delete-comp" hidden>Delete tournament</button><div id="comp-description"></div><div id="comp-trophy"></div><button class="btn btn-outline" id="edit-comp-details" hidden>Edit tournament details</button></div>
   </div>
 </main>
 

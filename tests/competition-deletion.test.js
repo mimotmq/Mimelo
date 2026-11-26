@@ -74,10 +74,12 @@ test("admins can delete started tournaments from desktop and mobile with explici
     await ownerPage.waitForFunction(
       () => document.body.dataset.ready === "true",
     );
+    await ownerPage.getByRole("tab", { name: "About" }).click();
     assert.equal(await ownerPage.locator("#delete-comp").isVisible(), false);
     await page.setViewportSize({ width, height: 1000 });
     await page.goto(`${base}/competition.html?game=tennis&id=${comp.id}`);
     await page.waitForFunction(() => document.body.dataset.ready === "true");
+    await page.getByRole("tab", { name: "About" }).click();
     assert.equal(await page.locator("#delete-comp").isVisible(), true);
     await page.locator("#delete-comp").click();
     const dialog = page.locator("dialog[open]");

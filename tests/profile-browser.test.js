@@ -131,7 +131,7 @@ test("global profiles show real game records, nationalities use flags, and admin
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     await visit(`/player.html?player=${users[0].player_id}`);
-    assert.equal(await page.locator(".game-identity,.sidebar").count(), 0);
+    assert.equal(await page.locator(".game-identity,.sidebar [data-view=matches]").count(), 0);
     assert.match(await page.locator(".breadcrumb").innerText(), /Home/);
     assert.equal(await page.locator("[data-profile-game]").count(), 3);
     assert.equal(
@@ -171,7 +171,7 @@ test("global profiles show real game records, nationalities use flags, and admin
     assert.match(await page.locator("main").innerText(), /No matches recorded/);
     assert.equal(await page.locator("#spark-wrap").isVisible(), false);
     await visit("/account.html");
-    assert.equal(await page.locator(".game-identity,.sidebar").count(), 0);
+    assert.equal(await page.locator(".game-identity,.sidebar [data-view=matches]").count(), 0);
     assert(!/EA FC 27/.test(await page.locator(".breadcrumb").innerText()));
     assert.equal(await page.locator("#field-nationality option").count(), 250);
     await page

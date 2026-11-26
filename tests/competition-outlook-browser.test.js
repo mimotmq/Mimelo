@@ -121,6 +121,21 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 1000 });
     await visit(`/competition.html?game=eafc27&id=${league.id}&view=table`);
+    const info = page.locator("#comp-info");
+    await page.getByRole("button", { name: "Tournament information" }).hover();
+    await info.waitFor();
+    assert.match(await info.innerText(), /Singles/);
+    await page.keyboard.press("Escape");
+    await info.waitFor({ state: "hidden" });
+    if (width === 1440) {
+      const bounds = await Promise.all([".player-hero", "[role=tablist]", "#cp-table"]
+        .map((selector) => page.locator(selector).first().boundingBox()));
+      assert(bounds.every((box) => Math.abs(box.width - bounds[2].width) <= 1));
+    } else {
+      const row = page.locator("#comp-table-wrap tbody tr").first();
+      assert((await row.boundingBox()).height >= 52);
+      assert.equal((await row.locator(".avatar").first().boundingBox()).width, 36);
+    }
     const outlook = page.locator("#competition-outlook");
     assert.equal(await outlook.isVisible(), false);
     assert.equal(await page.locator("#cp-fixtures").isVisible(), false);
@@ -175,6 +190,18 @@ test("competition chances, confirmed overlays, extra qualifiers and separate cro
     await outlook.screenshot({
       path: `artifacts/competition-outlook-${width}.png`,
     });
+    const standingsTab = page.getByRole("tab", { name: "Standings", exact: true });
+    const tabs = page.getByRole("tablist", { name: "Competition views" });
+    await tabs.evaluate((el) => {
+      window.scrollBy({ top: el.getBoundingClientRect().top - 100, behavior: "instant" });
+    });
+    const before = (await tabs.boundingBox()).y;
+    await standingsTab.click();
+    await page.waitForFunction((before) => {
+      const top = document.querySelector("#ct-table").parentElement.getBoundingClientRect().top;
+      return Math.abs(top - before) <= 2 || window.scrollY === 0;
+    }, before);
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
     await page.getByRole("button", { name: "All fixtures", exact: true }).click();
     assert.equal(await page.locator("#cp-fixtures").isVisible(), true);
     assert.equal(await outlook.isVisible(), false);

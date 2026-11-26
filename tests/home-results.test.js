@@ -231,9 +231,13 @@ test("homepage loops overview scorecards with club crests, per-game fighters, wa
     );
     assert(
       await viewport.evaluate(
-        (el) => Math.abs(el.clientWidth - innerWidth) <= 1,
+        (el) => {
+          const bounds = el.getBoundingClientRect();
+          const rail = document.querySelector(".sidebar").getBoundingClientRect();
+          return Math.abs(bounds.left - rail.right) <= 1 && Math.abs(bounds.right - innerWidth) <= 1;
+        },
       ),
-      "The broadcast strip uses the page width.",
+      "The broadcast strip spans the available width beside the navigation rail.",
     );
     assert.equal(
       await page.locator(".recent-result-logo").count(),

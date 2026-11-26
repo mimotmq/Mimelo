@@ -432,16 +432,17 @@
     let sidebar = $(".sidebar"),
       shell = $(".app-body");
     const main = $("main#main");
-    if (!main || !document.body.hasAttribute("data-game")) return;
+    if (!main) return;
+    const gameContext = document.body.hasAttribute("data-game");
+    const content = main.closest(".auth-page") || main;
     const gamePage = !!shell;
     if (!shell) {
       shell = document.createElement("div");
-      shell.className = "app-body";
-      main.before(shell);
+      shell.className = gameContext ? "app-body" : "site-navigation-shell";
+      content.before(shell);
       sidebar = document.createElement("aside");
       sidebar.className = "sidebar";
-      sidebar.setAttribute("aria-label", "Game navigation");
-      const groups = [
+      const groups = gameContext ? [
         [
           "The game",
           [
@@ -460,46 +461,61 @@
         [
           "Group",
           [
-            ["players", "Players", "users"],
-            ...(APP.admin()
-              ? [
-                  ["review", "Admin review", "shield"],
-                  ["settings", "Game administration", "settings"],
-                ]
-              : []),
+            ["review", "Admin review", "shield"],
+            ...(APP.admin() ? [["settings", "Game administration", "settings"]] : []),
           ],
         ],
-      ];
+      ] : [];
+      sidebar.setAttribute("aria-label", gameContext ? "Game navigation" : "Site navigation");
+      const destination = (view) =>
+        view === "settings" ? APP.url("admin") : APP.url("game", { view });
       sidebar.innerHTML = groups
         .map(
           ([title, links]) =>
-            `<div class="side-group"><div class="side-label">${title}</div><nav class="side-nav">${links.map(([view, label, glyph]) => `<a class="side-link" href="${view === "players" ? "players.html" : view === "settings" ? APP.url("admin") : APP.url("game", { view })}">${icon(glyph, 19)} ${label}</a>`).join("")}</nav></div>`,
+            `<div class="side-group"><div class="side-label">${title}</div><nav class="side-nav">${links.map(([view, label, glyph]) => `<a class="side-link" href="${destination(view)}">${icon(glyph, 19)} ${label}</a>`).join("")}</nav></div>`,
         )
         .join("");
-      shell.append(sidebar, main);
-      main.classList.add("app-main");
+      shell.append(sidebar, content);
+      if (gameContext) main.classList.add("app-main");
     }
+    const siteLinks = [
+      ["index.html", "Games", "game"],
+      ["players.html", "Players", "users"],
+      [APP.me ? "account.html" : "login.html", APP.me ? "My account" : "Log in", "user"],
+    ];
+    if (!gameContext && (APP.me?.site_admin || APP.me?.admin_of?.length))
+      siteLinks.push(["admin.html", "Administration", "settings"]);
+    sidebar.insertAdjacentHTML("afterbegin", `<nav class="side-nav" aria-label="Site pages">${siteLinks.map(([href, label, glyph]) =>
+      `<a class="side-link" href="${href}"${location.pathname.split("/").pop() === href || (location.pathname === "/" && href === "index.html") ? ' aria-current="page"' : ""}>${icon(glyph, 19)} ${label}</a>`,
+    ).join("")}</nav>`);
     shell.classList.add("adaptive-navigation");
     sidebar.id = "game-navigation";
     const menu = document.createElement("button");
     menu.type = "button";
     menu.className = "icon-btn navigation-menu";
-    menu.setAttribute("aria-label", "Game navigation");
+    menu.setAttribute("aria-label", sidebar.getAttribute("aria-label"));
     menu.setAttribute("aria-controls", sidebar.id);
     menu.innerHTML = icon("menu", 20);
-    $(".header-actions").prepend(menu);
-    // An edge target supports hover and keyboard access without taking page space.
+    $(".header-actions")?.prepend(menu);
     const edge = document.createElement("button");
     edge.type = "button";
     edge.className = "navigation-edge";
-    edge.setAttribute("aria-label", "Game navigation");
+    edge.setAttribute("aria-label", sidebar.getAttribute("aria-label"));
     edge.setAttribute("aria-controls", sidebar.id);
-    shell.prepend(edge);
-    const dismiss = document.createElement("button");
-    dismiss.type = "button";
-    dismiss.className = "btn btn-ghost btn-sm navigation-dismiss";
-    dismiss.innerHTML = icon("close") + "Close navigation";
-    sidebar.prepend(dismiss);
+    edge.innerHTML = icon("menu") + '<span class="rail-caption"></span>';
+    sidebar.prepend(edge);
+    for (const link of $$(".side-link", sidebar)) {
+      const label = [...link.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent).join("").trim();
+      for (const node of [...link.childNodes]) {
+        if (node.nodeType !== Node.TEXT_NODE || !node.textContent.trim()) continue;
+        const caption = document.createElement("span");
+        caption.className = "rail-caption";
+        caption.textContent = node.textContent.trim();
+        node.replaceWith(caption);
+      }
+      link.setAttribute("aria-label", label);
+      link.title = label;
+    }
     const backdrop = document.createElement("div");
     backdrop.className = "navigation-backdrop";
     backdrop.setAttribute("aria-hidden", "true");
@@ -507,22 +523,27 @@
     const mobile = matchMedia("(max-width: 1024px), (hover: none)");
     let context,
       open = false,
+      pinned = false,
       restoringFocus = false,
       suppressHover = false,
       closeTimer;
-    const pinned = () => !mobile.matches && gamePage && context === "overview";
+
     function render(value, focus = false) {
       clearTimeout(closeTimer);
-      open = pinned() || value;
+      open = value;
+      if (!open) pinned = false;
+      const action = !open ? "Open navigation" : pinned || mobile.matches ? "Collapse navigation" : "Keep navigation open";
+      edge.setAttribute("aria-label", action);
+      edge.title = action;
+      edge.querySelector(".rail-caption").textContent = action;
       const restoreFocus = !open && sidebar.contains(document.activeElement);
-      shell.dataset.navMode = pinned() ? "pinned" : "drawer";
+      shell.dataset.navMode = "drawer";
       shell.dataset.navOpen = String(open);
-      sidebar.inert = !open;
-      sidebar.setAttribute("aria-hidden", String(!open));
+
       for (const opener of [menu, edge])
         opener.setAttribute("aria-expanded", String(open));
       const modal = open && mobile.matches;
-      main.inert = modal;
+      content.inert = modal;
       $(".site-header")?.toggleAttribute("inert", modal);
       document.body.classList.toggle("navigation-modal", modal);
       sidebar.toggleAttribute("aria-modal", modal);
@@ -530,7 +551,7 @@
         sidebar.setAttribute("role", "dialog");
         sidebar.setAttribute("aria-modal", "true");
       } else sidebar.removeAttribute("role");
-      if (focus && open && !pinned()) dismiss.focus();
+      if (focus && open) edge.focus({ preventScroll: true });
       if (!open && (focus || restoreFocus)) {
         restoringFocus = true;
         if (!mobile.matches && !focus) {
@@ -538,7 +559,7 @@
           main.focus({ preventScroll: true });
         } else {
           suppressHover = true;
-          (mobile.matches ? menu : edge).focus({ preventScroll: true });
+          (mobile.matches && menu.isConnected ? menu : edge).focus({ preventScroll: true });
         }
         restoringFocus = false;
       }
@@ -548,7 +569,7 @@
       closeTimer = setTimeout(() => {
         if (
           !mobile.matches &&
-          !pinned() &&
+          !pinned &&
           !sidebar.matches(":hover") &&
           !edge.matches(":hover") &&
           !sidebar.contains(document.activeElement) &&
@@ -564,12 +585,18 @@
     };
     mobile.addEventListener("change", () => render(false));
     menu.onclick = () => render(!open, true);
-    edge.onclick = () => render(true, true);
+    edge.onclick = () => {
+      if (open && (pinned || mobile.matches)) {
+        render(false, true);
+      } else {
+        pinned = true;
+        render(true, true);
+      }
+    };
     const openOnHover = () => {
       if (
         !open &&
         !mobile.matches &&
-        !pinned() &&
         !suppressHover &&
         !$("dialog[open]")
       ) {
@@ -577,9 +604,9 @@
         render(true);
       }
     };
-    edge.onpointerenter = edge.onpointermove = openOnHover;
+    sidebar.onpointermove = openOnHover;
     edge.onfocus = () => {
-      if (!pinned() && !restoringFocus) render(true);
+      if (!mobile.matches && !restoringFocus) render(true, true);
     };
     edge.onpointerleave = () => {
       suppressHover = false;
@@ -587,14 +614,14 @@
     };
     edge.onblur = closeSoon;
     sidebar.onpointerenter = () => clearTimeout(closeTimer);
-    sidebar.onpointerleave = closeSoon;
+    sidebar.onpointerleave = () => { suppressHover = false; closeSoon(); };
     sidebar.addEventListener("focusout", closeSoon);
-    dismiss.onclick = backdrop.onclick = () => render(false, true);
+    backdrop.onclick = () => render(false, true);
     sidebar.addEventListener("click", (event) => {
-      if (event.target.closest("a") && !pinned()) render(false);
+      if (event.target.closest("a")) render(false);
     });
     document.addEventListener("keydown", (event) => {
-      if (!open || pinned()) return;
+      if (!open) return;
       if (event.key === "Escape" && !$("dialog[open]")) {
         event.preventDefault();
         render(false, true);
@@ -621,7 +648,8 @@
         header.getBoundingClientRect().height + "px",
       ),
     );
-    headerObserver.observe(header);
+    if (header) headerObserver.observe(header);
+    else shell.style.setProperty("--nav-top", "0px");
     UI.navigation(gamePage ? APP.params.get("view") || "overview" : "detail");
   }
   function catalogVisual(item, stage = false) {
@@ -1211,6 +1239,8 @@
     }
     setupGameIdentity();
     setupNavigation();
+    const { watchPageNames } = await import("./fixture-names.js");
+    watchPageNames(document.body);
     tabs();
     icons();
     if (
